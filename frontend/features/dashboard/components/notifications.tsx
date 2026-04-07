@@ -54,12 +54,12 @@ export function Notifications({
                 key={notification.id}
                 className={`flex items-start gap-2 p-1.5 rounded-md group transition-colors ${
                   isClickable
-                    ? "cursor-pointer hover:bg-dark-50 dark:hover:bg-dark-600"
+                    ? "cursor-pointer hover:bg-dark-50 dark:hover:bg-dark-600 active:bg-dark-100 dark:active:bg-dark-500"
                     : ""
                 }`}
                 onClick={
                   isClickable
-                    ? () => onNotificationClick(notification)
+                    ? () => onNotificationClick!(notification)
                     : undefined
                 }
               >
@@ -82,11 +82,16 @@ export function Notifications({
 
                 {/* Text */}
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs text-dark-900 dark:text-white leading-tight">
+                  <p className={`text-xs leading-tight ${isClickable ? "text-dark-900 dark:text-white group-hover:text-primary-600 dark:group-hover:text-primary-400" : "text-dark-900 dark:text-white"}`}>
                     {notification.message}
                   </p>
                   <p className="text-xs text-dark-400 dark:text-dark-500 mt-0.5">
                     {notification.timestamp}
+                    {isClickable && (
+                      <span className="ml-1 text-primary-500 dark:text-primary-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                        · tap to edit
+                      </span>
+                    )}
                   </p>
                 </div>
 
@@ -96,10 +101,10 @@ export function Notifications({
                     e.stopPropagation();
                     onClear(notification.id);
                   }}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 p-0.5 rounded hover:bg-dark-200 dark:hover:bg-dark-500 text-dark-400 hover:text-dark-700 dark:hover:text-white"
+                  className="opacity-30 group-hover:opacity-100 transition-opacity shrink-0 p-1 rounded hover:bg-dark-200 dark:hover:bg-dark-500 text-dark-400 hover:text-dark-700 dark:hover:text-white"
                   title="Dismiss"
                 >
-                  <X className="w-3 h-3" />
+                  <X className="w-4 h-4" />
                 </button>
               </div>
             );

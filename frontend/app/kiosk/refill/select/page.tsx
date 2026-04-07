@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import api from "@/lib/api";
 
@@ -26,6 +26,9 @@ export default function KioskRefillSelectPage() {
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
+  const [confirmedQty, setConfirmedQty] = useState(0);
+  const redirectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const p = localStorage.getItem("kiosk_phone") || "";
@@ -87,6 +90,8 @@ export default function KioskRefillSelectPage() {
       return;
     }
 
+    const totalQty = selectedItems.reduce((s, i) => s + i.quantity, 0);
+    setLoading(true);
     api
       .post("/refills", {
         phone,
@@ -94,15 +99,21 @@ export default function KioskRefillSelectPage() {
         items: selectedItems,
       })
       .then(() => {
-        onNew();
+        setConfirmedQty(totalQty);
+        setConfirmed(true);
+        redirectTimer.current = setTimeout(() => {
+          onNew();
+        }, 3000);
       })
       .catch((err) => {
         const serverMsg = err?.response?.data?.message;
         setError(serverMsg || "Failed to confirm refill.");
-      });
+      })
+      .finally(() => setLoading(false));
   };
 
   const onNew = () => {
+    if (redirectTimer.current) clearTimeout(redirectTimer.current);
     localStorage.removeItem("kiosk_phone");
     localStorage.removeItem("kiosk_initials");
     localStorage.removeItem("kiosk_name");
@@ -241,6 +252,38 @@ export default function KioskRefillSelectPage() {
 
         {/* Content */}
         <div className="px-4 py-5 sm:px-5 sm:py-6 md:px-8 md:py-8">
+          {confirmed ? (
+            /* ── Success Confirmation ── */
+            <div className="flex flex-col items-center justify-center py-10 space-y-5 text-center">
+              <div className="w-20 h-20 rounded-full flex items-center justify-center"
+                style={{ backgroundColor: "#D1FAE5" }}>
+                <svg className="w-10 h-10" fill="none" stroke="#059669" strokeWidth={2.5} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <div>
+                <h2 className="text-2xl md:text-3xl font-semibold" style={{ color: "#059669" }}>
+                  Refill Confirmed!
+                </h2>
+                <p className="text-base md:text-lg mt-2" style={{ color: "#545454" }}>
+                  {confirmedQty} bottle{confirmedQty !== 1 ? "s" : ""} refilled for{" "}
+                  <span className="font-semibold">{name}</span>
+                </p>
+              </div>
+              <p className="text-sm" style={{ color: "#8E8E8E" }}>
+                Returning to home screen in a moment…
+              </p>
+              <button
+                onClick={onNew}
+                className="mt-2 px-8 h-12 rounded-xl font-semibold text-white text-base"
+                style={{ backgroundColor: "#189CD2" }}
+              >
+                Done
+              </button>
+            </div>
+          ) : (
+            /* ── Normal selection view ── */
+            <>
           <div className="text-center">
             <h1
               className="text-2xl md:text-3xl font-semibold"
@@ -270,8 +313,15 @@ export default function KioskRefillSelectPage() {
 
           <div className="mt-6 space-y-3">
             {loading ? (
-              <div className="text-center py-8" style={{ color: "#8E8E8E" }}>
-                Loading...
+              <div className="text-center py-8 space-y-3">
+                <svg className="animate-spin h-8 w-8 mx-auto" fill="none" viewBox="0 0 24 24"
+                  style={{ color: "#189CD2" }}>
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                </svg>
+                <p className="text-sm font-medium" style={{ color: "#8E8E8E" }}>
+                  Processing refill…
+                </p>
               </div>
             ) : items.length === 0 ? (
               <div className="text-center py-8" style={{ color: "#8E8E8E" }}>
@@ -298,20 +348,34 @@ export default function KioskRefillSelectPage() {
           <div className="mt-6 md:mt-7 space-y-3">
             <button
               onClick={onConfirm}
-              className="w-full h-12 md:h-14 rounded-xl font-semibold text-white text-base md:text-lg"
+              disabled={loading}
+              className="w-full h-12 md:h-14 rounded-xl font-semibold text-white text-base md:text-lg flex items-center justify-center gap-2 transition-opacity disabled:opacity-70 disabled:cursor-not-allowed"
               style={{ backgroundColor: "#189CD2" }}
             >
-              Confirm Refill
+              {loading ? (
+                <>
+                  <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                  </svg>
+                  Processing…
+                </>
+              ) : (
+                "Confirm Refill"
+              )}
             </button>
 
             <button
               onClick={onNew}
-              className="w-full h-12 md:h-14 rounded-xl font-semibold text-base md:text-lg bg-white border"
+              disabled={loading}
+              className="w-full h-12 md:h-14 rounded-xl font-semibold text-base md:text-lg bg-white border disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ color: "#189CD2", borderColor: "#189CD2" }}
             >
               New
             </button>
           </div>
+            </>
+          )}
         </div>
       </div>
     </div>

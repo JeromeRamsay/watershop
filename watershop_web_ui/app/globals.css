@@ -1,0 +1,204 @@
+@import "tailwindcss";
+
+/* 1. Correct Plugin Syntax */
+@plugin "tailwindcss-animate";
+
+/* 2. Dark Mode Configuration */
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  /* --- SHADCN BASE VARIABLES (OKLCH) --- */
+  --background: 1 0 0; /* White */
+  --foreground: 0.145 0 0; /* Black-ish */
+
+  --card: 1 0 0;
+  --card-foreground: 0.145 0 0;
+
+  --popover: 1 0 0;
+  --popover-foreground: 0.145 0 0;
+
+  --primary: 0.205 0 0;
+  --primary-foreground: 0.985 0 0;
+
+  --secondary: 0.97 0 0;
+  --secondary-foreground: 0.205 0 0;
+
+  --muted: 0.97 0 0;
+  --muted-foreground: 0.556 0 0;
+
+  --accent: 0.97 0 0;
+  --accent-foreground: 0.205 0 0;
+
+  --destructive: 0.577 0.245 27.325;
+  --destructive-foreground: 0.985 0 0; /* Fixed standard white */
+
+  --border: 0.922 0 0;
+  --input: 0.922 0 0;
+  --ring: 0.708 0 0;
+
+  --radius: 0.625rem;
+}
+
+.dark {
+  /* --- SHADCN DARK MODE VARIABLES (Black theme) --- */
+  --background: 0 0 0; /* Pure black */
+  --foreground: 1 0 0; /* White */
+  --card: 0.05 0 0; /* Very dark grey (almost black) */
+  --card-foreground: 1 0 0; /* White */
+  --popover: 0.05 0 0; /* Very dark grey */
+  --popover-foreground: 1 0 0; /* White */
+  --primary: 0.922 0 0;
+  --primary-foreground: 0 0 0; /* Black */
+  --secondary: 0.1 0 0; /* Dark grey */
+  --secondary-foreground: 1 0 0; /* White */
+  --muted: 0.1 0 0; /* Dark grey */
+  --muted-foreground: 0.7 0 0; /* Light grey */
+  --accent: 0.1 0 0; /* Dark grey */
+  --accent-foreground: 1 0 0; /* White */
+  --destructive: 0.704 0.191 22.216;
+  --destructive-foreground: 1 0 0; /* White */
+  --border: 0.15 0 0; /* Dark grey border */
+  --input: 0.05 0 0; /* Very dark grey */
+  --ring: 0.5 0 0; /* Medium grey */
+
+  /* --- DARK MODE CUSTOM COLORS (Black theme) --- */
+  /* Note: In dark mode, dark-900 is darkest (black), dark-100 is lightest (for text) */
+  --color-dark-900: #000000; /* Pure black - main background */
+  --color-dark-800: #0f0f0f; /* Almost black - header, sidebar */
+  --color-dark-700: #1a1a1a; /* Very dark - cards, borders, hover states */
+  --color-dark-600: #242424; /* Dark - elevated surfaces */
+  --color-dark-500: #2a2a2a; /* Medium dark */
+  --color-dark-400: #6b6b6b; /* Medium grey - secondary text, icons */
+  --color-dark-300: #9a9a9a; /* Light grey - hover text */
+  --color-dark-200: #b0b0b0; /* Lighter grey */
+  --color-dark-100: #ffffff; /* White - primary text */
+}
+
+@theme {
+  /* --- FONT FAMILY --- */
+  --font-family-sans: var(--font-poppins), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  /* --- 1. WATER SHOP BRAND COLORS (From Figma) --- */
+  --color-primary-100: #e9f7fc;
+  --color-primary-200: #e9f7fc;
+  --color-primary-300: #def2fb;
+  --color-primary-400: #bce5f6;
+  --color-primary-500: #189cd2;
+  --color-primary-600: #229acb;
+  --color-primary-700: #1e89b4;
+  --color-primary-800: #1d80a9;
+  --color-primary-900: #176787;
+
+  --color-secondary-100: #f7f7fd;
+  --color-secondary-200: #eaebf4;
+  --color-secondary-300: #e0e1ef;
+  --color-secondary-400: #bfc2dd;
+  --color-secondary-500: #313991;
+  --color-secondary-600: #2c3383;
+  --color-secondary-700: #272e74;
+  --color-secondary-800: #252b6d;
+  --color-secondary-900: #1d2257;
+
+  --color-dark-50: #fafafa;
+  --color-dark-100: #f6f6f6;
+  --color-dark-200: #eeeeee;
+  --color-dark-300: #e5e5e5;
+  --color-dark-400: #cacaca;
+  --color-dark-500: #545454;
+  --color-dark-600: #4c4c4c;
+  --color-dark-700: #434343;
+  --color-dark-800: #3f3f3f;
+  --color-dark-900: #323232;
+
+  /* --- 2. STATUS COLORS --- */
+  --color-status-green-bg: #dcfce7;
+  --color-status-green-text: #166534;
+  --color-status-red-bg: #ffe4e6;
+  --color-status-red-text: #9f1239;
+  --color-status-blue-bg: #e0f2fe;
+  --color-status-blue-text: #075985;
+  --color-status-orange-bg: #ffedd5;
+  --color-status-orange-text: #9a3412;
+
+  /* --- 3. SHADCN MAPPINGS (Using Oklch vars) --- */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* --- 4. BORDER RADIUS --- */
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+
+  /* --- 5. ANIMATIONS --- */
+  --animate-accordion-down: accordion-down 0.2s ease-out;
+  --animate-accordion-up: accordion-up 0.2s ease-out;
+
+  @keyframes accordion-down {
+    from {
+      height: 0;
+    }
+    to {
+      height: var(--radix-accordion-content-height);
+    }
+  }
+  @keyframes accordion-up {
+    from {
+      height: var(--radix-accordion-content-height);
+    }
+    to {
+      height: 0;
+    }
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html {
+    font-family: var(--font-poppins), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    overflow-x: hidden;
+    height: 100%;
+    width: 100%;
+    @apply bg-background;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-poppins), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    overflow-x: hidden;
+    width: 100%;
+    min-height: 100%;
+    position: relative;
+    margin: 0;
+    padding: 0;
+  }
+}
+
+@layer utilities {
+  /* Hide scrollbar for Chrome, Safari and Opera */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  /* Hide scrollbar for IE, Edge and Firefox */
+  .no-scrollbar {
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
+  }
+}

@@ -1,0 +1,337 @@
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import api from "@/lib/api";
+import { Loader2 } from "lucide-react";
+
+const CANADIAN_PROVINCES = [
+  { code: "AB", name: "Alberta" },
+  { code: "BC", name: "British Columbia" },
+  { code: "MB", name: "Manitoba" },
+  { code: "NB", name: "New Brunswick" },
+  { code: "NL", name: "Newfoundland and Labrador" },
+  { code: "NS", name: "Nova Scotia" },
+  { code: "NT", name: "Northwest Territories" },
+  { code: "NU", name: "Nunavut" },
+  { code: "ON", name: "Ontario" },
+  { code: "PE", name: "Prince Edward Island" },
+  { code: "QC", name: "Quebec" },
+  { code: "SK", name: "Saskatchewan" },
+  { code: "YT", name: "Yukon" },
+];
+
+const CANADIAN_POSTAL_CODE_REGEX =
+  /^[ABCEGHJ-NPRSTVXY]\d[ABCEGHJ-NPRSTV-Z] ?\d[ABCEGHJ-NPRSTV-Z]\d$/i;
+
+function formatCanadianPostalCode(value: string) {
+  const clean = value
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "")
+    .slice(0, 6);
+  if (clean.length <= 3) return clean;
+  return `${clean.slice(0, 3)} ${clean.slice(3)}`;
+}
+
+function normalizeCanadianPhone(value: string) {
+  const digits = value.replace(/\D/g, "");
+  if (digits.length === 11 && digits.startsWith("1")) {
+    return digits.slice(1);
+  }
+  return digits;
+}
+
+interface CreateCustomerModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSuccess: () => void;
+}
+
+export function CreateCustomerModal({
+  open,
+  onOpenChange,
+  onSuccess,
+}: CreateCustomerModalProps) {
+  const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [formData, setFormData] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    type: "individual",
+    // Address fields
+    addressLabel: "Home",
+    street: "",
+    city: "",
+    state: "ON",
+    zipCode: "",
+    country: "Canada",
+  });
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    if (name === "zipCode") {
+      setFormData((prev) => ({
+        ...prev,
+        zipCode: formatCanadianPostalCode(value),
+      }));
+      return;
+    }
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSelectChange = (name: string, value: string) => {
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setErrorMessage(null);
+
+    try {
+      const normalizedPhone = normalizeCanadianPhone(formData.phone);
+      if (normalizedPhone.length !== 10) {
+        setErrorMessage("Enter a valid Canadian phone number (10 digits).");
+        return;
+      }
+
+      const normalizedPostalCode = formatCanadianPostalCode(formData.zipCode);
+      if (!CANADIAN_POSTAL_CODE_REGEX.test(normalizedPostalCode)) {
+        setErrorMessage("Enter a valid Canadian postal code (e.g. A1A 1A1).");
+        return;
+      }
+
+      const payload = {
+        type: formData.type,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        phone: normalizedPhone,
+        addresses: [
+          {
+            label: formData.addressLabel,
+            street: formData.street,
+            city: formData.city,
+            state: formData.state,
+            zipCode: normalizedPostalCode,
+            country: "Canada",
+            isDefault: true,
+          },
+        ],
+      };
+
+      await api.post("/customers", payload);
+      onSuccess();
+      onOpenChange(false);
+      // Reset form usually handled by re-mounting or manual reset, but closing modal is fine
+      setFormData({
+        firstName: "",
+        lastName: "",
+        email: "",
+        phone: "",
+        type: "individual",
+        addressLabel: "Home",
+        street: "",
+        city: "",
+        state: "ON",
+        zipCode: "",
+        country: "Canada",
+      });
+    } catch (error) {
+      console.error("Failed to create customer", error);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const err: any = error;
+      const serverMsg = err?.response?.data?.message;
+      const message = Array.isArray(serverMsg)
+        ? serverMsg.join(", ")
+        : serverMsg || "Failed to create customer.";
+      setErrorMessage(message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[650px] max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Create New Customer</DialogTitle>
+          <DialogDescription>
+            Add a new customer to your database. Click save when you&apos;re
+            done.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="grid gap-4 py-4">
+          {errorMessage ? (
+            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {errorMessage}
+            </div>
+          ) : null}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="type">Customer Type</Label>
+              <Select
+                value={formData.type}
+                onValueChange={(value) => handleSelectChange("type", value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="individual">Individual</SelectItem>
+                  <SelectItem value="business">Business</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="firstName">First Name</Label>
+              <Input
+                id="firstName"
+                name="firstName"
+                placeholder="John"
+                value={formData.firstName}
+                onChange={handleChange}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="lastName">Last Name</Label>
+              <Input
+                id="lastName"
+                name="lastName"
+                placeholder="Doe"
+                value={formData.lastName}
+                onChange={handleChange}
+                required
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                placeholder="john@example.com"
+                value={formData.email}
+                onChange={handleChange}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="phone">Phone</Label>
+              <Input
+                id="phone"
+                name="phone"
+                placeholder="4161231234"
+                value={formData.phone}
+                onChange={handleChange}
+                required
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2 pt-4 border-t">
+            <h3 className="font-medium">Address</h3>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="street">Street</Label>
+              <Input
+                id="street"
+                name="street"
+                placeholder="123 Main St"
+                value={formData.street}
+                onChange={handleChange}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="city">City</Label>
+              <Input
+                id="city"
+                name="city"
+                placeholder="Toronto"
+                value={formData.city}
+                onChange={handleChange}
+                required
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="state">Province</Label>
+              <Select
+                value={formData.state}
+                onValueChange={(value) => handleSelectChange("state", value)}
+              >
+                <SelectTrigger id="state">
+                  <SelectValue placeholder="Select province" />
+                </SelectTrigger>
+                <SelectContent>
+                  {CANADIAN_PROVINCES.map((province) => (
+                    <SelectItem key={province.code} value={province.code}>
+                      {province.name} ({province.code})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="zipCode">Postal Code</Label>
+              <Input
+                id="zipCode"
+                name="zipCode"
+                placeholder="A1A 1A1"
+                value={formData.zipCode}
+                onChange={handleChange}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="country">Country</Label>
+              <Input
+                id="country"
+                name="country"
+                placeholder="Canada"
+                value={formData.country}
+                disabled
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button type="submit" disabled={loading}>
+              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Create Customer
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}

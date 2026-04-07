@@ -1,7 +1,7 @@
 # Watershop — Architecture & Project Reference
 
 > **Target audience:** developers, AI agents, DevOps, and maintainers.
-> Last reviewed: April 2026 — reconciled with `PROJECT_HANDOFF.md`
+> Last reviewed: April 2026 — updated to reflect auth guards, TanStack Query migration, Valkey keepalive fix, notifications resolve, CORS multi-origin, SWC build
 
 ---
 
@@ -52,13 +52,16 @@
 | **Database** | MongoDB via Mongoose | Mongoose v9 |
 | **Realtime Transport** | Valkey (Redis-compatible) pub/sub | Via `redis` npm package |
 | **WebSocket** | Raw Node.js HTTP upgrade (no Socket.IO) | Built-in |
-| **Auth** | JWT (signed by JwtService) + bcrypt password hashing | — |
+| **Auth** | JWT via `@nestjs/passport` + `passport-jwt` + bcrypt | Global `JwtAuthGuard` |
+| **Rate limiting** | `@nestjs/throttler` | 10 req / 60s per IP |
+| **Build** | SWC (Rust transpiler) | Via `nest-cli.json` `"builder": "swc"` |
 | **API Docs** | Swagger (`@nestjs/swagger`) at `/api` | — |
-| **Frontend** | Next.js (App Router) | v16.1 |
+| **Frontend** | Next.js (App Router) | v15 |
 | **UI Language** | TypeScript + React 19 | — |
 | **UI Styling** | Tailwind CSS v4 | — |
 | **UI Components** | Radix UI + shadcn/ui | — |
-| **HTTP Client** | Axios | — |
+| **Data Fetching** | TanStack Query v5 | `staleTime: 30s`, `gcTime: 5min` |
+| **HTTP Client** | Axios | Single instance with JWT interceptor |
 | **Charts** | Recharts | — |
 
 ---
@@ -187,15 +190,15 @@ Order creation flow:
 ## 5. Frontend — Structure Reference
 
 ```
-watershop_web_ui/
+frontend/
 ├── app/
 │   ├── (auth)/login          # Public login page
 │   ├── (auth)/signup         # Public signup page
 │   ├── dashboard/            # Protected admin/staff dashboard
 │   │   ├── page.tsx          # Main dashboard with metrics, inventory, deliveries
-│   │   ├── customers/        # Customer management
+│   │   ├── customers/        # Customer management (server-side pagination)
 │   │   ├── orders/           # Order list + new order form
-│   │   ├── deliveries/       # Delivery schedule
+│   │   ├── deliveries/       # Delivery schedule (list + calendar view)
 │   │   ├── inventory/        # Inventory management
 │   │   ├── reports/          # Sales reports
 │   │   ├── settings/         # Store settings
@@ -218,7 +221,9 @@ watershop_web_ui/
 ├── components/               # Shared UI (Button, Card, Dialog, etc.)
 ├── lib/
 │   ├── api.ts                # Axios instance with JWT interceptor
-│   └── use-dashboard-realtime.ts  # WebSocket hook with auto-reconnect
+│   ├── queries.ts            # ALL TanStack Query hooks (useOrders, useCustomers, useInventory, …)
+│   ├── react-query-provider.tsx  # QueryClientProvider (staleTime 30s, gcTime 5min)
+│   └── use-dashboard-realtime.ts  # WebSocket hook with auto-reconnect + exponential backoff
 └── proxy.ts                  # Next.js middleware for auth redirects + cache headers
 ```
 
@@ -228,12 +233,21 @@ watershop_web_ui/
 3. `proxy.ts` (Next.js middleware): guards `/dashboard` by checking `session_token` cookie
 4. `lib/api.ts`: reads `auth_token_public` cookie and adds `Authorization: Bearer <token>` header to all API calls
 
+### Data fetching — TanStack Query
+All data fetching in dashboard pages uses hooks from `lib/queries.ts` (never raw `useEffect + api.get()`):
+- `staleTime: 30s` — revisiting a page shows cached data **instantly** with a background refresh
+- `gcTime: 5min` — data stays in memory between navigations
+- After any mutation: `qc.invalidateQueries({ queryKey: queryKeys.<resource>() })` triggers a silent background refresh
+
+Available hooks: `useDashboardStats`, `useOrders`, `useCustomers`, `useInventory`, `useDeliveries`, `useSuppliers`, `useNotifications`, `useSettings`, `useUsers`, `useStaff`, `useEmployeeHours`, `useHoursSummary`, `useMonthlyHours`
+
 ### Realtime flow (frontend)
 `use-dashboard-realtime.ts` hook:
 - Derives WebSocket URL from `NEXT_PUBLIC_API_URL` (`http→ws`, `https→wss`)
 - Connects to `/ws/dashboard` on the API server
 - On `dashboard:update` message: debounces 250ms then calls `onUpdate()` callback
 - Implements exponential backoff reconnect (up to 10s)
+- All pages pass `() => qc.invalidateQueries(...)` as the `onUpdate` callback — no manual re-fetch needed
 
 ---
 
@@ -357,11 +371,13 @@ Any mutation (order, delivery, inventory, etc.)
                                                     ↓
                                               Valkey channel
                                                     ↓
-                               subscriber.subscribe → broadcaster() → ws.broadcast
-                               (on all other API instances)
-                               
+                                subscriber.subscribe → broadcaster() → ws.broadcast
+                                (on all other API instances)
+                                
 Frontend: useDashboardRealtime hook
-  └─ Receives dashboard:update → debounce 250ms → re-fetch dashboard data
+  └─ Receives dashboard:update → debounce 250ms → onUpdate() callback
+       └─ qc.invalidateQueries(queryKey)   → TanStack Query background re-fetch
+            └─ Components re-render with fresh cached data (no loading flicker)
 ```
 
 ---
@@ -381,6 +397,13 @@ The dashboard only needs one-way push ("something changed, please re-fetch"). No
 
 **Valkey's role:**
 When multiple API instances are running (horizontal scale), a mutation on instance A would only push to WS clients connected to instance A. Valkey pub/sub makes instance B's broadcaster also fire, ensuring all connected dashboards update.
+
+**Valkey connection resilience:**
+DigitalOcean managed networking drops idle TCP connections at exactly 300s. The `RealtimeService` is configured with:
+- `socket.keepAlive: 15_000` — sends TCP keepalive probes every 15s to prevent idle timeout
+- `pingInterval: 60_000` — Redis-level pings every 60s for application-layer heartbeat
+- `reconnectStrategy` — exponential backoff (500ms → 10s) on disconnect
+- `ready` event listener — re-enables `redisEnabled` flag after successful reconnect
 
 ---
 
@@ -427,15 +450,31 @@ If Valkey credentials are not configured, the system gracefully falls back to si
 
 ### How it works
 1. `POST /users/login` → returns `{ access_token: string, user: { id, name, role } }`
-2. Token is a JWT signed with the configured secret, 1-day expiry
+2. Token is a JWT signed with `process.env.JWT_SECRET`, 1-day expiry
 3. Frontend stores token in `auth_token_public` cookie
 4. All subsequent API calls send `Authorization: Bearer <token>` header
 
-### Critical Security Gaps (see full bug list below)
+### Auth Guards — ✅ Implemented
 
-- **The JWT secret is hardcoded as `"SECRET_KEY_HERE"`** in `users.module.ts`. Must be replaced with `process.env.JWT_SECRET`.
-- **No `JwtAuthGuard` is applied to any controller**. Every API endpoint is publicly accessible without authentication. This includes `GET /users`, `POST /users/staff`, `PATCH /users/:id`, `DELETE /orders/:id`, etc.
-- **No rate limiting** on the login endpoint, making brute-force attacks trivial.
+A global `JwtAuthGuard` is registered via `APP_GUARD` in `app.module.ts`. This means:
+- **Every route is protected by default** — no JWT = 401 Unauthorized
+- `@Public()` decorator opts individual routes out (login, register, kiosk refill)
+- Rate limiting (`ThrottlerGuard`, 10 req/60s) is also applied globally
+
+**Files:**
+- `src/auth/jwt.strategy.ts` — validates JWT and extracts `{ userId, username, role }` into `req.user`
+- `src/auth/jwt-auth.guard.ts` — extends `AuthGuard('jwt')`, checks `@Public()` metadata
+- `src/auth/auth.module.ts` — `@Global()` module that registers `JwtStrategy` + `PassportModule`
+- `src/auth/public.decorator.ts` — `@Public()` sets `isPublic: true` metadata
+
+**Currently public routes:**
+- `POST /users/login`
+- `POST /users/register`
+- `POST /refills` (kiosk — unauthenticated users)
+
+### Remaining Security Gaps
+- `JWT_SECRET` must be set in production env (see §15) — the fallback string is a known value
+- No MongoDB transactions on order creation (stock can be lost on save failure)
 
 ---
 
@@ -445,19 +484,19 @@ If Valkey credentials are not configured, the system gracefully falls back to si
 
 | # | Location | Issue | Fix |
 |---|---|---|---|
-| C1 | `users.module.ts:14` | **Hardcoded JWT secret** `"SECRET_KEY_HERE"` | Use `process.env.JWT_SECRET` via `JwtModule.registerAsync` |
-| C2 | All controllers | **No authentication guards** — every endpoint is publicly accessible | Add `@UseGuards(AuthGuard('jwt'))` to all protected routes; create a `JwtStrategy` |
+| C1 | `users.module.ts:14` | **Hardcoded JWT secret** `"SECRET_KEY_HERE"` → fallback `"dev-fallback-secret-change-before-deploy"` | Use `process.env.JWT_SECRET` — **must be set in production env** |
+| ~~C2~~ | ~~All controllers~~ | ~~**No authentication guards**~~ | ✅ **FIXED** — `JwtAuthGuard` registered globally via `APP_GUARD` in `app.module.ts`; `@Public()` applied to login/register/refills |
 | C3 | `orders.service.ts:create()` | **Non-atomic order creation** — stock deducted before order is saved; if the save fails, stock is permanently lost with no rollback | Use MongoDB transactions (`session.withTransaction`) for the full create flow |
 
 ### 🟠 High
 
 | # | Location | Issue | Fix |
 |---|---|---|---|
-| H1 | `orders.service.ts:257` | **`orderNumber` collision** — `ORD-${Date.now()}` can collide under concurrent requests | Use atomic MongoDB counter or UUID |
+| ~~H1~~ | ~~`orders.service.ts:257`~~ | ~~**`orderNumber` collision**~~ | ✅ **FIXED** — now uses `ORD-${randomBytes(4).toString("hex").toUpperCase()}` |
 | H2 | `lib/api.ts:36–38` | **401 redirect is commented out** — users stay on dashboard with expired sessions | Uncomment redirect to `/login` on 401 |
-| H3 | `dashboard/page.tsx:118–121` | **`rentalOrders` always 0** — Order entity has no `type` field; the filter `o.type === 'rental'` always returns empty | Remove metric or add `type` field to Order |
-| H4 | `notifications.controller.ts` | **No `resolve` endpoint** — notifications can never be marked as resolved in the UI | Add `PATCH /notifications/:id/resolve` endpoint |
-| H5 | All controllers | **No rate limiting** on sensitive endpoints (login, register) | Add `@nestjs/throttler` |
+| ~~H3~~ | ~~`dashboard/page.tsx`~~ | ~~**`rentalOrders` always 0**~~ | ✅ **FIXED** — now filters `o.isDelivery === true`, metric labelled "Delivery Orders" |
+| ~~H4~~ | ~~`notifications.controller.ts`~~ | ~~**No `resolve` endpoint**~~ | ✅ **FIXED** — `PATCH /notifications/:id/resolve` and `PATCH /notifications/resolve-all` implemented |
+| ~~H5~~ | ~~All controllers~~ | ~~**No rate limiting**~~ | ✅ **FIXED** — `ThrottlerModule` registered globally (10 req/60s per IP) |
 
 ### 🟡 Medium
 
@@ -610,7 +649,7 @@ The table below reflects variables as documented in `PROJECT_HANDOFF.md`. ⚠️
 | Variable | Status | Notes |
 |---|---|---|
 | `MONGO_URI` | ✅ Set | MongoDB Atlas cluster (see handoff for connection details — do NOT commit to repo) |
-| `FRONTEND_URL` | ✅ Set | CORS origin for the frontend |
+| `FRONTEND_URL` | ✅ Set | CORS allowed origin(s). Supports **comma-separated** list for multiple origins, e.g. `https://app.example.com,https://staging.example.com`. `localhost:3000` and `localhost:3001` are always allowed. |
 | `VALKEY_HOST` | ✅ Set | DigitalOcean Managed Valkey (`*.k.db.ondigitalocean.com`) |
 | `VALKEY_PORT` | ✅ Set | `25061` |
 | `VALKEY_USERNAME` | ✅ Set | `default` |
@@ -764,7 +803,7 @@ These items are outstanding from the handoff and architectural review:
 
 | # | Item | Why |
 |---|---|---|
-| F1 | **Add backend auth guards** (`JwtAuthGuard`) to all protected endpoints | Currently any unauthenticated client can read/write all data |
+| ~~F1~~ | ~~**Add backend auth guards**~~ | ✅ **DONE** — `JwtAuthGuard` + `ThrottlerGuard` registered globally |
 | F2 | **Set `JWT_SECRET` in production env** | Tokens are signed with a dev fallback string |
 | F3 | **Set `NEXT_PUBLIC_API_URL` in production UI env** | All API calls silently fail without this |
 | F4 | **Add `.env.example`** to both projects | Prevents onboarding friction and accidental missing vars |
@@ -777,8 +816,8 @@ These items are outstanding from the handoff and architectural review:
 | F6 | **Replace kiosk `localStorage` with URL state or session** | localStorage is unreliable in private/Safari and breaks SSR |
 | F7 | **Add pagination to `GET /orders` and `GET /deliveries`** | Currently fetches all records; will degrade with volume |
 | F8 | **Add MongoDB transactions to `OrdersService.create()`** | Stock is deducted before order saves; failure loses stock permanently |
-| F9 | **Add `PATCH /notifications/:id/resolve` endpoint** | Notifications currently cannot be resolved from the UI |
-| F10 | **Replace `ORD-${Date.now()}` order numbers** | Can collide under concurrent requests; use atomic counter or UUID |
+| ~~F9~~ | ~~**Add `PATCH /notifications/:id/resolve` endpoint**~~ | ✅ **DONE** — `PATCH /notifications/:id/resolve` + `PATCH /notifications/resolve-all` implemented |
+| ~~F10~~ | ~~**Replace `ORD-${Date.now()}` order numbers**~~ | ✅ **DONE** — now uses `randomBytes(4).toString("hex").toUpperCase()` |
 
 ### 🟡 Nice to have
 
@@ -840,13 +879,20 @@ No code changes needed. These are DigitalOcean dashboard clicks only.
 
 ---
 
-### 🔴 PRIORITY 2 — Backend Authentication Guards
+### 🔴 PRIORITY 2 — Backend Authentication Guards ✅ COMPLETED
 
-Every API endpoint is currently publicly accessible. This implements JWT protection across all routes.
+All steps below have been implemented. The global `JwtAuthGuard` is active in production.
 
-> **Estimated time:** 45–60 minutes  
-> **Files to create:** 2 new files  
-> **Files to edit:** 10+ controllers + `users.module.ts` + `app.module.ts`
+**What was done:**
+- Created `src/auth/jwt.strategy.ts`, `src/auth/jwt-auth.guard.ts`, `src/auth/auth.module.ts`, `src/auth/public.decorator.ts`
+- Registered `JwtAuthGuard` and `ThrottlerGuard` as global `APP_GUARD` providers in `app.module.ts`
+- Added `@Public()` to `POST /users/login`, `POST /users/register`, `POST /refills`
+- Rate limiting: `ThrottlerModule.forRoot([{ name: "short", ttl: 60000, limit: 10 }])`
+
+**Verification:**
+- `GET /customers` without a token → 401 Unauthorized ✓
+- `POST /users/login` without a token → 200 (public route) ✓
+- `POST /refills` without a token → 200 (kiosk public route) ✓
 
 ---
 
@@ -1034,11 +1080,14 @@ All 90 existing tests should still pass. Then manually verify using Swagger (`ht
 
 ---
 
-### 🟠 PRIORITY 3 — Fix `orderNumber` Collision
+### 🟠 PRIORITY 3 — Fix `orderNumber` Collision ✅ COMPLETED
 
-**File:** `watershop_api/src/orders/orders.service.ts`
-
-**Problem:** `ORD-${Date.now()}` can produce the same value for two simultaneous requests.
+`orders.service.ts` now uses:
+```typescript
+import { randomBytes } from "crypto";
+// ...
+orderNumber: `ORD-${randomBytes(4).toString("hex").toUpperCase()}`,
+```
 
 **Step 3.1** — Replace with `crypto.randomUUID()` (built into Node.js 14.17+, no install needed):
 
@@ -1069,9 +1118,11 @@ npm test
 
 ---
 
-### 🟠 PRIORITY 4 — Add Notifications Resolve Endpoint
+### 🟠 PRIORITY 4 — Add Notifications Resolve Endpoint ✅ COMPLETED
 
-Currently notifications pile up forever and can never be cleared.
+Both the service methods and controller routes are implemented:
+- `PATCH /notifications/:id/resolve` — marks one notification as resolved, emits `notifications.resolved`
+- `PATCH /notifications/resolve-all` — marks all unresolved as resolved, emits `notifications.resolved_all`
 
 **Step 4.1** — Add `resolve` method to `notifications.service.ts`:
 
@@ -1128,11 +1179,9 @@ npm test
 
 ---
 
-### 🟠 PRIORITY 5 — Fix the `rentalOrders` Dashboard Metric
+### 🟠 PRIORITY 5 — Fix the `rentalOrders` Dashboard Metric ✅ COMPLETED
 
-**File:** `watershop_web_ui/app/dashboard/page.tsx`
-
-**Problem (line ~118):** filters orders by `o.type === 'rental'` but `Order` has no `type` field — always returns 0.
+`dashboard/page.tsx` now correctly filters by `o.isDelivery === true` and the KPI card is labelled **"Delivery Orders"**.
 
 **Step 5.1** — Open `app/dashboard/page.tsx` and find:
 ```typescript
@@ -1159,39 +1208,9 @@ const rentalOrdersCount = orders.filter(
 
 ---
 
-### 🟠 PRIORITY 6 — Add Rate Limiting on Login
+### 🟠 PRIORITY 6 — Add Rate Limiting on Login ✅ COMPLETED
 
-**Step 6.1** — Install the throttler:
-```bash
-cd backend
-npm install @nestjs/throttler
-```
-
-**Step 6.2** — Register in `app.module.ts`:
-
-Add to the imports array:
-```typescript
-import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler";
-import { APP_GUARD } from "@nestjs/core";
-
-// In @Module imports:
-ThrottlerModule.forRoot([{
-  name: "short",
-  ttl: 60000,   // 1 minute window
-  limit: 10,    // max 10 requests per window
-}]),
-
-// In @Module providers (alongside JwtAuthGuard):
-{
-  provide: APP_GUARD,
-  useClass: ThrottlerGuard,
-},
-```
-
-**Step 6.3** — Run tests:
-```bash
-npm test
-```
+`ThrottlerModule` is registered globally in `app.module.ts` (10 req/60s per IP). `ThrottlerGuard` is also registered as a global `APP_GUARD`. The `@nestjs/throttler` package is installed and active — every endpoint is rate-limited at 10 req/60s per IP by default.
 
 ---
 
@@ -1429,12 +1448,18 @@ npm test
 
 Once all priorities are done, verify this end-to-end:
 
-- [ ] `GET /customers` without a token returns `401 Unauthorized`
-- [ ] `POST /users/login` without a token returns `200` (public route works)
-- [ ] `POST /refills` without a token returns `200` (kiosk public route works)
+- [x] `GET /customers` without a token returns `401 Unauthorized` ✅ (JwtAuthGuard global)
+- [x] `POST /users/login` without a token returns `200` (public route works) ✅ (`@Public()`)
+- [x] `POST /refills` without a token returns `200` (kiosk public route works) ✅ (`@Public()`)
+- [x] `orderNumber` collisions eliminated ✅ (`randomBytes(4).toString("hex")`)
+- [x] Notifications can be resolved via `PATCH /notifications/:id/resolve` ✅
+- [x] `rentalOrders` metric replaced with `deliveryOrders` ✅
+- [x] Rate limiting active globally (10 req/60s per IP) ✅ (`ThrottlerModule`)
 - [ ] Dashboard loads data correctly in production (env vars confirmed set)
 - [ ] Login page redirects to dashboard on valid credentials
 - [ ] Expired token cookie causes automatic redirect to `/login` (not a white screen)
 - [ ] `GET /health` returns `{ status: "ok" }` in production
-- [ ] `npm test` passes 90/90 locally after all changes
+- [ ] MongoDB transactions wrap order creation + stock deduction
+- [ ] Orders list supports server-side pagination
+- [ ] `.env.example` files committed for both `backend/` and `frontend/`
 

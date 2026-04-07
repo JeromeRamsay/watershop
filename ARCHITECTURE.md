@@ -509,7 +509,7 @@ watershop_api/src/
 
 ### Running tests
 ```bash
-cd watershop_api
+cd backend
 npm test                    # all unit tests
 npm test -- --coverage      # with coverage report
 npm test -- --watch         # watch mode
@@ -664,10 +664,10 @@ NEXT_PUBLIC_API_URL=http://localhost:4000
 ### Build commands
 ```bash
 # API
-cd watershop_api && npm ci && npm run build
+cd backend && npm ci && npm run build
 
 # UI
-cd watershop_web_ui && npm ci && npm run build
+cd frontend && npm ci && npm run build
 ```
 
 ### Start commands
@@ -681,7 +681,7 @@ npm start
 
 ### Seed script
 ```bash
-# Seed customer data from Customers.xls (run from watershop_api/)
+# Seed customer data from Customers.xls (run from backend/)
 npm run seed:customers
 ```
 
@@ -712,13 +712,13 @@ Follow this sequence when picking up any task in this codebase:
 
 ```bash
 # Terminal 1 — API
-cd watershop_api
+cd backend
 npm install
 npm run start:dev          # Runs with hot reload on port 4000
 # Swagger UI: http://localhost:4000/api
 
 # Terminal 2 — Frontend
-cd watershop_web_ui
+cd frontend
 npm install
 npm run dev                # Runs with hot reload on port 3000
 ```
@@ -726,7 +726,7 @@ npm run dev                # Runs with hot reload on port 3000
 ### Useful test commands
 
 ```bash
-cd watershop_api
+cd backend
 npm test                   # All unit tests (90 tests, ~2.5s)
 npm test -- --watch        # Watch mode
 npm test -- --coverage     # With coverage report
@@ -853,7 +853,7 @@ Every API endpoint is currently publicly accessible. This implements JWT protect
 #### Step 2.1 — Install `@nestjs/passport` and `passport-jwt`
 
 ```bash
-cd watershop_api
+cd backend
 npm install @nestjs/passport passport passport-jwt
 npm install --save-dev @types/passport-jwt
 ```
@@ -1023,7 +1023,7 @@ create(@Body() createRefillDto: CreateRefillDto) { ... }
 #### Step 2.8 — Run the tests
 
 ```bash
-cd watershop_api
+cd backend
 npm test
 ```
 
@@ -1163,7 +1163,7 @@ const rentalOrdersCount = orders.filter(
 
 **Step 6.1** — Install the throttler:
 ```bash
-cd watershop_api
+cd backend
 npm install @nestjs/throttler
 ```
 
@@ -1334,21 +1334,21 @@ The `.env.example` files have been created at:
 
 ```bash
 # Check API
-grep -n ".env" watershop_api/.gitignore
+grep -n ".env" backend/.gitignore
 
 # Check UI
-grep -n ".env" watershop_web_ui/.gitignore
+grep -n ".env" frontend/.gitignore
 ```
 
 If `.env` is not listed, add it:
 ```bash
-echo ".env" >> watershop_api/.gitignore
-echo ".env" >> watershop_web_ui/.gitignore
+echo ".env" >> backend/.gitignore
+echo ".env" >> frontend/.gitignore
 ```
 
 **Step 9.2** — Commit the `.env.example` files:
 ```bash
-git add watershop_api/.env.example watershop_web_ui/.env.example
+git add backend/.env.example frontend/.env.example
 git commit -m "chore: add .env.example files for both projects"
 ```
 
@@ -1360,7 +1360,7 @@ Needed for DigitalOcean App Platform health probes and proper deploy verificatio
 
 **Step 10.1** — Install terminus:
 ```bash
-cd watershop_api
+cd backend
 npm install @nestjs/terminus
 ```
 

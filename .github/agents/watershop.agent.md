@@ -275,7 +275,7 @@ useDashboardRealtime({ onUpdate: () => refetchData() });
 
 Run tests:
 ```bash
-cd watershop_api
+cd backend
 npm test                    # all unit tests
 npm test -- --watch         # watch mode
 npm test -- --coverage      # coverage report

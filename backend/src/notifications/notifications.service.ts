@@ -7,6 +7,8 @@ import {
 } from "./entities/notification.entity";
 import { RealtimeService } from "../realtime/realtime.service";
 
+const MAX_NOTIFICATIONS = 20;
+
 @Injectable()
 export class NotificationsService {
   constructor(
@@ -16,20 +18,48 @@ export class NotificationsService {
   ) {}
 
   async findAll() {
-    return this.notificationModel.find().sort({ createdAt: -1 }).exec();
+    return this.notificationModel
+      .find()
+      .sort({ createdAt: -1 })
+      .limit(MAX_NOTIFICATIONS)
+      .exec();
+  }
+
+  private async evictOldestIfNeeded() {
+    const count = await this.notificationModel.countDocuments();
+    if (count >= MAX_NOTIFICATIONS) {
+      // Delete oldest notifications to make room (keep MAX_NOTIFICATIONS - 1)
+      const excess = count - (MAX_NOTIFICATIONS - 1);
+      const oldest = await this.notificationModel
+        .find()
+        .sort({ createdAt: 1 })
+        .limit(excess)
+        .select("_id")
+        .exec();
+      const ids = oldest.map((n) => n._id);
+      if (ids.length > 0) {
+        await this.notificationModel.deleteMany({ _id: { $in: ids } });
+      }
+    }
   }
 
   async create(params: {
     message: string;
     type: "low_stock" | "out_of_stock" | "refill_order";
     inventoryItemId?: string;
+    orderId?: string;
+    paymentStatus?: string;
   }) {
+    await this.evictOldestIfNeeded();
+
     const notification = new this.notificationModel({
       message: params.message,
       type: params.type,
       inventoryItemId: params.inventoryItemId
         ? new Types.ObjectId(params.inventoryItemId)
         : undefined,
+      orderId: params.orderId ? new Types.ObjectId(params.orderId) : undefined,
+      paymentStatus: params.paymentStatus,
       resolved: false,
     });
 
@@ -53,6 +83,8 @@ export class NotificationsService {
 
     const existing = await this.notificationModel.findOne(filter).exec();
     if (existing) return existing;
+
+    await this.evictOldestIfNeeded();
 
     const notification = new this.notificationModel({
       message: params.message,
@@ -80,8 +112,26 @@ export class NotificationsService {
   }
 
   async resolveAll() {
-    await this.notificationModel.updateMany({ resolved: false }, { resolved: true });
+    await this.notificationModel.updateMany(
+      { resolved: false },
+      { resolved: true },
+    );
     this.realtimeService.emitDashboardUpdate("notifications.resolved_all");
     return { message: "All notifications resolved" };
+  }
+
+  async remove(id: string) {
+    const deleted = await this.notificationModel.findByIdAndDelete(id).exec();
+    if (!deleted) {
+      throw new NotFoundException(`Notification #${id} not found`);
+    }
+    this.realtimeService.emitDashboardUpdate("notifications.cleared");
+    return { message: "Notification cleared" };
+  }
+
+  async removeAll() {
+    await this.notificationModel.deleteMany({});
+    this.realtimeService.emitDashboardUpdate("notifications.cleared_all");
+    return { message: "All notifications cleared" };
   }
 }

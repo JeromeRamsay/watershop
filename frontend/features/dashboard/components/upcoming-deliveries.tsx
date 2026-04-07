@@ -4,9 +4,10 @@ import { cn } from "@/lib/utils";
 
 interface UpcomingDeliveriesProps {
   deliveries: Delivery[];
+  onCustomerClick?: (customerId: string, customerName: string) => void;
 }
 
-export function UpcomingDeliveries({ deliveries }: UpcomingDeliveriesProps) {
+export function UpcomingDeliveries({ deliveries, onCustomerClick }: UpcomingDeliveriesProps) {
   return (
     <div className="bg-white dark:bg-dark-700 rounded-xl border border-dark-200 dark:border-dark-600 shadow-sm dark:shadow-dark-900/50 p-4 flex flex-col w-full overflow-hidden">
       <div className="flex items-center justify-between mb-3 shrink-0">
@@ -33,7 +34,19 @@ export function UpcomingDeliveries({ deliveries }: UpcomingDeliveriesProps) {
           <tbody>
             {deliveries.map((delivery) => (
               <tr key={delivery.id} className="border-b border-dark-200 dark:border-dark-600 last:border-0 hover:bg-dark-50 dark:hover:bg-dark-600 transition-colors">
-                <td className="py-2 px-2 text-xs text-dark-900 dark:text-white text-center">{delivery.customer}</td>
+                <td className="py-2 px-2 text-xs text-center">
+                  {delivery.customerId && onCustomerClick ? (
+                    <button
+                      type="button"
+                      onClick={() => onCustomerClick(delivery.customerId!, delivery.customer)}
+                      className="text-primary-500 hover:text-primary-600 dark:text-primary-400 dark:hover:text-primary-300 hover:underline font-medium"
+                    >
+                      {delivery.customer}
+                    </button>
+                  ) : (
+                    <span className="text-dark-900 dark:text-white">{delivery.customer}</span>
+                  )}
+                </td>
                 <td className="py-2 px-2 text-xs text-dark-900 dark:text-white text-center">{delivery.address}</td>
                 <td className="py-2 px-2 text-xs text-dark-900 dark:text-white text-center">{delivery.dateTime}</td>
                 <td className="py-2 px-2 whitespace-nowrap text-center">

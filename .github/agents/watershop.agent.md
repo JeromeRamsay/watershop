@@ -1,7 +1,7 @@
 ---
 name: watershop
 description: Expert agent for the Watershop POS system — NestJS API, Next.js UI, MongoDB/Mongoose, realtime WebSocket, all known bugs, and the full action plan. Use for any feature work, bug fixes, or refactoring in this repo.
-model: claude-4-6-sonnet
+model: claude-sonnet-4-6
 tools:
   - codebase
   - editFiles

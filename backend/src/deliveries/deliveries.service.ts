@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
-import { Model, Types } from "mongoose";
+import { ClientSession, Model, Types } from "mongoose";
 import { CreateDeliveryDto } from "./dto/create-delivery.dto";
 import { UpdateDeliveryDto } from "./dto/update-delivery.dto";
 import { Delivery, DeliveryDocument } from "./entities/delivery.entity";
@@ -15,7 +15,7 @@ export class DeliveriesService {
     private realtimeService: RealtimeService,
   ) {}
 
-  async create(createDeliveryDto: CreateDeliveryDto): Promise<Delivery> {
+  async create(createDeliveryDto: CreateDeliveryDto, session?: ClientSession): Promise<Delivery> {
     // Check if a delivery already exists for this order
     const existing = await this.deliveryModel.findOne({
       order: createDeliveryDto.orderId,
@@ -33,12 +33,14 @@ export class DeliveriesService {
       timeSlot: createDeliveryDto.timeSlot,
       deliveryNotes: createDeliveryDto.deliveryNotes,
     });
-    const saved = await newDelivery.save();
+    const saved = await newDelivery.save({ session });
 
     // Link back to order
-    await this.orderModel.findByIdAndUpdate(createDeliveryDto.orderId, {
-      deliveryId: saved._id,
-    });
+    await this.orderModel.findByIdAndUpdate(
+      createDeliveryDto.orderId,
+      { deliveryId: saved._id },
+      { session },
+    );
 
     this.realtimeService.emitDashboardUpdate("deliveries.created");
     return saved;

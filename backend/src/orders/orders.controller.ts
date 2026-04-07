@@ -26,9 +26,17 @@ export class OrdersController {
   }
 
   @Get()
-  @ApiOperation({ summary: "List all orders" })
-  findAll(@Query("year") year?: string) {
-    return this.ordersService.findAll(year ? parseInt(year) : undefined);
+  @ApiOperation({ summary: "List all orders (paginated)" })
+  findAll(
+    @Query("year") year?: string,
+    @Query("page") page?: string,
+    @Query("limit") limit?: string,
+  ) {
+    return this.ordersService.findAll(
+      year ? parseInt(year) : undefined,
+      page ? parseInt(page) : 1,
+      limit ? parseInt(limit) : 50,
+    );
   }
 
   @Get(":id")

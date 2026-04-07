@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Param } from "@nestjs/common";
+import { Controller, Get, Patch, Delete, Param } from "@nestjs/common";
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import { NotificationsService } from "./notifications.service";
 
@@ -8,7 +8,7 @@ export class NotificationsController {
   constructor(private readonly notificationsService: NotificationsService) {}
 
   @Get()
-  @ApiOperation({ summary: "List notifications" })
+  @ApiOperation({ summary: "List notifications (max 20, newest first)" })
   findAll() {
     return this.notificationsService.findAll();
   }
@@ -23,5 +23,17 @@ export class NotificationsController {
   @ApiOperation({ summary: "Mark all notifications as resolved" })
   resolveAll() {
     return this.notificationsService.resolveAll();
+  }
+
+  @Delete("clear-all")
+  @ApiOperation({ summary: "Delete all notifications" })
+  removeAll() {
+    return this.notificationsService.removeAll();
+  }
+
+  @Delete(":id")
+  @ApiOperation({ summary: "Delete a single notification" })
+  remove(@Param("id") id: string) {
+    return this.notificationsService.remove(id);
   }
 }

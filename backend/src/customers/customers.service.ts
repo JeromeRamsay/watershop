@@ -4,7 +4,7 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
-import { Model } from "mongoose";
+import { ClientSession, Model } from "mongoose";
 import { CreateCustomerDto } from "./dto/create-customer.dto";
 import { UpdateCustomerDto } from "./dto/update-customer.dto";
 import { Customer, CustomerDocument } from "./entities/customer.entity";
@@ -164,9 +164,10 @@ export class CustomersService {
   async update(
     id: string,
     updateCustomerDto: UpdateCustomerDto,
+    session?: ClientSession,
   ): Promise<Customer> {
     const updatedCustomer = await this.customerModel
-      .findByIdAndUpdate(id, updateCustomerDto, { new: true }) // new: true returns the updated object
+      .findByIdAndUpdate(id, updateCustomerDto, { new: true, session })
       .exec();
 
     if (!updatedCustomer) {

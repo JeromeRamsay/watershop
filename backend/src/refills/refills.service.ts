@@ -57,6 +57,9 @@ export class RefillsService {
       await this.notificationsService.create({
         message: `Refill confirmed for ${memberName} (${totalQty} bottle${totalQty === 1 ? "" : "s"})`,
         type: "refill_order",
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        orderId: String((order as any)?.["_id"] ?? "") || undefined,
+        paymentStatus: "paid",
       });
 
       return order;
@@ -91,6 +94,9 @@ export class RefillsService {
       await this.notificationsService.create({
         message: `Refill recorded as unpaid for ${memberName} (${totalQty} bottle${totalQty === 1 ? "" : "s"})`,
         type: "refill_order",
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        orderId: String((order as any)?.["_id"] ?? "") || undefined,
+        paymentStatus: "unpaid",
       });
 
       return order;

@@ -19,6 +19,8 @@ import { EmployeeHoursModule } from "./employee-hours/employee-hours.module";
 import { AuthModule } from "./auth/auth.module";
 import { JwtAuthGuard } from "./auth/jwt-auth.guard";
 import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler";
+import { TerminusModule } from "@nestjs/terminus";
+import { HealthController } from "./health.controller";
 
 @Module({
   imports: [

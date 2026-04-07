@@ -81,10 +81,18 @@ export function useCustomer(id: string) {
 }
 
 // ─── Orders ─────────────────────────────────────────────────────────────────
-export function useOrders(year?: number) {
+export function useOrders(year?: number, page?: number, limit?: number) {
   return useQuery({
     queryKey: queryKeys.orders(year),
-    queryFn: () => api.get("/orders", { params: year ? { year } : {} }).then(r => r.data),
+    queryFn: () =>
+      api
+        .get("/orders", { params: { ...(year ? { year } : {}), page: page ?? 1, limit: limit ?? 50 } })
+        .then((r) => {
+          // Normalise: API now returns { data, pagination } — extract the array
+          const body = r.data;
+          if (body && Array.isArray(body.data)) return body.data as unknown[];
+          return body as unknown[];
+        }),
   });
 }
 
@@ -129,6 +137,26 @@ export function useNotifications() {
     queryFn: () => api.get("/notifications").then(r => r.data),
     staleTime: 15_000, // notifications are time-sensitive — refresh every 15 s
     refetchInterval: 60_000,
+  });
+}
+
+export function useClearNotification() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/notifications/${id}`),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: queryKeys.notifications() });
+    },
+  });
+}
+
+export function useClearAllNotifications() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.delete("/notifications/clear-all"),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: queryKeys.notifications() });
+    },
   });
 }
 

@@ -1525,3 +1525,24 @@ The items below are tracked feature requests and polish tasks. Each one is self-
 - `features/inventory/components/add-item-modal.tsx`: Zod validation on submit, inline error messages per field (itemName, category, sku, stock, unitType, supplier, purchasePrice, sellingPrice, refillPrice, rentalPrice)
 - Backend DTOs in `backend/src/*/dto/` should have matching `class-validator` decorators (see schema table in this section for field rules)
 
+---
+### ✅ UI-6 — Dashboard: Notification Management & Interactive Panels ✅ COMPLETED
+**Location:** `app/dashboard/page.tsx`, `features/dashboard/components/notifications.tsx`, `features/dashboard/components/upcoming-deliveries.tsx`, `backend/src/notifications/`
+**Features implemented:**
+1. **Clear individual notifications** — Each notification row shows an ✕ dismiss button (visible on hover via `group-hover:opacity-100`). Clicking it calls `DELETE /notifications/:id` via the `useClearNotification` mutation hook and invalidates `queryKeys.notifications()`.
+2. **Clear all notifications** — A "Clear All" button in the notifications panel header calls `DELETE /notifications/clear-all` via `useClearAllNotifications` mutation hook.
+3. **Max 20 notifications with FIFO eviction** — `NotificationsService.evictOldestIfNeeded()` is called before every `create()`. It counts all documents; if count ≥ 20 it deletes the oldest excess documents (sorted by `createdAt ASC`) so the new one fits within the cap.
+4. **Red notification icon for unpaid/balance orders** — Notifications now store `orderId` and `paymentStatus` in MongoDB (`notification.entity.ts`). The dashboard computes `unpaidOrderIds` (a `Set<string>`) from orders where `paymentStatus === "unpaid" || "partial"`. Each notification gets `hasBalance = !!orderId && unpaidOrderIds.has(orderId)`. When `hasBalance` is true, the bell icon renders in red (`bg-red-100 text-red-500`). It reverts to the primary color automatically when the order is updated (TanStack Query invalidation re-derives `unpaidOrderIds`).
+5. **Click notification → Edit Order modal** — `handleNotificationClick(notification)` fetches `GET /orders/:orderId`, maps the response via `mapApiOrder()`, sets `selectedOrder` state, and opens `<EditOrderModal>`. After saving, `handleOrderUpdate()` calls `qc.invalidateQueries()` and resets state.
+6. **Click customer name in Upcoming Deliveries → Customer detail modal** — The delivery data now includes `customerId` (from `d.customer._id`). `UpcomingDeliveries` accepts `onCustomerClick?: (customerId, customerName) => void`; when provided the customer name cell renders as a `<button>`. `handleCustomerClick(customerId)` fetches `GET /customers/:customerId`, maps via `mapApiCustomer()`, and opens `<CustomerDetailsModal>`.
+**Backend changes:**
+- `notification.entity.ts`: Added `orderId?: Types.ObjectId` (ref: "Order") and `paymentStatus?: string` fields
+- `notifications.service.ts`: Added `MAX_NOTIFICATIONS = 20`, `evictOldestIfNeeded()`, `remove(id)`, `removeAll()` methods; updated `create()` to accept and persist `orderId` / `paymentStatus`
+- `notifications.controller.ts`: Added `DELETE /notifications/clear-all` and `DELETE /notifications/:id` endpoints with `@ApiOperation` decorators
+- `refills.service.ts`: Both notification creates now pass `orderId` (from created order `_id`) and `paymentStatus`
+**Frontend changes:**
+- `lib/queries.ts`: Added `useClearNotification` and `useClearAllNotifications` mutation hooks
+- `features/dashboard/types.ts`: Added `orderId?` and `hasBalance?` to `Notification`; added `customerId?` to `Delivery`
+- `features/dashboard/components/notifications.tsx`: Full rewrite — `onClear`, `onClearAll`, `onNotificationClick` props; hover-reveal ✕ button; red icon logic; clickable rows
+- `features/dashboard/components/upcoming-deliveries.tsx`: Added `onCustomerClick` prop; clickable customer name `<button>` when `customerId` present
+- `app/dashboard/page.tsx`: Full rewrite — `mapApiOrder()`, `mapApiCustomer()` helpers; modal state management; `unpaidOrderIds` Set derivation; all handlers wired to components

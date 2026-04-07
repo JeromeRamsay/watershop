@@ -26,6 +26,10 @@ export interface Notification {
   message: string;
   timestamp: string;
   icon: React.ComponentType<{ className?: string }>;
+  /** For refill_order type — links to the associated order */
+  orderId?: string;
+  /** True when the associated order is unpaid or partial */
+  hasBalance?: boolean;
 }
 
 export interface Transaction {
@@ -39,6 +43,7 @@ export interface Transaction {
 export interface Delivery {
   id: string;
   customer: string;
+  customerId?: string;
   address: string;
   dateTime: string;
   status: "Confirmed" | "Pending" | "Scheduled";

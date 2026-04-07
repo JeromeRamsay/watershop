@@ -14,6 +14,12 @@ export class Notification {
   @Prop({ type: Types.ObjectId, ref: "Inventory" })
   inventoryItemId?: Types.ObjectId;
 
+  @Prop({ type: Types.ObjectId, ref: "Order" })
+  orderId?: Types.ObjectId;
+
+  @Prop()
+  paymentStatus?: string;
+
   @Prop({ default: false })
   resolved: boolean;
 }

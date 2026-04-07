@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
+import { randomBytes } from "crypto";
 import { Model, Types } from "mongoose";
 import { CreateOrderDto } from "./dto/create-order.dto";
 import { UpdateOrderDto } from "./dto/update-order.dto";
@@ -265,7 +266,7 @@ export class OrdersService {
     );
 
     const newOrder = new this.orderModel({
-      orderNumber: `ORD-${Date.now()}`,
+      orderNumber: `ORD-${randomBytes(4).toString("hex").toUpperCase()}`,
       ...(customerId ? { customer: new Types.ObjectId(customerId) } : {}),
       isWalkIn: !customerId,
       items: processedItems,

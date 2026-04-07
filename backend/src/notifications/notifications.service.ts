@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
 import {
@@ -66,5 +66,22 @@ export class NotificationsService {
     const saved = await notification.save();
     this.realtimeService.emitDashboardUpdate("notifications.created");
     return saved;
+  }
+
+  async resolve(id: string) {
+    const updated = await this.notificationModel
+      .findByIdAndUpdate(id, { resolved: true }, { new: true })
+      .exec();
+    if (!updated) {
+      throw new NotFoundException(`Notification #${id} not found`);
+    }
+    this.realtimeService.emitDashboardUpdate("notifications.resolved");
+    return updated;
+  }
+
+  async resolveAll() {
+    await this.notificationModel.updateMany({ resolved: false }, { resolved: true });
+    this.realtimeService.emitDashboardUpdate("notifications.resolved_all");
+    return { message: "All notifications resolved" };
   }
 }

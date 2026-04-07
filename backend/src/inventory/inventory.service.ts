@@ -4,7 +4,7 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
-import { Model } from "mongoose";
+import { ClientSession, Model } from "mongoose";
 import { CreateInventoryDto } from "./dto/create-inventory.dto";
 import { UpdateInventoryDto } from "./dto/update-inventory.dto";
 import { Inventory, InventoryDocument } from "./entities/inventory.entity";
@@ -49,9 +49,10 @@ export class InventoryService {
   async update(
     id: string,
     updateInventoryDto: UpdateInventoryDto,
+    session?: ClientSession,
   ): Promise<Inventory> {
     const updatedItem = await this.inventoryModel
-      .findByIdAndUpdate(id, updateInventoryDto, { new: true })
+      .findByIdAndUpdate(id, updateInventoryDto, { new: true, session })
       .exec();
     if (!updatedItem) {
       throw new NotFoundException(`Item with ID ${id} not found`);

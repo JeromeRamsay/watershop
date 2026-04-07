@@ -1,36 +1,96 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Watershop — Frontend
+
+Next.js 15 App Router dashboard and kiosk UI for the Watershop POS system.
+
+## Stack
+
+| | |
+|---|---|
+| Framework | Next.js 15 (App Router) |
+| Language | TypeScript + React 19 |
+| Styling | Tailwind CSS v4 |
+| Components | shadcn/ui (Radix UI primitives) |
+| HTTP Client | Axios (`lib/api.ts`) with JWT interceptor |
+| Data Fetching | TanStack Query v5 (`lib/queries.ts`) |
+| Charts | Recharts |
 
 ## Getting Started
 
-First, run the development server:
-
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cd frontend
+cp .env.example .env.local      # fill in NEXT_PUBLIC_API_URL
+npm install
+npm run dev                      # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Required environment variables
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Variable | Description |
+|---|---|
+| `NEXT_PUBLIC_API_URL` | Full URL of the API, e.g. `http://localhost:4000` |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Key conventions
 
-## Learn More
+### Data fetching — TanStack Query
+All data fetching goes through hooks in `lib/queries.ts`. **Never** call `api.get()` inside a `useEffect` directly.
 
-To learn more about Next.js, take a look at the following resources:
+```ts
+// ✅ Correct — instant cached data on revisit
+import { useOrders, queryKeys } from "@/lib/queries";
+const { data, isLoading } = useOrders();
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+// After a mutation — invalidate the relevant cache key:
+const qc = useQueryClient();
+void qc.invalidateQueries({ queryKey: queryKeys.orders() });
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+// ❌ Wrong — refetches on every navigation, no caching
+useEffect(() => { api.get("/orders").then(...) }, []);
+```
 
-## Deploy on Vercel
+Cache behaviour: `staleTime: 30s` (instant on revisit), `gcTime: 5min` (stays in memory).
+WebSocket realtime events call `qc.invalidateQueries()` for background refresh.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Realtime
+`lib/use-dashboard-realtime.ts` connects to `ws://<API>/ws/dashboard`.
+All pages pass an `invalidate` callback to this hook:
+```ts
+useDashboardRealtime(useCallback(() => {
+  void qc.invalidateQueries({ queryKey: queryKeys.orders() });
+}, [qc]));
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Project structure
+
+```
+frontend/
+├── app/
+│   ├── (auth)/login|signup   # Public pages
+│   ├── dashboard/            # Protected dashboard (admin + staff)
+│   │   ├── page.tsx          # Main dashboard — KPI cards, inventory, realtime
+│   │   ├── customers/        # Customer management (server-side pagination)
+│   │   ├── orders/           # Order list + new order form
+│   │   ├── deliveries/       # Delivery schedule (list + calendar)
+│   │   ├── inventory/        # Inventory management
+│   │   ├── reports/          # Sales reports
+│   │   ├── settings/         # Store settings
+│   │   ├── suppliers/        # Supplier management
+│   │   └── hours/            # Employee hour logging
+│   └── kiosk/refill/         # Self-service kiosk for bottle credit redemption
+├── features/                 # Feature-scoped components, types, and forms
+├── components/               # Shared shadcn/ui components
+├── lib/
+│   ├── api.ts                # Axios instance with JWT interceptor → baseURL from NEXT_PUBLIC_API_URL
+│   ├── queries.ts            # All TanStack Query hooks (useOrders, useCustomers, useInventory, …)
+│   ├── react-query-provider.tsx  # QueryClientProvider wrapper (staleTime 30s, gcTime 5min)
+│   └── use-dashboard-realtime.ts # WebSocket hook — auto-reconnect with exponential backoff
+└── proxy.ts                  # Next.js middleware — auth guard + Cache-Control: no-store
+```
+
+## Build
+
+```bash
+npm run build   # TypeScript check + ESLint + Next.js production build
+npm start       # Start production server
+```
+
+Deployed on **DigitalOcean App Platform** — pushes to `main` trigger automatic redeployment.

@@ -1,9 +1,16 @@
 "use client";
 
+import { useState, useMemo } from "react";
 import { Order } from "../types";
-import { Edit, Trash2, ArrowUpDown } from "lucide-react";
+import { Edit, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import {
+  SortableHeader,
+  SortState,
+  toggleSort,
+  applySortToItems,
+} from "@/components/ui/sortable-header";
 
 interface OrdersTableProps {
   orders: Order[];
@@ -22,6 +29,18 @@ export function OrdersTable({
   statusOptions,
   onRowClick,
 }: OrdersTableProps) {
+  const [sort, setSort] = useState<SortState | null>(null);
+  const handleSort = (key: string) => setSort((prev) => toggleSort(prev, key));
+
+  const sortedOrders = useMemo(
+    () =>
+      applySortToItems(
+        orders as unknown as Record<string, unknown>[],
+        sort,
+      ) as unknown as Order[],
+    [orders, sort],
+  );
+
   const getPaymentStatusBadgeClass = (status: string) => {
     switch (status) {
       case "Paid":
@@ -35,67 +54,29 @@ export function OrdersTable({
     }
   };
 
+  const thCls = "py-2 px-3 text-xs font-semibold text-dark-600 dark:text-dark-300";
+
   return (
     <div className="bg-white dark:bg-dark-700 rounded-xl overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full min-w-[1200px] md:min-w-0">
           <thead>
             <tr className="border-b border-dark-200 dark:border-dark-600 bg-dark-50 dark:bg-dark-600">
-              <th className="text-center py-2 px-3 text-xs font-semibold text-dark-600 dark:text-dark-300">
-                <div className="flex items-center justify-center gap-1.5">
-                  Order ID
-                  <ArrowUpDown className="h-3.5 w-3.5 text-dark-400 dark:text-dark-500" />
-                </div>
-              </th>
-              <th className="text-center py-2 px-3 text-xs font-semibold text-dark-600 dark:text-dark-300">
-                <div className="flex items-center justify-center gap-1.5">
-                  Customer
-                  <ArrowUpDown className="h-3.5 w-3.5 text-dark-400 dark:text-dark-500" />
-                </div>
-              </th>
-              <th className="text-center py-2 px-3 text-xs font-semibold text-dark-600 dark:text-dark-300">
-                <div className="flex items-center justify-center gap-1.5">
-                  Items
-                  <ArrowUpDown className="h-3.5 w-3.5 text-dark-400 dark:text-dark-500" />
-                </div>
-              </th>
-              <th className="text-center py-2 px-3 text-xs font-semibold text-dark-600 dark:text-dark-300">
-                <div className="flex items-center justify-center gap-1.5">
-                  Total Price
-                  <ArrowUpDown className="h-3.5 w-3.5 text-dark-400 dark:text-dark-500" />
-                </div>
-              </th>
-              <th className="text-center py-2 px-3 text-xs font-semibold text-dark-600 dark:text-dark-300">
-                <div className="flex items-center justify-center gap-1.5">
-                  Delivery Type
-                  <ArrowUpDown className="h-3.5 w-3.5 text-dark-400 dark:text-dark-500" />
-                </div>
-              </th>
-              <th className="text-center py-2 px-3 text-xs font-semibold text-dark-600 dark:text-dark-300">
-                <div className="flex items-center justify-center gap-1.5">
-                  Refill
-                  <ArrowUpDown className="h-3.5 w-3.5 text-dark-400 dark:text-dark-500" />
-                </div>
-              </th>
-              <th className="text-center py-2 px-3 text-xs font-semibold text-dark-600 dark:text-dark-300">
-                <div className="flex items-center justify-center gap-1.5">
-                  Order Status
-                  <ArrowUpDown className="h-3.5 w-3.5 text-dark-400 dark:text-dark-500" />
-                </div>
-              </th>
-              <th className="text-center py-2 px-3 text-xs font-semibold text-dark-600 dark:text-dark-300">
-                <div className="flex items-center justify-center gap-1.5">
-                  Payment Status
-                  <ArrowUpDown className="h-3.5 w-3.5 text-dark-400 dark:text-dark-500" />
-                </div>
-              </th>
+              <SortableHeader label="Order ID" sortKey="orderId" sort={sort} onSort={handleSort} className={thCls} align="center" />
+              <SortableHeader label="Customer" sortKey="customer" sort={sort} onSort={handleSort} className={thCls} align="center" />
+              <SortableHeader label="Items" sortKey="items" sort={sort} onSort={handleSort} className={thCls} align="center" />
+              <SortableHeader label="Total Price" sortKey="totalPrice" sort={sort} onSort={handleSort} className={thCls} align="center" />
+              <SortableHeader label="Delivery Type" sortKey="deliveryType" sort={sort} onSort={handleSort} className={thCls} align="center" />
+              <SortableHeader label="Refill" sortKey="remainingCredits" sort={sort} onSort={handleSort} className={thCls} align="center" />
+              <SortableHeader label="Order Status" sortKey="orderStatus" sort={sort} onSort={handleSort} className={thCls} align="center" />
+              <SortableHeader label="Payment Status" sortKey="paymentStatus" sort={sort} onSort={handleSort} className={thCls} align="center" />
               <th className="text-center py-2 px-3 text-xs font-semibold text-dark-600 dark:text-dark-300">
                 Actions
               </th>
             </tr>
           </thead>
           <tbody>
-            {orders.map((order) => {
+            {sortedOrders.map((order) => {
               const totalItems = (order.items || []).length;
               return (
                 <tr
@@ -126,10 +107,7 @@ export function OrdersTable({
                       value={order.orderStatus}
                       onChange={(e) => {
                         e.stopPropagation();
-                        onStatusChange(
-                          order.id,
-                          e.target.value as Order["orderStatus"],
-                        );
+                        onStatusChange(order.id, e.target.value as Order["orderStatus"]);
                       }}
                       onClick={(e) => e.stopPropagation()}
                       className="h-7 rounded-md border border-dark-200 bg-white px-2 text-xs text-dark-900 dark:border-dark-500 dark:bg-dark-700 dark:text-white"

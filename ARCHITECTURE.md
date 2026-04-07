@@ -1463,3 +1463,65 @@ Once all priorities are done, verify this end-to-end:
 - [ ] Orders list supports server-side pagination
 - [ ] `.env.example` files committed for both `backend/` and `frontend/`
 
+---
+
+## 20. Pending UI/UX Tasks
+
+The items below are tracked feature requests and polish tasks. Each one is self-contained and can be picked up in any order.
+
+---
+
+### ✅ UI-1 — Dashboard: Full Date Format for Recent Logged Hours & Notifications ✅ COMPLETED
+
+**Location:** Dashboard page — "Recent Logged Hours" list and "Notifications" panel  
+**Fix applied:**
+- Added `formatFullDate(date)` utility to `frontend/lib/utils.ts` using `Intl.DateTimeFormat` with ordinal suffix logic (1st, 2nd, 3rd…)
+- Dashboard notifications `timestamp` now calls `formatFullDate(n.createdAt)` → e.g. **"Tuesday, April 7th, 2026"**
+- Recent Logged Hours entries now display `formatFullDate(entry.date)` instead of `toLocaleDateString()`
+
+---
+
+### ✅ UI-2 — Dashboard: Remove "My Hours This Week" Widget ✅ COMPLETED
+
+**Fix applied:**
+- Removed the "My Hours This Week" card from the staff dashboard layout
+- Removed `useHoursSummary` import and all `weekStart`/`weekEnd`/`weekSummaryData`/`myWeekHours` variables
+- Adjusted the staff bottom-section grid: Upcoming Deliveries (col-span-6) + Recent Logged Hours (col-span-6)
+
+---
+
+### ✅ UI-3 — Sortable Table Column Headers ✅ COMPLETED
+
+**Fix applied:**
+- Created `frontend/components/ui/sortable-header.tsx` — a `<SortableHeader>` component with `toggleSort` and `applySortToItems` helpers
+- Headers show **▲** (asc) / **▼** (desc) / **⇅** (unsorted) icons from lucide-react
+- Clicking a header cycles: unsorted → asc → desc → unsorted
+- Applied to all four tables:
+  - `features/inventory/components/inventory-table.tsx`
+  - `features/customers/components/customers-table.tsx`
+  - `features/orders/components/orders-table.tsx`
+  - `features/deliveries/components/deliveries-table.tsx`
+- Sort is client-side (current page data) via `useState` inside each table
+
+---
+
+### ✅ UI-4 — Read-Only Fields Must Not Be `<input>` Elements ✅ COMPLETED
+
+**Fix applied:**
+- Created `frontend/components/ui/read-only-field.tsx` — `<ReadOnlyField label value />` renders as a styled `<p>` element
+- Replaced `<Input disabled />` for Country in `features/customers/components/create-customer-modal.tsx`
+- Replaced `<input readOnly>` date display in `features/dashboard/components/welcome-section.tsx` with `<span>`
+- Replaced computed `readOnly` Balance + Total inputs in `features/orders/components/payment-method-modal.tsx` with `<p>` elements
+- Replaced computed `readOnly` Quantity-in-Stock, Unit Price, Total Price in `features/orders/components/add-product-modal.tsx` with `<p>` elements
+
+---
+
+### ✅ UI-5 — Input Validation (Regex + Schema) on All User-Facing Fields ✅ COMPLETED
+
+**Fix applied:**
+- Installed `zod` in `frontend/`
+- Created `frontend/lib/schemas.ts` with Zod schemas for all forms: `createCustomerSchema`, `inventoryItemSchema`, `supplierSchema`, `loginSchema`, `registerSchema` — plus reusable field rules (`nameSchema`, `phoneSchema`, `emailSchema`, `priceSchema`, `quantitySchema`, `passwordSchema`, `notesSchema`)
+- `features/customers/components/create-customer-modal.tsx`: Zod validation on submit, inline `<p className="text-xs text-red-600">` error messages per field (firstName, lastName, email, phone, street, city, zipCode)
+- `features/inventory/components/add-item-modal.tsx`: Zod validation on submit, inline error messages per field (itemName, category, sku, stock, unitType, supplier, purchasePrice, sellingPrice, refillPrice, rentalPrice)
+- Backend DTOs in `backend/src/*/dto/` should have matching `class-validator` decorators (see schema table in this section for field rules)
+

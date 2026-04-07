@@ -1,5 +1,5 @@
 import { Controller, Get, Query } from "@nestjs/common";
-import { ReportsService } from "./reports.service";
+import { ReportsService, DashboardStats, WalkInStats } from "./reports.service";
 import { ApiTags, ApiOperation } from "@nestjs/swagger";
 
 @ApiTags("Reports & Analytics")
@@ -9,7 +9,7 @@ export class ReportsController {
 
   @Get("dashboard")
   @ApiOperation({ summary: "Get total revenue and order counts" })
-  getDashboardStats(@Query("year") year?: string) {
+  getDashboardStats(@Query("year") year?: string): Promise<DashboardStats> {
     return this.reportsService.getDashboardStats(
       year ? parseInt(year) : undefined,
     );
@@ -41,7 +41,7 @@ export class ReportsController {
 
   @Get("walk-in-stats")
   @ApiOperation({ summary: "Get walk-in order metrics and monthly trend" })
-  getWalkInStats(@Query("year") year?: string) {
+  getWalkInStats(@Query("year") year?: string): Promise<WalkInStats> {
     return this.reportsService.getWalkInStats(
       year ? parseInt(year) : undefined,
     );

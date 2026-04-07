@@ -3,6 +3,21 @@ import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
 import { Order, OrderDocument } from "../orders/entities/order.entity";
 
+export interface DashboardStats {
+  totalRevenue: number;
+  totalOrders: number;
+  avgOrderValue: number;
+}
+
+export interface WalkInStats {
+  totalWalkInOrders: number;
+  walkInRevenue: number;
+  avgWalkInOrderValue: number;
+  totalOrders: number;
+  walkInPercentage: number;
+  monthlyBreakdown: { month: string; orders: number; revenue: number }[];
+}
+
 @Injectable()
 export class ReportsService {
   constructor(
@@ -10,12 +25,7 @@ export class ReportsService {
   ) {}
 
   // 1. Dashboard Overview (Total Sales, Count, etc.)
-  async getDashboardStats(year?: number) {
-    interface DashboardStats {
-      totalRevenue: number;
-      totalOrders: number;
-      avgOrderValue: number;
-    }
+  async getDashboardStats(year?: number): Promise<DashboardStats> {
     const matchStage = year
       ? {
           $match: {
@@ -39,11 +49,9 @@ export class ReportsService {
       },
     ]);
 
-    const result: DashboardStats =
-      stats.length > 0
-        ? stats[0]!
-        : { totalRevenue: 0, totalOrders: 0, avgOrderValue: 0 };
-    return result;
+    return stats.length > 0
+      ? (stats[0] as DashboardStats)
+      : { totalRevenue: 0, totalOrders: 0, avgOrderValue: 0 };
   }
 
   // 2. Top 5 Selling Items (Most Purchased)
@@ -122,7 +130,7 @@ export class ReportsService {
   }
 
   // 5. Walk-In Order Metrics
-  async getWalkInStats(year?: number) {
+  async getWalkInStats(year?: number): Promise<WalkInStats> {
     const dateFilter = year
       ? {
           createdAt: {

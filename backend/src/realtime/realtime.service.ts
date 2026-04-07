@@ -69,7 +69,14 @@ export class RealtimeService implements OnModuleInit, OnModuleDestroy {
         host: string;
         port: number;
         tls: boolean;
+        // TCP keepalive — sends probes every 15 s to prevent the managed-network
+        // 300-second idle-connection timeout from silently dropping the socket.
+        keepAlive: number;
+        // Exponential backoff: 500 ms, 1 s, 1.5 s … capped at 10 s.
+        reconnectStrategy: (retries: number) => number;
       };
+      // Redis PING sent every 60 s as belt-and-suspenders keepalive.
+      pingInterval: number;
     }) => RedisClientLike;
 
     let createClient: CreateClientFn;
@@ -84,14 +91,27 @@ export class RealtimeService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
+    const reconnectStrategy = (retries: number): number => {
+      const delay = Math.min(retries * 500, 10_000);
+      this.logger.warn(
+        `Valkey reconnecting (attempt ${retries + 1}) in ${delay} ms…`,
+      );
+      return delay;
+    };
+
+    const socketOptions = {
+      host,
+      port,
+      tls: tlsEnabled,
+      keepAlive: 15_000,       // TCP keepalive every 15 s
+      reconnectStrategy,
+    };
+
     const baseClient = createClient({
       username,
       password,
-      socket: {
-        host,
-        port,
-        tls: tlsEnabled,
-      },
+      socket: socketOptions,
+      pingInterval: 60_000,    // Redis PING every 60 s
     });
 
     this.publisher = baseClient;
@@ -102,6 +122,14 @@ export class RealtimeService implements OnModuleInit, OnModuleDestroy {
     });
     this.subscriber.on("error", (error) => {
       this.logger.error(`Valkey subscriber error: ${String(error.message)}`);
+    });
+
+    // Re-enable publishing once the publisher comes back after a reconnect.
+    this.publisher.on("ready", () => {
+      if (!this.redisEnabled) {
+        this.redisEnabled = true;
+        this.logger.log("Valkey publisher reconnected — realtime re-enabled.");
+      }
     });
 
     try {

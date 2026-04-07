@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Poppins } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/lib/theme-provider";
+import { ReactQueryProvider } from "@/lib/react-query-provider";
 
 const poppins = Poppins({
   subsets: ["latin"],
@@ -22,7 +23,9 @@ export default function RootLayout({
   return (
     <html lang="en" className="overflow-x-hidden">
       <body className={`${poppins.className} antialiased overflow-x-hidden`}>
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          <ReactQueryProvider>{children}</ReactQueryProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

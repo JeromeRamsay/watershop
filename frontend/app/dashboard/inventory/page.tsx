@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { SearchBar } from "@/features/inventory/components/search-bar";
@@ -37,6 +37,8 @@ import {
 import api from "@/lib/api";
 import { Supplier } from "@/features/suppliers/types";
 import { useDashboardRealtime } from "@/lib/use-dashboard-realtime";
+import { useInventory, useSuppliers, queryKeys } from "@/lib/queries";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface InventoryApiItem {
   _id?: string;
@@ -74,84 +76,57 @@ export default function InventoryPage() {
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isDetailsLoading, setIsDetailsLoading] = useState(false);
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
-  const [items, setItems] = useState<InventoryItem[]>([]);
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
-  const fetchSuppliers = useCallback(async () => {
-    try {
-      const { data } = await api.get("/suppliers");
-      setSuppliers(
-        data.map((s: Supplier & { _id?: string }) => ({
-          ...s,
-          id: s._id || s.id,
-        })),
-      );
-    } catch (error) {
-      console.error("Failed to fetch suppliers", error);
-    }
-  }, []);
+  const { data: inventoryData, isLoading: l1 } = useInventory();
+  const { data: suppliersData, isLoading: l2 } = useSuppliers();
+  const loading = l1 || l2;
+  const qc = useQueryClient();
+  const invalidate = useCallback(() => {
+    void qc.invalidateQueries({ queryKey: queryKeys.inventory() });
+  }, [qc]);
 
-  const fetchItems = useCallback(async (silent = false) => {
-    try {
-      if (!silent) {
-        setLoading(true);
-      }
-      const { data } = await api.get<InventoryApiItem[]>("/inventory");
-      const sortedItems = [...(data || [])].sort(
-        (a, b) =>
-          new Date(b.createdAt || b.updatedAt || 0).getTime() -
-          new Date(a.createdAt || a.updatedAt || 0).getTime(),
-      );
-      const mappedItems: InventoryItem[] = sortedItems.map((item) => ({
-        id: item._id || item.id || "",
-        sku: item.sku,
-        itemName: item.name,
-        category: item.category,
-        stock: item.stockQuantity,
-        lastUpdated: new Date(item.updatedAt || Date.now()).toLocaleDateString(
-          "en-GB",
-        ),
-        status:
-          item.stockQuantity > (item.lowStockThreshold || 10)
-            ? "In Stock"
-            : item.stockQuantity > 0
-              ? "Low Stock"
-              : "Out Stock",
-        unitType: item.unitType,
-        purchasePrice: item.purchasePrice,
-        sellingPrice: item.sellingPrice,
-        supplier: item.supplier || "",
-        description: item.description || "",
-        lowStockThreshold: item.lowStockThreshold ?? 0,
-        isTaxable: item.isTaxable ?? false,
-        isRefillable: item.isRefillable ?? false,
-        refillPrice: item.refillPrice ?? 0,
-        rentalPrice: item.rentalPrice ?? 0,
-        isActive: item.isActive ?? true,
-        createdAt: item.createdAt || "",
-        updatedAt: item.updatedAt || "",
-      }));
-      setItems(mappedItems);
-    } catch (error) {
-      console.error("Failed to fetch inventory", error);
-    } finally {
-      if (!silent) {
-        setLoading(false);
-      }
-    }
-  }, []);
+  useDashboardRealtime(invalidate);
 
-  useEffect(() => {
-    fetchItems();
-    fetchSuppliers();
-  }, [fetchItems, fetchSuppliers]);
+  const items = useMemo((): InventoryItem[] => {
+    const raw = (inventoryData as InventoryApiItem[] | undefined) ?? [];
+    return [...raw]
+      .sort((a, b) =>
+        new Date(b.createdAt ?? b.updatedAt ?? 0).getTime() -
+        new Date(a.createdAt ?? a.updatedAt ?? 0).getTime(),
+      )
+      .map((item) => {
+        const qty = item.stockQuantity;
+        const status: "In Stock" | "Low Stock" | "Out Stock" =
+          qty > (item.lowStockThreshold ?? 10) ? "In Stock" : qty > 0 ? "Low Stock" : "Out Stock";
+        return {
+          id: item._id ?? item.id ?? "",
+          sku: item.sku,
+          itemName: item.name,
+          category: item.category,
+          stock: qty,
+          lastUpdated: new Date(item.updatedAt ?? Date.now()).toLocaleDateString("en-GB"),
+          status,
+          unitType: item.unitType,
+          purchasePrice: item.purchasePrice,
+          sellingPrice: item.sellingPrice,
+          supplier: item.supplier ?? "",
+          description: item.description ?? "",
+          lowStockThreshold: item.lowStockThreshold ?? 0,
+          isTaxable: item.isTaxable ?? false,
+          isRefillable: item.isRefillable ?? false,
+          refillPrice: item.refillPrice ?? 0,
+          rentalPrice: item.rentalPrice ?? 0,
+          isActive: item.isActive ?? true,
+          createdAt: item.createdAt ?? "",
+          updatedAt: item.updatedAt ?? "",
+        };
+      });
+  }, [inventoryData]);
 
-  useDashboardRealtime(() => {
-    fetchItems(true);
-  });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const suppliers = useMemo((): Supplier[] => ((suppliersData as any[] | undefined) ?? []).map((s: any) => ({ ...s, id: s._id || s.id })), [suppliersData]);
 
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
@@ -449,7 +424,7 @@ export default function InventoryPage() {
       <AddItemModal
         open={isAddModalOpen}
         onOpenChange={setIsAddModalOpen}
-        onSuccess={fetchItems}
+        onSuccess={invalidate}
         categories={categories}
         suppliers={suppliers}
       />
@@ -458,7 +433,7 @@ export default function InventoryPage() {
         open={isEditModalOpen}
         onOpenChange={setIsEditModalOpen}
         item={selectedItem}
-        onSuccess={fetchItems}
+        onSuccess={invalidate}
         categories={categories}
         suppliers={suppliers}
       />
@@ -467,7 +442,7 @@ export default function InventoryPage() {
         open={isDeleteModalOpen}
         onOpenChange={setIsDeleteModalOpen}
         item={selectedItem}
-        onSuccess={fetchItems}
+        onSuccess={invalidate}
       />
 
       <ItemDetailsModal
@@ -477,7 +452,7 @@ export default function InventoryPage() {
         loading={isDetailsLoading}
         categories={categories}
         suppliers={suppliers}
-        onSuccess={fetchItems}
+        onSuccess={invalidate}
         onItemUpdated={setSelectedItem}
       />
     </div>

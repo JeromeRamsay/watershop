@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,19 +24,26 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import Link from "next/link";
-import api from "@/lib/api";
 import { Supplier } from "@/features/suppliers/types";
 import { AddSupplierModal } from "@/features/suppliers/components/add-supplier-modal";
 import { EditSupplierModal } from "@/features/suppliers/components/edit-supplier-modal";
 import { DeleteSupplierModal } from "@/features/suppliers/components/delete-supplier-modal";
+import { useSuppliers, queryKeys } from "@/lib/queries";
+import { useQueryClient } from "@tanstack/react-query";
+import { useDashboardRealtime } from "@/lib/use-dashboard-realtime";
 
 export default function SuppliersPage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: rawSuppliers, isLoading: loading } = useSuppliers();
+  const qc = useQueryClient();
+  const invalidate = useCallback(() => {
+    void qc.invalidateQueries({ queryKey: queryKeys.suppliers() });
+  }, [qc]);
+
+  useDashboardRealtime(invalidate);
 
   // Modal states
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -46,25 +53,8 @@ export default function SuppliersPage() {
     null,
   );
 
-  const fetchSuppliers = useCallback(async () => {
-    setLoading(true);
-    try {
-      const response = await api.get("/suppliers");
-      const data = response.data.map((s: Supplier & { _id?: string }) => ({
-        ...s,
-        id: s._id || s.id,
-      }));
-      setSuppliers(data);
-    } catch (error) {
-      console.error("Failed to fetch suppliers", error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchSuppliers();
-  }, [fetchSuppliers]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const suppliers = useMemo((): Supplier[] => (rawSuppliers as any[] ?? []).map((s: any) => ({ ...s, id: s._id || s.id })), [rawSuppliers]);
 
   // Filter suppliers based on search
   const filteredSuppliers = useMemo(() => {
@@ -341,19 +331,19 @@ export default function SuppliersPage() {
       <AddSupplierModal
         open={isAddModalOpen}
         onOpenChange={setIsAddModalOpen}
-        onSuccess={fetchSuppliers}
+        onSuccess={invalidate}
       />
       <EditSupplierModal
         open={isEditModalOpen}
         onOpenChange={setIsEditModalOpen}
         supplier={selectedSupplier}
-        onSuccess={fetchSuppliers}
+        onSuccess={invalidate}
       />
       <DeleteSupplierModal
         open={isDeleteModalOpen}
         onOpenChange={setIsDeleteModalOpen}
         supplier={selectedSupplier}
-        onSuccess={fetchSuppliers}
+        onSuccess={invalidate}
       />
     </div>
   );

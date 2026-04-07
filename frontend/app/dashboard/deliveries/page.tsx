@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { SearchBar } from "@/features/deliveries/components/search-bar";
 import { DeliveriesTable } from "@/features/deliveries/components/deliveries-table";
@@ -44,6 +44,8 @@ import {
 import Link from "next/link";
 import api from "@/lib/api";
 import { useDashboardRealtime } from "@/lib/use-dashboard-realtime";
+import { useDeliveries, useOrders, queryKeys } from "@/lib/queries";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface DeliveryApiAddress {
   street?: string;
@@ -171,9 +173,6 @@ export default function DeliveriesPage() {
   const [selectedDelivery, setSelectedDelivery] = useState<Delivery | null>(
     null,
   );
-  const [deliveries, setDeliveries] = useState<Delivery[]>([]);
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
@@ -181,84 +180,64 @@ export default function DeliveriesPage() {
     "month",
   );
 
-  const fetchData = useCallback(async (silent = false) => {
-    try {
-      if (!silent) {
-        setLoading(true);
-      }
-      const [deliveriesRes, ordersRes] = await Promise.all([
-        api.get<DeliveryApiResponse[]>("/deliveries"),
-        api.get<DeliveryPageOrderApiResponse[]>("/orders"),
-      ]);
-      const sortedDeliveries = [
-        ...((deliveriesRes.data || []) as DeliveryApiResponse[]),
-      ].sort(
-        (a, b) =>
-          new Date(
-            b.createdAt || b.scheduledDate || b.updatedAt || 0,
-          ).getTime() -
-          new Date(
-            a.createdAt || a.scheduledDate || a.updatedAt || 0,
-          ).getTime(),
-      );
+  const { data: rawDeliveries, isLoading: l1 } = useDeliveries();
+  const { data: rawOrders, isLoading: l2 } = useOrders();
+  const loading = l1 || l2;
+  const qc = useQueryClient();
+  const invalidate = useCallback(() => {
+    void qc.invalidateQueries({ queryKey: queryKeys.deliveries() });
+    void qc.invalidateQueries({ queryKey: queryKeys.orders() });
+  }, [qc]);
 
-      const mappedDeliveries: Delivery[] = sortedDeliveries.map(mapApiDelivery);
-      setDeliveries(mappedDeliveries);
+  useDashboardRealtime(invalidate);
 
-      const mappedOrders: Order[] = [...(ordersRes.data || [])]
-        .sort(
-          (a, b) =>
-            new Date(b.createdAt || 0).getTime() -
-            new Date(a.createdAt || 0).getTime(),
-        )
-        .map((order) => {
-          const deliveryIso = order.deliveryDate;
-          const deliveryDateOnly = deliveryIso
-            ? new Date(deliveryIso).toISOString().split("T")[0]
-            : "";
-          const deliveryTimeOnly = deliveryIso
-            ? new Date(deliveryIso).toISOString().split("T")[1]?.slice(0, 5)
-            : "";
-          return {
-            id: order._id,
-            orderId: `ORD-${order._id.slice(-6).toUpperCase()}`,
-            customerId_raw:
-              typeof order.customer === "object"
-                ? order.customer?._id
-                : order.customer,
-            customer: `${order.customer?.firstName} ${order.customer?.lastName}`,
-            customerEmail: order.customer?.email,
-            customerPhone: order.customer?.phone,
-            items: [],
-            totalPrice: order.grandTotal ?? 0,
-            deliveryType: order.isDelivery ? "Delivery" : "Pickup",
-            remainingCredits: 0,
-            orderStatus: (order.status || "Pending") as Order["orderStatus"],
-            paymentStatus: (order.paymentStatus ||
-              "Unpaid") as Order["paymentStatus"],
-            deliveryAddress: order.deliveryAddress || "",
-            scheduledDate: deliveryDateOnly,
-            scheduledTime: deliveryTimeOnly,
-            createdAt: order.createdAt || "",
-          };
-        });
-      setOrders(mappedOrders);
-    } catch (error) {
-      console.error("Failed to fetch deliveries data", error);
-    } finally {
-      if (!silent) {
-        setLoading(false);
-      }
-    }
-  }, []);
+  const deliveries = useMemo((): Delivery[] => {
+    const raw = (rawDeliveries as DeliveryApiResponse[] | undefined) ?? [];
+    return [...raw]
+      .sort((a, b) =>
+        new Date(b.createdAt ?? b.scheduledDate ?? b.updatedAt ?? 0).getTime() -
+        new Date(a.createdAt ?? a.scheduledDate ?? a.updatedAt ?? 0).getTime(),
+      )
+      .map(mapApiDelivery);
+  }, [rawDeliveries]);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  useDashboardRealtime(() => {
-    fetchData(true);
-  });
+  const orders = useMemo((): Order[] => {
+    const raw = (rawOrders as DeliveryPageOrderApiResponse[] | undefined) ?? [];
+    return [...raw]
+      .sort((a, b) =>
+        new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime(),
+      )
+      .map((order) => {
+        const deliveryIso = order.deliveryDate;
+        const deliveryDateOnly = deliveryIso
+          ? new Date(deliveryIso).toISOString().split("T")[0]
+          : "";
+        const deliveryTimeOnly = deliveryIso
+          ? new Date(deliveryIso).toISOString().split("T")[1]?.slice(0, 5)
+          : "";
+        return {
+          id: order._id,
+          orderId: `ORD-${order._id.slice(-6).toUpperCase()}`,
+          customerId_raw:
+            typeof order.customer === "object"
+              ? order.customer?._id
+              : order.customer,
+          customer: `${order.customer?.firstName ?? ""} ${order.customer?.lastName ?? ""}`.trim() || "Walk-in Customer",
+          customerEmail: order.customer?.email,
+          customerPhone: order.customer?.phone,
+          items: [],
+          totalPrice: order.grandTotal ?? 0,
+          deliveryType: order.isDelivery ? "Delivery" : "Pickup",
+          remainingCredits: 0,
+          orderStatus: (order.status ?? "Pending") as Order["orderStatus"],
+          paymentStatus: (order.paymentStatus ?? "Unpaid") as Order["paymentStatus"],
+          deliveryAddress: order.deliveryAddress ?? "",
+          scheduledDate: deliveryDateOnly,
+          scheduledTime: deliveryTimeOnly,
+          createdAt: order.createdAt ?? "",
+        };
+      });
+  }, [rawOrders]);
 
   const filteredDeliveries = useMemo(() => {
     return deliveries.filter((delivery) => {
@@ -292,7 +271,7 @@ export default function DeliveriesPage() {
         timeSlot: data.dateTime.split(" ")[1] || "",
       };
       await api.patch(`/deliveries/${data.id}`, payload);
-      fetchData();
+      invalidate();
     } catch (err) {
       console.error("Failed to update delivery", err);
     }
@@ -307,7 +286,7 @@ export default function DeliveriesPage() {
       await api.patch(`/deliveries/${deliveryId}`, {
         status: status.toLowerCase().replace(/\s+/g, "_"),
       });
-      fetchData();
+      invalidate();
     } catch (err) {
       console.error("Failed to update delivery status", err);
     }
@@ -338,7 +317,7 @@ export default function DeliveriesPage() {
     if (selectedDelivery) {
       try {
         await api.delete(`/deliveries/${selectedDelivery.id}`);
-        fetchData();
+        invalidate();
       } catch (err) {
         console.error("Failed to delete delivery", err);
       }
@@ -380,7 +359,7 @@ export default function DeliveriesPage() {
           customerId: linkedOrder?.customerId_raw,
         });
       }
-      fetchData();
+      invalidate();
       setIsScheduleModalOpen(false);
     } catch (err) {
       console.error("Failed to schedule delivery", err);

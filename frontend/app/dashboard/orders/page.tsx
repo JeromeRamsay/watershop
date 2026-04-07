@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { SearchBar } from "@/features/orders/components/search-bar";
 import { OrdersTable } from "@/features/orders/components/orders-table";
@@ -43,6 +43,8 @@ import {
 import Link from "next/link";
 import api from "@/lib/api";
 import { useDashboardRealtime } from "@/lib/use-dashboard-realtime";
+import { useOrders, queryKeys } from "@/lib/queries";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface OrderApiCustomer {
   _id?: string;
@@ -160,40 +162,23 @@ export default function OrdersPage() {
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isDetailsLoading, setIsDetailsLoading] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
-  const fetchOrders = useCallback(async (silent = false) => {
-    try {
-      if (!silent) {
-        setLoading(true);
-      }
-      const { data } = await api.get<OrderApiResponse[]>("/orders");
-      const sortedOrders = [...(data || [])].sort((a, b) => {
-        const aTime = new Date(a.createdAt || 0).getTime();
-        const bTime = new Date(b.createdAt || 0).getTime();
-        return bTime - aTime;
-      });
-      const mappedOrders: Order[] = sortedOrders.map(mapApiOrderToOrder);
-      setOrders(mappedOrders);
-    } catch (error) {
-      console.error("Failed to fetch orders", error);
-    } finally {
-      if (!silent) {
-        setLoading(false);
-      }
-    }
-  }, []);
+  const { data: rawOrders, isLoading: loading } = useOrders();
+  const qc = useQueryClient();
+  const invalidate = useCallback(() => {
+    void qc.invalidateQueries({ queryKey: queryKeys.orders() });
+  }, [qc]);
 
-  useEffect(() => {
-    fetchOrders();
-  }, [fetchOrders]);
+  useDashboardRealtime(invalidate);
 
-  useDashboardRealtime(() => {
-    fetchOrders(true);
-  });
+  const orders = useMemo((): Order[] => {
+    const raw = (rawOrders as OrderApiResponse[] | undefined) ?? [];
+    return [...raw]
+      .sort((a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime())
+      .map(mapApiOrderToOrder);
+  }, [rawOrders]);
 
   // Filter and search orders
   const filteredOrders = useMemo(() => {
@@ -232,8 +217,7 @@ export default function OrdersPage() {
   };
 
   const handleUpdate = () => {
-    // Optimistic update or refresh
-    fetchOrders();
+    invalidate();
     setSelectedOrder(null);
   };
 
@@ -245,7 +229,7 @@ export default function OrdersPage() {
       await api.patch(`/orders/${orderId}/status`, {
         status: status.toLowerCase(),
       });
-      fetchOrders();
+      invalidate();
     } catch (error) {
       console.error("Failed to update order status", error);
     }
@@ -279,9 +263,9 @@ export default function OrdersPage() {
         // @Delete(':id') remove(@Param('id') id: string) ...
         // It IS implemented.
         await api.delete(`/orders/${selectedOrder.id}`);
-        fetchOrders();
+        invalidate();
         setSelectedOrder(null);
-        setIsDeleteModalOpen(false); // Close modal
+        setIsDeleteModalOpen(false);
       } catch (error) {
         console.error("Failed to delete order", error);
       }

@@ -10,7 +10,7 @@ export interface InventoryItem {
   id: string;
   product: string;
   stockLeft: number;
-  status: "In Stock" | "Low Stock";
+  status: "In Stock" | "Low Stock" | "Out of Stock";
 }
 
 export interface QuickAction {

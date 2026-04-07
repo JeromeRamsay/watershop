@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { SearchBar } from "@/features/customers/components/search-bar";
@@ -32,39 +32,46 @@ import {
 } from "@/components/ui/select";
 import api from "@/lib/api";
 import { useDashboardRealtime } from "@/lib/use-dashboard-realtime";
+import { useCustomers, queryKeys } from "@/lib/queries";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function CustomersPage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
-  const [filters, setFilters] = useState<CustomerFilters>({
-    customerType: "All",
-    status: "All",
-  });
+  const [filters, setFilters] = useState<CustomerFilters>({ customerType: "All", status: "All" });
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
-    null,
-  );
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalRecords, setTotalRecords] = useState(0);
 
+  const typeQuery = filters.customerType === "All" ? undefined : filters.customerType.toLowerCase();
+
+  const { data, isLoading: loading } = useCustomers({
+    page: currentPage,
+    limit: itemsPerPage,
+    q: searchQuery.trim() || undefined,
+    type: typeQuery,
+  });
+
+  const qc = useQueryClient();
+  const invalidate = useCallback(() => {
+    void qc.invalidateQueries({ queryKey: queryKeys.customers() });
+  }, [qc]);
+
+  useDashboardRealtime(invalidate);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mapCustomer = useCallback((c: any): Customer => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const defaultAddress = c.addresses?.find((a: any) => a.isDefault) || c.addresses?.[0];
     const addressStr = defaultAddress
       ? `${defaultAddress.street || ""}${defaultAddress.city ? `, ${defaultAddress.city}` : ""}`.trim()
       : "No Address";
-    const creditsLeft =
-      c.wallet?.prepaidItems?.reduce(
-        (sum: number, item: any) => sum + (item.quantityRemaining || 0),
-        0,
-      ) || 0;
-
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const creditsLeft = c.wallet?.prepaidItems?.reduce((sum: number, item: any) => sum + (item.quantityRemaining || 0), 0) || 0;
     return {
       id: c._id,
       name: `${c.firstName || ""} ${c.lastName || ""}`.trim(),
@@ -74,8 +81,7 @@ export default function CustomersPage() {
       orders: Number(c.orders || 0),
       creditsLeft,
       prepaidItems: c.wallet?.prepaidItems || [],
-      familyGroup:
-        c.familyMembers?.length > 0 ? `${c.familyMembers.length} Members` : null,
+      familyGroup: c.familyMembers?.length > 0 ? `${c.familyMembers.length} Members` : null,
       customerType: c.type === "business" ? "Business" : "Individual",
       status: "Active",
       totalRefills: Number(c.totalRefills || 0),
@@ -83,57 +89,9 @@ export default function CustomersPage() {
     };
   }, []);
 
-  const fetchCustomers = useCallback(async (silent = false) => {
-    try {
-      if (!silent) {
-        setLoading(true);
-      }
-      const typeQuery =
-        filters.customerType === "All"
-          ? ""
-          : filters.customerType.toLowerCase();
-      const { data } = await api.get("/customers", {
-        params: {
-          page: currentPage,
-          limit: itemsPerPage,
-          q: searchQuery.trim() || undefined,
-          type: typeQuery || undefined,
-        },
-      });
-
-      const mappedCustomers: Customer[] = (data?.data || []).map(mapCustomer);
-      setCustomers(mappedCustomers);
-      setTotalPages(Number(data?.pagination?.totalPages || 1));
-      setTotalRecords(Number(data?.pagination?.total || 0));
-    } catch (error) {
-      console.error("Failed to fetch customers", error);
-    } finally {
-      if (!silent) {
-        setLoading(false);
-      }
-    }
-  }, [
-    currentPage,
-    filters.customerType,
-    itemsPerPage,
-    mapCustomer,
-    searchQuery,
-  ]);
-
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      fetchCustomers();
-    }, 300);
-    return () => clearTimeout(timeout);
-  }, [fetchCustomers]);
-
-  useDashboardRealtime(() => {
-    fetchCustomers(true);
-  });
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [itemsPerPage, filters.customerType, searchQuery]);
+  const customers: Customer[] = (data?.data || []).map(mapCustomer);
+  const totalPages  = Number(data?.pagination?.totalPages || 1);
+  const totalRecords = Number(data?.pagination?.total || 0);
 
   const handleEdit = (customer: Customer) => {
     router.push(`/dashboard/customers/${customer.id}/edit`);
@@ -153,9 +111,9 @@ export default function CustomersPage() {
     if (selectedCustomer) {
       try {
         await api.delete(`/customers/${selectedCustomer.id}`);
-        fetchCustomers(true);
+        invalidate();
         setSelectedCustomer(null);
-        setIsDeleteModalOpen(false); // Make sure to close modal
+        setIsDeleteModalOpen(false);
       } catch (error) {
         console.error("Failed to delete customer", error);
       }
@@ -393,7 +351,7 @@ export default function CustomersPage() {
       <CreateCustomerModal
         open={isCreateModalOpen}
         onOpenChange={setIsCreateModalOpen}
-        onSuccess={fetchCustomers}
+        onSuccess={invalidate}
       />
 
       <DeleteCustomerModal

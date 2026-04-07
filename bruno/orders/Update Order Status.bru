@@ -1,0 +1,26 @@
+meta {
+  name: Update Order Status
+  type: http
+  seq: 5
+}
+
+patch {
+  url: {{baseUrl}}/orders/:id/status
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+params:path {
+  id: 64b1f000000000000000020
+}
+
+body:json {
+  {
+    "status": "paid"
+  }
+}
+

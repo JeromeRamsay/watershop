@@ -1,0 +1,20 @@
+meta {
+  name: Top Customers by Spending
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/reports/top-customers
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+params:query {
+  ~year: 2026
+}
+

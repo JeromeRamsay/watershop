@@ -1,0 +1,27 @@
+meta {
+  name: Update Settings
+  type: http
+  seq: 2
+}
+
+patch {
+  url: {{baseUrl}}/settings
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "storeName": "Watershop",
+    "address": "1 Main St, Woodstock, NY 12400",
+    "phone": "555-000-1111",
+    "email": "info@watershop.com",
+    "taxRate": 8.5,
+    "currency": "USD"
+  }
+}
+

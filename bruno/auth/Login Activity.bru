@@ -1,0 +1,20 @@
+meta {
+  name: Login Activity
+  type: http
+  seq: 9
+}
+
+get {
+  url: {{baseUrl}}/users/login-activity
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+params:query {
+  limit: 50
+}
+

@@ -1,0 +1,20 @@
+meta {
+  name: Walk-In Stats
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/reports/walk-in-stats
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+params:query {
+  ~year: 2026
+}
+

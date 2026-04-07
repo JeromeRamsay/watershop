@@ -1,0 +1,20 @@
+meta {
+  name: Top Selling Items
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/reports/top-items
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+params:query {
+  ~year: 2026
+}
+

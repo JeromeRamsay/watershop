@@ -1,0 +1,20 @@
+meta {
+  name: Get Delivery
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/deliveries/:id
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+params:path {
+  id: 64b1f000000000000000030
+}
+

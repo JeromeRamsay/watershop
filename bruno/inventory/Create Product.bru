@@ -1,0 +1,36 @@
+meta {
+  name: Create Product
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/inventory
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "name": "18L Alkalized Water Refill",
+    "sku": "WAT-18L-REF",
+    "category": "Water",
+    "description": "Refill for standard 18L bottle",
+    "stockQuantity": 100,
+    "unitType": "refill",
+    "lowStockThreshold": 10,
+    "purchasePrice": 2.5,
+    "sellingPrice": 5.0,
+    "supplier": "AquaPure Suppliers",
+    "isRefillable": true,
+    "refillPrice": 3.0,
+    "rentalPrice": 0,
+    "isTaxable": true,
+    "isActive": true
+  }
+}
+

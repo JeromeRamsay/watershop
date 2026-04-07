@@ -1,0 +1,27 @@
+meta {
+  name: Update User
+  type: http
+  seq: 6
+}
+
+patch {
+  url: {{baseUrl}}/users/:id
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+params:path {
+  id: 64b1f000000000000000001
+}
+
+body:json {
+  {
+    "firstName": "Jane",
+    "lastName": "Updated"
+  }
+}
+

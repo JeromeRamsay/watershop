@@ -1,0 +1,37 @@
+meta {
+  name: Create Customer
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/customers
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "type": "individual",
+    "firstName": "John",
+    "lastName": "Doe",
+    "email": "john.doe@example.com",
+    "phone": "555-123-4567",
+    "addresses": [
+      {
+        "label": "Home",
+        "street": "123 Water St",
+        "city": "Woodstock",
+        "state": "NY",
+        "zipCode": "12400",
+        "country": "USA",
+        "isDefault": true
+      }
+    ]
+  }
+}
+

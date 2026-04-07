@@ -1,0 +1,26 @@
+meta {
+  name: Create Staff Account
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/users/staff
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "firstName": "Jane",
+    "lastName": "Smith",
+    "username": "jsmith",
+    "password": "staff123",
+    "role": "staff"
+  }
+}
+

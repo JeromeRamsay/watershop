@@ -1,0 +1,28 @@
+meta {
+  name: Update Order
+  type: http
+  seq: 6
+}
+
+patch {
+  url: {{baseUrl}}/orders/:id
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+params:path {
+  id: 64b1f000000000000000020
+}
+
+body:json {
+  {
+    "discount": 5,
+    "paymentStatus": "paid",
+    "deliveryAddress": "456 New St, Woodstock, NY"
+  }
+}
+

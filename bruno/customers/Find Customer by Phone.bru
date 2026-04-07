@@ -1,0 +1,20 @@
+meta {
+  name: Find Customer by Phone
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/customers/by-phone
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+params:query {
+  phone: 555-123-4567
+}
+

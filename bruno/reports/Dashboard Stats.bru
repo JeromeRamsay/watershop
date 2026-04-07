@@ -1,0 +1,20 @@
+meta {
+  name: Dashboard Stats
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/reports/dashboard
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+params:query {
+  ~year: 2026
+}
+

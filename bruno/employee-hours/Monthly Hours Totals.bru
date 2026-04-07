@@ -1,0 +1,21 @@
+meta {
+  name: Monthly Hours Totals
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/employee-hours/monthly
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+params:query {
+  ~year: 2026
+  ~userId: 64b1f000000000000000001
+}
+

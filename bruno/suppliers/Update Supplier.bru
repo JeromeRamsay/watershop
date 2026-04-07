@@ -1,0 +1,27 @@
+meta {
+  name: Update Supplier
+  type: http
+  seq: 4
+}
+
+patch {
+  url: {{baseUrl}}/suppliers/:id
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+params:path {
+  id: 64b1f000000000000000040
+}
+
+body:json {
+  {
+    "phone": "555-800-9999",
+    "email": "updated@aquapure.com"
+  }
+}
+

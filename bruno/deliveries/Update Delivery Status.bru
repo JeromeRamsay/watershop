@@ -1,0 +1,26 @@
+meta {
+  name: Update Delivery Status
+  type: http
+  seq: 4
+}
+
+patch {
+  url: {{baseUrl}}/deliveries/:id
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+params:path {
+  id: 64b1f000000000000000030
+}
+
+body:json {
+  {
+    "status": "delivered"
+  }
+}
+

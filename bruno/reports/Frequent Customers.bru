@@ -1,0 +1,20 @@
+meta {
+  name: Frequent Customers
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/reports/frequent-customers
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+params:query {
+  ~year: 2026
+}
+

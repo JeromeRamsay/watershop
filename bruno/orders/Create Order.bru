@@ -1,0 +1,35 @@
+meta {
+  name: Create Order
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/orders
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "customerId": "64b1f000000000000000001",
+    "items": [
+      {
+        "itemId": "64b1f000000000000000010",
+        "quantity": 2,
+        "isPrepaidRedemption": false,
+        "isRefill": false
+      }
+    ],
+    "paymentMethod": "cash",
+    "paymentStatus": "paid",
+    "discount": 0,
+    "isDelivery": false,
+    "emailReceipt": false
+  }
+}
+

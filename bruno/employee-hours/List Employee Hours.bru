@@ -1,0 +1,22 @@
+meta {
+  name: List Employee Hours
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/employee-hours
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+params:query {
+  ~userId: 64b1f000000000000000001
+  ~from: 2026-04-01
+  ~to: 2026-04-30
+}
+

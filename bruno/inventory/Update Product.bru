@@ -1,0 +1,28 @@
+meta {
+  name: Update Product
+  type: http
+  seq: 4
+}
+
+patch {
+  url: {{baseUrl}}/inventory/:id
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+params:path {
+  id: 64b1f000000000000000010
+}
+
+body:json {
+  {
+    "sellingPrice": 6.0,
+    "stockQuantity": 150,
+    "lowStockThreshold": 15
+  }
+}
+

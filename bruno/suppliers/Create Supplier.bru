@@ -1,0 +1,26 @@
+meta {
+  name: Create Supplier
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/suppliers
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "name": "AquaPure Suppliers",
+    "phone": "555-800-1234",
+    "email": "contact@aquapure.com",
+    "address": "99 Industrial Blvd, Woodstock, NY 12400",
+    "isActive": true
+  }
+}
+

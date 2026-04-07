@@ -1,0 +1,26 @@
+meta {
+  name: Log Employee Hours
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/employee-hours
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "userId": "64b1f000000000000000001",
+    "workDate": "2026-04-07",
+    "hours": 8,
+    "notes": "Full shift",
+    "createdBy": "64b1f000000000000000001"
+  }
+}
+

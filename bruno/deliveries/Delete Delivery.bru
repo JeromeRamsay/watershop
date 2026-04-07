@@ -1,0 +1,20 @@
+meta {
+  name: Delete Delivery
+  type: http
+  seq: 5
+}
+
+delete {
+  url: {{baseUrl}}/deliveries/:id
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+params:path {
+  id: 64b1f000000000000000030
+}
+

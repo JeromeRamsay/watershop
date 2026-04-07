@@ -1,0 +1,29 @@
+meta {
+  name: Kiosk Refill Redemption
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/refills
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "phone": "5551234567",
+    "memberName": "John Doe",
+    "items": [
+      {
+        "itemId": "64b1f000000000000000010",
+        "quantity": 1
+      }
+    ]
+  }
+}
+

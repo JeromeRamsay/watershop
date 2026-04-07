@@ -4,6 +4,9 @@ backend/node_modules/
 # Build output
 dist/
 
+# MCP config (contains secrets — never commit)
+.mcp.json
+
 # Environment files
 .env
 .env.local

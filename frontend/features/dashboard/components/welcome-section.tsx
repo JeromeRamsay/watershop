@@ -21,13 +21,11 @@ export function WelcomeSection({ userName = "John Doe" }: WelcomeSectionProps) {
         </h1>
       </div>
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto">
+        {/* UI-4: replaced readOnly <input> with a non-interactive display element */}
         <div className="relative">
-          <input
-            type="text"
-            readOnly
-            value={todayLabel}
-            className="h-10 px-3 pr-9 rounded-xl border border-dark-200 dark:border-dark-600 bg-white dark:bg-dark-700 text-dark-900 dark:text-white focus:outline-none text-sm w-full sm:w-auto"
-          />
+          <span className="flex h-10 items-center px-3 pr-9 rounded-xl border border-dark-200 dark:border-dark-600 bg-white dark:bg-dark-700 text-dark-900 dark:text-white text-sm w-full sm:w-auto select-none">
+            {todayLabel}
+          </span>
           <Calendar className="absolute right-2.5 top-2.5 w-4 h-4 text-dark-400 dark:text-dark-500 pointer-events-none" />
         </div>
         <Link href="/dashboard/orders/new">

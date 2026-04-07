@@ -1,9 +1,16 @@
 "use client";
 
+import { useState, useMemo } from "react";
 import { InventoryItem } from "../types";
 import { Edit, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import {
+  SortableHeader,
+  SortState,
+  toggleSort,
+  applySortToItems,
+} from "@/components/ui/sortable-header";
 
 interface InventoryTableProps {
   items: InventoryItem[];
@@ -12,26 +19,21 @@ interface InventoryTableProps {
   onRowClick: (item: InventoryItem) => void;
 }
 
-/** Matches the small blue double-triangle sort icon in the design */
-function SortIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 10 12"
-      className={cn("h-3 w-3", className)}
-      aria-hidden="true"
-    >
-      <path d="M5 0L9 4H1L5 0Z" fill="#0EA5E9" />
-      <path d="M5 12L1 8H9L5 12Z" fill="#0EA5E9" />
-    </svg>
-  );
-}
-
 export function InventoryTable({
   items,
   onEdit,
   onDelete,
   onRowClick,
 }: InventoryTableProps) {
+  const [sort, setSort] = useState<SortState | null>(null);
+
+  const handleSort = (key: string) => setSort((prev) => toggleSort(prev, key));
+
+  const sortedItems = useMemo(
+    () => applySortToItems(items as unknown as Record<string, unknown>[], sort) as unknown as InventoryItem[],
+    [items, sort],
+  );
+
   const getStatusStyles = (status: string) => {
     switch (status.toLowerCase()) {
       case "in stock":
@@ -47,55 +49,25 @@ export function InventoryTable({
     }
   };
 
+  const thCls = "px-4 py-2.5 text-left text-xs font-bold text-[#6B7280]";
+
   return (
     <div className="w-full overflow-x-auto">
       <table className="w-full min-w-[900px] border-collapse">
         <thead>
           <tr className="border-b border-[#EEF2F7] bg-white">
-            <th className="px-4 py-2.5 text-left text-xs font-bold text-[#6B7280]">
-              <div className="inline-flex items-center gap-2 ">
-                SKU/Item Code
-                <SortIcon />
-              </div>
-            </th>
-            <th className="px-4 py-2.5 text-left text-xs font-bold text-[#6B7280]">
-              <div className="inline-flex items-center gap-2">
-                Item Name
-                <SortIcon />
-              </div>
-            </th>
-            <th className="px-4 py-2.5 text-left text-xs font-bold text-[#6B7280]">
-              <div className="inline-flex items-center gap-2">
-                Category
-                <SortIcon />
-              </div>
-            </th>
-            <th className="px-4 py-2.5 text-left text-xs font-bold text-[#6B7280]">
-              <div className="inline-flex items-center gap-2">
-                Stock
-                <SortIcon />
-              </div>
-            </th>
-            <th className="px-4 py-2.5 text-left text-xs font-bold text-[#6B7280]">
-              <div className="inline-flex items-center gap-2">
-                Last Updated
-                <SortIcon />
-              </div>
-            </th>
-            <th className="px-4 py-2.5 text-left text-xs font-bold text-[#6B7280]">
-              <div className="inline-flex items-center gap-2">
-                Status
-                <SortIcon />
-              </div>
-            </th>
-            <th className="px-4 py-2.5 text-center text-xs font-bold text-[#6B7280]">
-              Actions
-            </th>
+            <SortableHeader label="SKU/Item Code" sortKey="sku" sort={sort} onSort={handleSort} className={thCls} />
+            <SortableHeader label="Item Name" sortKey="itemName" sort={sort} onSort={handleSort} className={thCls} />
+            <SortableHeader label="Category" sortKey="category" sort={sort} onSort={handleSort} className={thCls} />
+            <SortableHeader label="Stock" sortKey="stock" sort={sort} onSort={handleSort} className={thCls} />
+            <SortableHeader label="Last Updated" sortKey="lastUpdated" sort={sort} onSort={handleSort} className={thCls} />
+            <SortableHeader label="Status" sortKey="status" sort={sort} onSort={handleSort} className={thCls} />
+            <th className={cn(thCls, "text-center")}>Actions</th>
           </tr>
         </thead>
 
         <tbody>
-          {items.map((item, index) => (
+          {sortedItems.map((item, index) => (
             <tr
               key={`${item.id ?? item.sku}-${index}`}
               className="border-b border-[#F1F5F9] last:border-0 hover:bg-[#FAFBFC] cursor-pointer"

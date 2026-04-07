@@ -26,26 +26,9 @@ import {
   useDeliveries,
   useNotifications,
   useEmployeeHours,
-  useHoursSummary,
 } from "@/lib/queries";
 import { useQueryClient } from "@tanstack/react-query";
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function timeAgo(date: string | Date) {
-  if (!date) return "Unknown time";
-  const now = new Date();
-  const past = new Date(date);
-  const diffInMs = now.getTime() - past.getTime();
-  const seconds = Math.floor(diffInMs / 1000);
-  if (seconds < 60) return "Just Now";
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  return past.toLocaleDateString();
-}
+import { formatFullDate } from "@/lib/utils";
 
 export default function DashboardPage() {
   const userInfo = (() => {
@@ -56,12 +39,6 @@ export default function DashboardPage() {
   const userId   = userInfo?.id;
   const isStaff  = userRole === "staff";
 
-  // Week range for staff hours
-  const weekStart = (() => {
-    const d = new Date(); const day = d.getDay();
-    d.setDate(d.getDate() - day + (day === 0 ? -6 : 1)); d.setHours(0,0,0,0); return d;
-  })();
-  const weekEnd = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 6); weekEnd.setHours(23,59,59,999);
 
   // ── All data via React Query (cached, background-refreshed) ──────────────
   const { data: stats,         isLoading: l1 } = useDashboardStats();
@@ -70,9 +47,6 @@ export default function DashboardPage() {
   const { data: deliveriesData,isLoading: l4 } = useDeliveries();
   const { data: notifData,     isLoading: l5 } = useNotifications();
 
-  const { data: weekSummaryData } = useHoursSummary(
-    isStaff && userId ? { userId, from: weekStart.toISOString(), to: weekEnd.toISOString() } : {}
-  );
   const { data: recentHoursData } = useEmployeeHours(
     isStaff && userId ? { userId } : {}
   );
@@ -145,11 +119,10 @@ export default function DashboardPage() {
   const notificationsList = (notifData as any[] ?? []).map((n: any) => ({
     id: n._id,
     message: n.message,
-    timestamp: timeAgo(n.createdAt || new Date()),
+    timestamp: formatFullDate(n.createdAt || new Date()),
     icon: AlertTriangle,
   }));
 
-  const myWeekHours = Number(weekSummaryData?.[0]?.totalHours ?? 0);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const myRecentHours: { id: string; date: string; hours: number; notes?: string }[] =
     (recentHoursData as any[] ?? []).slice(0, 4).map((entry: any) => ({
@@ -229,24 +202,19 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Bottom Section - 2 Columns */}
+      {/* Bottom Section */}
       {userRole === "staff" ? (
         <div className="grid gap-3 grid-cols-1 md:grid-cols-12">
-          <div className="md:col-span-5">
+          <div className="md:col-span-6">
             <UpcomingDeliveries deliveries={deliveries} />
           </div>
-          <div className="md:col-span-3 bg-white dark:bg-dark-700 rounded-xl border border-dark-200 dark:border-dark-600 shadow-sm p-4">
-            <h3 className="text-sm font-semibold text-dark-900 dark:text-white">My Hours This Week</h3>
-            <p className="text-3xl font-bold text-primary-600 mt-2">{myWeekHours.toFixed(2)}h</p>
-            <p className="text-xs text-dark-500 mt-2">Keep logging daily hours from the Hours page.</p>
-          </div>
-          <div className="md:col-span-4 bg-white dark:bg-dark-700 rounded-xl border border-dark-200 dark:border-dark-600 shadow-sm p-4">
+          <div className="md:col-span-6 bg-white dark:bg-dark-700 rounded-xl border border-dark-200 dark:border-dark-600 shadow-sm p-4">
             <h3 className="text-sm font-semibold text-dark-900 dark:text-white mb-2">Recent Logged Hours</h3>
             <div className="space-y-2">
               {myRecentHours.length > 0 ? (
                 myRecentHours.map((entry: { id: string; date: string; hours: number; notes?: string }) => (
                   <div key={entry.id} className="flex justify-between text-xs border-b border-dark-200 dark:border-dark-600 pb-1">
-                    <span>{new Date(entry.date).toLocaleDateString()}</span>
+                    <span>{formatFullDate(entry.date)}</span>
                     <span className="font-semibold">{entry.hours.toFixed(2)}h</span>
                   </div>
                 ))

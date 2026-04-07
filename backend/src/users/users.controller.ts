@@ -3,18 +3,21 @@ import { UsersService } from "./users.service";
 import { RegisterDto, LoginDto } from "./dto/auth.dto";
 import { ApiTags, ApiOperation } from "@nestjs/swagger";
 import { CreateManagedUserDto, UpdateManagedUserDto } from "./dto/manage-user.dto";
+import { Public } from "../auth/public.decorator";
 
 @ApiTags("Users & Auth")
 @Controller("users")
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
+  @Public()
   @Post("register")
   @ApiOperation({ summary: "Register new staff/admin" })
   register(@Body() registerDto: RegisterDto) {
     return this.usersService.register(registerDto);
   }
 
+  @Public()
   @Post("login")
   @ApiOperation({ summary: "Login to get Access Token" })
   login(@Body() loginDto: LoginDto) {

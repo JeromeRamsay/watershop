@@ -130,25 +130,19 @@ export function PaymentMethodModal({
             </RadioGroup>
           </div>
 
-          {/* Balance and Total Display */}
+          {/* Balance and Total Display — UI-4: computed values shown as labels */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Balance ($)</Label>
-              <Input
-                type="number"
-                value={calculateBalance().toFixed(2)}
-                readOnly
-                className="bg-dark-50"
-              />
+              <p className="flex h-10 items-center rounded-md border border-input bg-dark-50 px-3 text-sm text-dark-700 dark:bg-dark-800 dark:text-dark-300 select-text">
+                {calculateBalance().toFixed(2)}
+              </p>
             </div>
             <div className="space-y-2">
               <Label>Total ($)</Label>
-              <Input
-                type="number"
-                value={totalAmount.toFixed(2)}
-                readOnly
-                className="bg-dark-50"
-              />
+              <p className="flex h-10 items-center rounded-md border border-input bg-dark-50 px-3 text-sm text-dark-700 dark:bg-dark-800 dark:text-dark-300 select-text">
+                {totalAmount.toFixed(2)}
+              </p>
             </div>
           </div>
 

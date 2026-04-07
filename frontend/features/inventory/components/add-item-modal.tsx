@@ -31,6 +31,7 @@ import api from "@/lib/api";
 import { Loader2 } from "lucide-react";
 import { Supplier } from "@/features/suppliers/types";
 import { SupplierSelect } from "./supplier-select";
+import { inventoryItemSchema } from "@/lib/schemas";
 
 interface AddItemModalProps {
   open: boolean;
@@ -48,6 +49,7 @@ export function AddItemModal({
   suppliers,
 }: AddItemModalProps) {
   const [loading, setLoading] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formData, setFormData] = useState({
     itemName: "",
     category: "",
@@ -66,6 +68,32 @@ export function AddItemModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setFieldErrors({});
+
+    // ── Zod validation ───────────────────────────────────────────────────
+    const parsed = inventoryItemSchema.safeParse({
+      itemName: formData.itemName,
+      category: formData.category,
+      sku: formData.sku,
+      stock: formData.stock,
+      unitType: formData.unitType,
+      purchasePrice: formData.purchasePrice,
+      sellingPrice: formData.sellingPrice,
+      supplier: formData.supplier,
+      description: formData.description,
+      refillPrice: formData.refillPrice || undefined,
+      rentalPrice: formData.rentalPrice || undefined,
+    });
+    if (!parsed.success) {
+      const errs: Record<string, string> = {};
+      for (const issue of parsed.error.issues) {
+        const key = String(issue.path[0]);
+        errs[key] = issue.message;
+      }
+      setFieldErrors(errs);
+      setLoading(false);
+      return;
+    }
 
     try {
       const payload = {
@@ -149,6 +177,11 @@ export function AddItemModal({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-5">
+          {Object.keys(fieldErrors).length > 0 && (
+            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              Please fix the errors below before saving.
+            </div>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className={fieldWrap}>
               <Label className={labelCls} htmlFor="itemName">
@@ -164,6 +197,7 @@ export function AddItemModal({
                 placeholder="Please Enter"
                 required
               />
+              {fieldErrors.itemName && <p className="text-xs text-red-600">{fieldErrors.itemName}</p>}
             </div>
 
             <div className={fieldWrap}>
@@ -193,6 +227,7 @@ export function AddItemModal({
                     ))}
                 </SelectContent>
               </Select>
+              {fieldErrors.category && <p className="text-xs text-red-600">{fieldErrors.category}</p>}
             </div>
           </div>
 
@@ -211,6 +246,7 @@ export function AddItemModal({
                 placeholder="Please Enter"
                 required
               />
+              {fieldErrors.sku && <p className="text-xs text-red-600">{fieldErrors.sku}</p>}
             </div>
 
             <div className={fieldWrap}>
@@ -229,6 +265,7 @@ export function AddItemModal({
                 required
                 min="0"
               />
+              {fieldErrors.stock && <p className="text-xs text-red-600">{fieldErrors.stock}</p>}
             </div>
           </div>
 
@@ -258,6 +295,7 @@ export function AddItemModal({
                   ))}
                 </SelectContent>
               </Select>
+              {fieldErrors.unitType && <p className="text-xs text-red-600">{fieldErrors.unitType}</p>}
             </div>
 
             <div className={fieldWrap}>
@@ -276,6 +314,7 @@ export function AddItemModal({
                   suppliers={suppliers}
                 />
               </div>
+              {fieldErrors.supplier && <p className="text-xs text-red-600">{fieldErrors.supplier}</p>}
             </div>
           </div>
 
@@ -297,6 +336,7 @@ export function AddItemModal({
                   placeholder="Please Enter"
                   min="0"
                 />
+                {fieldErrors.refillPrice && <p className="text-xs text-red-600">{fieldErrors.refillPrice}</p>}
               </div>
 
               <div className={fieldWrap}>
@@ -315,6 +355,7 @@ export function AddItemModal({
                   placeholder="Please Enter"
                   min="0"
                 />
+                {fieldErrors.rentalPrice && <p className="text-xs text-red-600">{fieldErrors.rentalPrice}</p>}
               </div>
             </div>
           )}
@@ -337,6 +378,7 @@ export function AddItemModal({
                 required
                 min="0"
               />
+              {fieldErrors.purchasePrice && <p className="text-xs text-red-600">{fieldErrors.purchasePrice}</p>}
             </div>
 
             <div className={fieldWrap}>
@@ -356,6 +398,7 @@ export function AddItemModal({
                 required
                 min="0"
               />
+              {fieldErrors.sellingPrice && <p className="text-xs text-red-600">{fieldErrors.sellingPrice}</p>}
             </div>
           </div>
           <div className="space-y-3">

@@ -17,6 +17,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ReadOnlyField } from "@/components/ui/read-only-field";
+import { createCustomerSchema } from "@/lib/schemas";
 import api from "@/lib/api";
 import { Loader2 } from "lucide-react";
 
@@ -69,6 +71,7 @@ export function CreateCustomerModal({
 }: CreateCustomerModalProps) {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -104,19 +107,32 @@ export function CreateCustomerModal({
     e.preventDefault();
     setLoading(true);
     setErrorMessage(null);
+    setFieldErrors({});
+
+    // ── Zod validation ────────────────────────────────────────────────────
+    const parsed = createCustomerSchema.safeParse({
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      email: formData.email,
+      phone: formData.phone,
+      street: formData.street,
+      city: formData.city,
+      zipCode: formData.zipCode,
+    });
+    if (!parsed.success) {
+      const errs: Record<string, string> = {};
+      for (const issue of parsed.error.issues) {
+        const key = String(issue.path[0]);
+        errs[key] = issue.message;
+      }
+      setFieldErrors(errs);
+      setLoading(false);
+      return;
+    }
 
     try {
       const normalizedPhone = normalizeCanadianPhone(formData.phone);
-      if (normalizedPhone.length !== 10) {
-        setErrorMessage("Enter a valid Canadian phone number (10 digits).");
-        return;
-      }
-
       const normalizedPostalCode = formatCanadianPostalCode(formData.zipCode);
-      if (!CANADIAN_POSTAL_CODE_REGEX.test(normalizedPostalCode)) {
-        setErrorMessage("Enter a valid Canadian postal code (e.g. A1A 1A1).");
-        return;
-      }
 
       const payload = {
         type: formData.type,
@@ -213,6 +229,7 @@ export function CreateCustomerModal({
                 onChange={handleChange}
                 required
               />
+              {fieldErrors.firstName && <p className="text-xs text-red-600">{fieldErrors.firstName}</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="lastName">Last Name</Label>
@@ -224,6 +241,7 @@ export function CreateCustomerModal({
                 onChange={handleChange}
                 required
               />
+              {fieldErrors.lastName && <p className="text-xs text-red-600">{fieldErrors.lastName}</p>}
             </div>
           </div>
 
@@ -239,6 +257,7 @@ export function CreateCustomerModal({
                 onChange={handleChange}
                 required
               />
+              {fieldErrors.email && <p className="text-xs text-red-600">{fieldErrors.email}</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="phone">Phone</Label>
@@ -250,6 +269,7 @@ export function CreateCustomerModal({
                 onChange={handleChange}
                 required
               />
+              {fieldErrors.phone && <p className="text-xs text-red-600">{fieldErrors.phone}</p>}
             </div>
           </div>
 
@@ -268,6 +288,7 @@ export function CreateCustomerModal({
                 onChange={handleChange}
                 required
               />
+              {fieldErrors.street && <p className="text-xs text-red-600">{fieldErrors.street}</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="city">City</Label>
@@ -279,6 +300,7 @@ export function CreateCustomerModal({
                 onChange={handleChange}
                 required
               />
+              {fieldErrors.city && <p className="text-xs text-red-600">{fieldErrors.city}</p>}
             </div>
           </div>
 
@@ -311,15 +333,13 @@ export function CreateCustomerModal({
                 onChange={handleChange}
                 required
               />
+              {fieldErrors.zipCode && <p className="text-xs text-red-600">{fieldErrors.zipCode}</p>}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="country">Country</Label>
-              <Input
+              <ReadOnlyField
                 id="country"
-                name="country"
-                placeholder="Canada"
+                label="Country"
                 value={formData.country}
-                disabled
               />
             </div>
           </div>

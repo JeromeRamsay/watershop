@@ -171,33 +171,21 @@ export function AddProductModal({
             </div>
           </div>
 
+          {/* UI-4: computed fields shown as labels, not inputs */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="quantityInStock">Quantity in Stock</Label>
-              <Input
-                id="quantityInStock"
-                type="number"
-                value={
-                  formData.productId
-                    ? products.find((p) => p.id === formData.productId)
-                        ?.stock || ""
-                    : ""
-                }
-                readOnly
-                className="h-12 bg-dark-50"
-              />
+              <p id="quantityInStock" className="flex h-12 items-center rounded-md border border-input bg-dark-50 px-3 text-sm text-dark-700 dark:bg-dark-800 dark:text-dark-300 select-text">
+                {formData.productId
+                  ? products.find((p) => p.id === formData.productId)?.stock ?? "—"
+                  : "—"}
+              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="unitPrice">Unit Price</Label>
-              <Input
-                id="unitPrice"
-                type="number"
-                step="0.01"
-                value={formData.unitPrice}
-                onChange={(e) => handleUnitPriceChange(e.target.value)}
-                className="h-12 bg-dark-50"
-                readOnly
-              />
+              <p id="unitPrice" className="flex h-12 items-center rounded-md border border-input bg-dark-50 px-3 text-sm text-dark-700 dark:bg-dark-800 dark:text-dark-300 select-text">
+                {formData.unitPrice !== "" ? `$${Number(formData.unitPrice).toFixed(2)}` : "—"}
+              </p>
             </div>
           </div>
 
@@ -217,14 +205,9 @@ export function AddProductModal({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="totalPrice">Total Price</Label>
-              <Input
-                id="totalPrice"
-                type="number"
-                step="0.01"
-                value={formData.totalPrice}
-                readOnly
-                className="h-12 bg-dark-50"
-              />
+              <p id="totalPrice" className="flex h-12 items-center rounded-md border border-input bg-dark-50 px-3 text-sm text-dark-700 dark:bg-dark-800 dark:text-dark-300 select-text">
+                {formData.totalPrice !== "" ? `$${Number(formData.totalPrice).toFixed(2)}` : "—"}
+              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="discount">Apply Discount</Label>

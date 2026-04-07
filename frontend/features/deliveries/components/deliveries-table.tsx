@@ -1,8 +1,15 @@
 "use client";
 
+import { useState, useMemo } from "react";
 import { Delivery } from "../types";
 import { Edit, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  SortableHeader,
+  SortState,
+  toggleSort,
+  applySortToItems,
+} from "@/components/ui/sortable-header";
 
 interface DeliveriesTableProps {
   deliveries: Delivery[];
@@ -13,19 +20,6 @@ interface DeliveriesTableProps {
   onRowClick: (delivery: Delivery) => void;
 }
 
-function SortIcon() {
-  return (
-    <svg
-      viewBox="0 0 10 12"
-      className="h-3 w-3 inline-block ml-1"
-      aria-hidden="true"
-    >
-      <path d="M5 0L9 4H1L5 0Z" fill="#0EA5E9" />
-      <path d="M5 12L1 8H9L5 12Z" fill="#0EA5E9" />
-    </svg>
-  );
-}
-
 export function DeliveriesTable({
   deliveries,
   onEdit,
@@ -34,30 +28,64 @@ export function DeliveriesTable({
   statusOptions,
   onRowClick,
 }: DeliveriesTableProps) {
+  const [sort, setSort] = useState<SortState | null>(null);
+  const handleSort = (key: string) => setSort((prev) => toggleSort(prev, key));
+
+  const sortedDeliveries = useMemo(
+    () =>
+      applySortToItems(
+        deliveries as unknown as Record<string, unknown>[],
+        sort,
+      ) as unknown as Delivery[],
+    [deliveries, sort],
+  );
+
+  const thCls = "py-3 px-4 text-sm font-semibold text-[#1E293B]";
+
   return (
     <div className="w-full overflow-x-auto">
       <table className="w-full min-w-[700px] md:min-w-0 border-collapse">
         <thead>
           <tr className="border-b border-[#F1F5F9]">
-            <th className="text-left py-3 px-4 text-sm font-semibold text-[#1E293B]">
-              Customer <SortIcon />
-            </th>
-            <th className="text-left py-3 px-4 text-sm font-semibold text-[#1E293B]">
-              Address <SortIcon />
-            </th>
-            <th className="text-left py-3 px-4 text-sm font-semibold text-[#1E293B]">
-              Date &amp; Time <SortIcon />
-            </th>
-            <th className="text-center py-3 px-4 text-sm font-semibold text-[#1E293B]">
-              Status <SortIcon />
-            </th>
+            <SortableHeader
+              label="Customer"
+              sortKey="customer"
+              sort={sort}
+              onSort={handleSort}
+              className={thCls}
+              align="left"
+            />
+            <SortableHeader
+              label="Address"
+              sortKey="address"
+              sort={sort}
+              onSort={handleSort}
+              className={thCls}
+              align="left"
+            />
+            <SortableHeader
+              label="Date & Time"
+              sortKey="dateTime"
+              sort={sort}
+              onSort={handleSort}
+              className={thCls}
+              align="left"
+            />
+            <SortableHeader
+              label="Status"
+              sortKey="status"
+              sort={sort}
+              onSort={handleSort}
+              className={thCls}
+              align="center"
+            />
             <th className="text-center py-3 px-4 text-sm font-semibold text-[#1E293B]">
               Actions
             </th>
           </tr>
         </thead>
         <tbody>
-          {deliveries.map((delivery) => (
+          {sortedDeliveries.map((delivery) => (
             <tr
               key={delivery.id}
               className="border-b border-[#F1F5F9] last:border-0 hover:bg-[#FAFBFC] transition-colors cursor-pointer"

@@ -81,7 +81,6 @@ export default function DashboardPage() {
   const userInfo = (() => { try { return JSON.parse(Cookies.get("user_info") || "{}"); } catch { return {}; } })();
   const userName = userInfo?.name || "Admin";
   const userRole = userInfo?.role || "admin";
-  const userId   = userInfo?.id as string | undefined;
   const isStaff  = userRole === "staff";
 
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -94,22 +93,31 @@ export default function DashboardPage() {
   const { data: ordersData,     isLoading: l3 } = useOrders();
   const { data: deliveriesData, isLoading: l4 } = useDeliveries();
   const { data: notifData,      isLoading: l5 } = useNotifications();
-  const { data: recentHoursData } = useEmployeeHours(isStaff && userId ? { userId } : {});
+  const { data: recentHoursData } = useEmployeeHours({});
   const loading = l1 || l2 || l3 || l4 || l5;
   const clearOne = useClearNotification();
   const clearAll = useClearAllNotifications();
   const qc = useQueryClient();
   useDashboardRealtime(useCallback(() => { void qc.invalidateQueries(); }, [qc]));
 
+  // ── Today boundaries ────────────────────────────────────────────────────────
+  const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+  const todayDateStr = todayStart.toISOString().split("T")[0]; // "YYYY-MM-DD"
+
   const orders = (ordersData as Record<string, unknown>[] | undefined) ?? [];
-  const rentalOrdersCount = orders.filter((o) => o.isDelivery === true).length;
-  const prePurchasesCount = orders.filter((o) => !!o.isPrepaidRedemption).length;
+  // Filter to today's orders for the KPI cards
+  const todayOrders = orders.filter((o) => {
+    const d = new Date(String(o.createdAt ?? 0));
+    return d >= todayStart;
+  });
+  const rentalOrdersCount = todayOrders.filter((o) => o.isDelivery === true).length;
+  const prePurchasesCount = todayOrders.filter((o) => !!o.isPrepaidRedemption).length;
   const unpaidOrderIds = new Set<string>(
     orders.filter((o) => o.paymentStatus === "unpaid" || o.paymentStatus === "partial").map((o) => String(o._id)),
   );
   const metrics = {
     totalRevenue: (stats as { totalRevenue?: number } | undefined)?.totalRevenue ?? 0,
-    totalOrders:  (stats as { totalOrders?: number }  | undefined)?.totalOrders  ?? 0,
+    totalOrders:  todayOrders.length,
     rentalOrders: rentalOrdersCount, prePurchases: prePurchasesCount,
   };
 
@@ -142,10 +150,15 @@ export default function DashboardPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const deliveries = ((deliveriesData as any[]) ?? [])
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .filter((d: any) => d.status !== "delivered" && d.status !== "cancelled")
+    .filter((d: any) => {
+      if (d.status === "delivered" || d.status === "cancelled") return false;
+      // Only show deliveries scheduled for today
+      const scheduledDay = new Date(d.scheduledDate).toISOString().split("T")[0];
+      return scheduledDay === todayDateStr;
+    })
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .sort((a: any, b: any) => new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime())
-    .slice(0, 5)
+    .slice(0, 10)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .map((d: any) => ({
       id: String(d._id),
@@ -221,11 +234,14 @@ export default function DashboardPage() {
         </div>
       </div>
       {userRole === "staff" ? (
-        <div className="grid gap-3 grid-cols-1 md:grid-cols-12">
-          <div className="md:col-span-6">
-            <UpcomingDeliveries deliveries={deliveries} onCustomerClick={handleCustomerClick} />
-          </div>
-          <div className="md:col-span-6 bg-white dark:bg-dark-700 rounded-xl border border-dark-200 dark:border-dark-600 shadow-sm p-4">
+        <div className="grid gap-3 grid-cols-1">
+          <UpcomingDeliveries deliveries={deliveries} onCustomerClick={handleCustomerClick} />
+        </div>
+      ) : (
+        <div className="grid gap-3 grid-cols-1 md:grid-cols-3">
+          <RecentTransactions transactions={transactions} />
+          <UpcomingDeliveries deliveries={deliveries} onCustomerClick={handleCustomerClick} />
+          <div className="bg-white dark:bg-dark-700 rounded-xl border border-dark-200 dark:border-dark-600 shadow-sm p-4">
             <h3 className="text-sm font-semibold text-dark-900 dark:text-white mb-2">Recent Logged Hours</h3>
             <div className="space-y-2">
               {myRecentHours.length > 0 ? (
@@ -240,11 +256,6 @@ export default function DashboardPage() {
               )}
             </div>
           </div>
-        </div>
-      ) : (
-        <div className="grid gap-3 md:grid-cols-2">
-          <RecentTransactions transactions={transactions} />
-          <UpcomingDeliveries deliveries={deliveries} onCustomerClick={handleCustomerClick} />
         </div>
       )}
       <div className="text-end text-xs text-dark-500 py-2">Copyright {new Date().getFullYear()} Water Shop. All Rights Reserved</div>

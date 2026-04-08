@@ -286,6 +286,14 @@ function AddNewOrderContent() {
   const handlePaymentSave = (paymentData: any) => {
     console.log("Payment data:", paymentData);
     setPaymentMethodData(paymentData);
+
+    // If the payment modal determined payment status based on balance, update it
+    if (paymentData.paymentStatus) {
+      setFormData(prev => ({
+        ...prev,
+        paymentStatus: paymentData.paymentStatus === "paid" ? "Paid" : "Unpaid"
+      }));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -340,7 +348,7 @@ function AddNewOrderContent() {
         paymentMethod: formData.paymentMethod,
         discount: Number(formData.discount) || 0,
         isDelivery: formData.deliveryType === "Delivery",
-        paymentStatus: formData.paymentStatusSummary.toLowerCase(),
+        paymentStatus: formData.paymentStatus.toLowerCase(),
         emailReceipt: formData.emailReceipt,
         deliveryAddress: formData.deliveryAddress || undefined,
         deliveryDate:
@@ -394,7 +402,7 @@ function AddNewOrderContent() {
 
       <form onSubmit={handleSubmit}>
         <div className="bg-white dark:bg-dark-700 rounded-xl border border-dark-200 dark:border-dark-600 shadow-sm dark:shadow-dark-900/50 p-6 space-y-6">
-          {/* Customer Information */}
+          {/* 1. Customer Information */}
           <div>
             <h2 className="text-lg font-semibold text-dark-900 dark:text-white mb-4">
               Customer Information
@@ -526,73 +534,113 @@ function AddNewOrderContent() {
           {/* Divider */}
           <div className="border-t border-dark-200 dark:border-dark-600"></div>
 
-          {/* Order Details */}
+          {/* 2. Add Products */}
           <div>
-            <h2 className="text-lg font-semibold text-dark-900 dark:text-white mb-4">
-              Order Details
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label
-                  htmlFor="paymentStatus"
-                  className="text-sm text-dark-600 dark:text-dark-300"
-                >
-                  Payment Status
-                </Label>
-                <Select
-                  value={formData.paymentStatus}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, paymentStatus: value })
-                  }
-                >
-                  <SelectTrigger className="h-11" id="paymentStatus">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Paid">Paid</SelectItem>
-                    <SelectItem value="Unpaid">Unpaid</SelectItem>
-                    <SelectItem value="Out Stock">Out Stock</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-sm text-dark-600 dark:text-dark-300">
-                  Delivery Type
-                </Label>
-                <RadioGroup
-                  value={formData.deliveryType}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, deliveryType: value })
-                  }
-                  className="flex items-center gap-6 h-11"
-                >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="In-Store" id="in-store" />
-                    <Label
-                      htmlFor="in-store"
-                      className="text-sm font-normal cursor-pointer"
-                    >
-                      In-Store
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="Delivery" id="delivery" />
-                    <Label
-                      htmlFor="delivery"
-                      className="text-sm font-normal cursor-pointer"
-                    >
-                      Delivery
-                    </Label>
-                  </div>
-                </RadioGroup>
-              </div>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-dark-900 dark:text-white">
+                Add Products
+              </h2>
+              <Button
+                type="button"
+                onClick={() => setIsAddProductModalOpen(true)}
+                className="bg-primary-500 hover:bg-primary-600 text-white"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add
+              </Button>
             </div>
+            {orderItems.filter((item) => !item.creditsUsed).length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[800px] md:min-w-0">
+                  <thead>
+                    <tr className="border-b border-dark-200 dark:border-dark-600">
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-dark-600 dark:text-dark-300">
+                        <div className="flex items-center gap-2">
+                          Product Name
+                          <ArrowUpDown className="h-4 w-4 text-dark-400 dark:text-dark-500" />
+                        </div>
+                      </th>
+                      <th className="text-center py-3 px-4 text-sm font-semibold text-dark-600 dark:text-dark-300">
+                        <div className="flex items-center justify-center gap-2">
+                          Quantity
+                          <ArrowUpDown className="h-4 w-4 text-dark-400 dark:text-dark-500" />
+                        </div>
+                      </th>
+                      <th className="text-center py-3 px-4 text-sm font-semibold text-dark-600 dark:text-dark-300">
+                        <div className="flex items-center justify-center gap-2">
+                          Unit Price
+                          <ArrowUpDown className="h-4 w-4 text-dark-400 dark:text-dark-500" />
+                        </div>
+                      </th>
+                      <th className="text-center py-3 px-4 text-sm font-semibold text-dark-600 dark:text-dark-300">
+                        <div className="flex items-center justify-center gap-2">
+                          Total Price
+                          <ArrowUpDown className="h-4 w-4 text-dark-400 dark:text-dark-500" />
+                        </div>
+                      </th>
+                      <th className="text-center py-3 px-4 text-sm font-semibold text-dark-600 dark:text-dark-300">
+                        <div className="flex items-center justify-center gap-2">
+                          Credits Used
+                          <ArrowUpDown className="h-4 w-4 text-dark-400 dark:text-dark-500" />
+                        </div>
+                      </th>
+                      <th className="text-center py-3 px-4 text-sm font-semibold text-dark-600 dark:text-dark-300">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {orderItems
+                      .filter((item) => !item.creditsUsed)
+                      .map((item) => (
+                        <tr
+                          key={item.id}
+                          className="border-b border-dark-200 dark:border-dark-600 last:border-0 hover:bg-dark-50 dark:hover:bg-dark-600 transition-colors"
+                        >
+                          <td className="py-3 px-4 text-sm text-dark-900 dark:text-white">
+                            {item.productName}
+                          </td>
+                          <td className="py-3 px-4 text-sm text-dark-900 dark:text-white text-center">
+                            {item.quantity}
+                          </td>
+                          <td className="py-3 px-4 text-sm text-dark-900 dark:text-white text-center">
+                            ${item.unitPrice.toFixed(2)}
+                          </td>
+                          <td className="py-3 px-4 text-sm text-dark-900 dark:text-white font-medium text-center">
+                            ${item.totalPrice?.toFixed(2)}
+                          </td>
+                          <td className="py-3 px-4 text-sm text-dark-900 dark:text-white text-center">
+                            {item.creditsUsed ? "Yes" : "No"}
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            <div className="flex items-center justify-center">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleRemoveProduct(item.id)}
+                                className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="text-center py-8 text-dark-400">
+                No products added yet. Click &quot;Add&quot; to add products.
+              </div>
+            )}
           </div>
 
           {/* Divider */}
           <div className="border-t border-dark-200 dark:border-dark-600"></div>
 
-          {/* Available Refill — only shown for registered customers */}
+          {/* 3. Available Refill — only shown for registered customers */}
           {!isWalkIn && (
           <div>
             <h2 className="text-lg font-semibold text-dark-900 dark:text-white mb-4">
@@ -697,106 +745,68 @@ function AddNewOrderContent() {
 
           {/* Divider */}
           <div className="border-t border-dark-200 dark:border-dark-600"></div>
+
+          {/* 4. Order Details */}
           <div>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-dark-900 dark:text-white">
-                Add Products
-              </h2>
-              <Button
-                type="button"
-                onClick={() => setIsAddProductModalOpen(true)}
-                className="bg-primary-500 hover:bg-primary-600 text-white"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Add
-              </Button>
+            <h2 className="text-lg font-semibold text-dark-900 dark:text-white mb-4">
+              Order Details
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label
+                  htmlFor="paymentStatus"
+                  className="text-sm text-dark-600 dark:text-dark-300"
+                >
+                  Payment Status
+                </Label>
+                <Select
+                  value={formData.paymentStatus}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, paymentStatus: value })
+                  }
+                >
+                  <SelectTrigger className="h-11" id="paymentStatus">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Paid">Paid</SelectItem>
+                    <SelectItem value="Unpaid">Unpaid</SelectItem>
+                    <SelectItem value="Out Stock">Out Stock</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm text-dark-600 dark:text-dark-300">
+                  Delivery Type
+                </Label>
+                <RadioGroup
+                  value={formData.deliveryType}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, deliveryType: value })
+                  }
+                  className="flex items-center gap-6 h-11"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="In-Store" id="in-store" />
+                    <Label
+                      htmlFor="in-store"
+                      className="text-sm font-normal cursor-pointer"
+                    >
+                      In-Store
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="Delivery" id="delivery" />
+                    <Label
+                      htmlFor="delivery"
+                      className="text-sm font-normal cursor-pointer"
+                    >
+                      Delivery
+                    </Label>
+                  </div>
+                </RadioGroup>
+              </div>
             </div>
-            {orderItems.filter((item) => !item.creditsUsed).length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[800px] md:min-w-0">
-                  <thead>
-                    <tr className="border-b border-dark-200 dark:border-dark-600">
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-dark-600 dark:text-dark-300">
-                        <div className="flex items-center gap-2">
-                          Product Name
-                          <ArrowUpDown className="h-4 w-4 text-dark-400 dark:text-dark-500" />
-                        </div>
-                      </th>
-                      <th className="text-center py-3 px-4 text-sm font-semibold text-dark-600 dark:text-dark-300">
-                        <div className="flex items-center justify-center gap-2">
-                          Quantity
-                          <ArrowUpDown className="h-4 w-4 text-dark-400 dark:text-dark-500" />
-                        </div>
-                      </th>
-                      <th className="text-center py-3 px-4 text-sm font-semibold text-dark-600 dark:text-dark-300">
-                        <div className="flex items-center justify-center gap-2">
-                          Unit Price
-                          <ArrowUpDown className="h-4 w-4 text-dark-400 dark:text-dark-500" />
-                        </div>
-                      </th>
-                      <th className="text-center py-3 px-4 text-sm font-semibold text-dark-600 dark:text-dark-300">
-                        <div className="flex items-center justify-center gap-2">
-                          Total Price
-                          <ArrowUpDown className="h-4 w-4 text-dark-400 dark:text-dark-500" />
-                        </div>
-                      </th>
-                      <th className="text-center py-3 px-4 text-sm font-semibold text-dark-600 dark:text-dark-300">
-                        <div className="flex items-center justify-center gap-2">
-                          Credits Used
-                          <ArrowUpDown className="h-4 w-4 text-dark-400 dark:text-dark-500" />
-                        </div>
-                      </th>
-                      <th className="text-center py-3 px-4 text-sm font-semibold text-dark-600 dark:text-dark-300">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {orderItems
-                      .filter((item) => !item.creditsUsed)
-                      .map((item) => (
-                        <tr
-                          key={item.id}
-                          className="border-b border-dark-200 dark:border-dark-600 last:border-0 hover:bg-dark-50 dark:hover:bg-dark-600 transition-colors"
-                        >
-                          <td className="py-3 px-4 text-sm text-dark-900 dark:text-white">
-                            {item.productName}
-                          </td>
-                          <td className="py-3 px-4 text-sm text-dark-900 dark:text-white text-center">
-                            {item.quantity}
-                          </td>
-                          <td className="py-3 px-4 text-sm text-dark-900 dark:text-white text-center">
-                            ${item.unitPrice.toFixed(2)}
-                          </td>
-                          <td className="py-3 px-4 text-sm text-dark-900 dark:text-white font-medium text-center">
-                            ${item.totalPrice?.toFixed(2)}
-                          </td>
-                          <td className="py-3 px-4 text-sm text-dark-900 dark:text-white text-center">
-                            {item.creditsUsed ? "Yes" : "No"}
-                          </td>
-                          <td className="py-3 px-4 text-center">
-                            <div className="flex items-center justify-center">
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleRemoveProduct(item.id)}
-                                className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="text-center py-8 text-dark-400">
-                No products added yet. Click &quot;Add&quot; to add products.
-              </div>
-            )}
           </div>
 
           {/* Delivery Details */}
@@ -860,12 +870,12 @@ function AddNewOrderContent() {
           {/* Divider */}
           <div className="border-t border-dark-200 dark:border-dark-600"></div>
 
-          {/* Payment & Order Summary */}
+          {/* 5. Payment & Order Summary */}
           <div>
             <h2 className="text-lg font-semibold text-dark-900 dark:text-white mb-4">
               Payment & Order Summary
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div className="space-y-2">
                 <Label
                   htmlFor="discount"
@@ -898,29 +908,6 @@ function AddNewOrderContent() {
                   readOnly
                   className="h-11 bg-dark-50 dark:bg-dark-600"
                 />
-              </div>
-              <div className="space-y-2">
-                <Label
-                  htmlFor="paymentStatusSummary"
-                  className="text-sm text-dark-600 dark:text-dark-300"
-                >
-                  Payment Status
-                </Label>
-                <Select
-                  value={formData.paymentStatusSummary}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, paymentStatusSummary: value })
-                  }
-                >
-                  <SelectTrigger className="h-11" id="paymentStatusSummary">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Paid">Paid</SelectItem>
-                    <SelectItem value="Unpaid">Unpaid</SelectItem>
-                    <SelectItem value="Partial">Partial</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
             </div>
           </div>

@@ -1,6 +1,6 @@
-"use client";
+﻿"use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SalesOverviewChart } from "@/features/reports/components/sales-overview-chart";
@@ -13,187 +13,115 @@ import { WalkInTrendChart } from "@/features/reports/components/walk-in-trend-ch
 import { WalkInStats } from "@/features/reports/types";
 import { Download, Loader2, Search } from "lucide-react";
 import Link from "next/link";
-import api from "@/lib/api";
 import { useDashboardRealtime } from "@/lib/use-dashboard-realtime";
+import {
+  useOrders,
+  useTopCustomers,
+  useFrequentCustomers,
+  useTopItems,
+  useWalkInStats,
+  useMonthlyHours,
+  useInvalidateAll,
+} from "@/lib/queries";
+
+const MONTHS_ORDER = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 export default function ReportsPage() {
-  const [salesData, setSalesData] = useState([]);
-  const [topCustomers, setTopCustomers] = useState([]);
-  const [frequentCustomers, setFrequentCustomers] = useState([]);
-  const [topItems, setTopItems] = useState([]);
-  const [totalUnitsSold, setTotalUnitsSold] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [hoursByMonth, setHoursByMonth] = useState<{ name: string; total: number }[]>([]);
-  const [walkInStats, setWalkInStats] = useState<WalkInStats>({
+  const [search, setSearch] = useState("");
+  const [salesYear, setSalesYear] = useState(new Date().getFullYear().toString());
+  const [freqYear, setFreqYear] = useState(new Date().getFullYear().toString());
+  const [hoursYear, setHoursYear] = useState(new Date().getFullYear().toString());
+  const [walkInYear, setWalkInYear] = useState(new Date().getFullYear().toString());
+
+  const invalidateAll = useInvalidateAll();
+
+  const { data: ordersRaw, isLoading: ordersLoading } = useOrders(parseInt(salesYear));
+  const { data: topCustRaw, isLoading: topCustLoading } = useTopCustomers(parseInt(salesYear));
+  const { data: freqCustRaw, isLoading: freqCustLoading } = useFrequentCustomers(parseInt(freqYear));
+  const { data: topItemsRaw, isLoading: topItemsLoading } = useTopItems(parseInt(salesYear));
+  const { data: walkInRaw, isLoading: walkInLoading } = useWalkInStats(parseInt(walkInYear));
+  const { data: hoursRaw, isLoading: hoursLoading } = useMonthlyHours({ year: parseInt(hoursYear) });
+
+  const loading =
+    ordersLoading || topCustLoading || freqCustLoading || topItemsLoading || walkInLoading || hoursLoading;
+
+  useDashboardRealtime(invalidateAll);
+
+  // Process Sales Data (Monthly aggregation)
+  const salesData = useMemo(() => {
+    const orders = Array.isArray(ordersRaw) ? (ordersRaw as { createdAt: string; grandTotal: number }[]) : [];
+    const monthlyData = orders.reduce((acc: { name: string; total: number }[], order) => {
+      const month = new Date(order.createdAt).toLocaleString("default", { month: "short" });
+      const amount = Number(order.grandTotal) || 0;
+      const existing = acc.find((d) => d.name === month);
+      if (existing) {
+        existing.total += amount;
+      } else {
+        acc.push({ name: month, total: amount });
+      }
+      return acc;
+    }, []);
+    return [...monthlyData].sort((a, b) => MONTHS_ORDER.indexOf(a.name) - MONTHS_ORDER.indexOf(b.name));
+  }, [ordersRaw]);
+
+  // Top Customers by spend
+  const topCustomers = useMemo(
+    () =>
+      (topCustRaw as { firstName: string; lastName: string; totalSpent: number }[] ?? []).map((c) => ({
+        name: `${c.firstName} ${c.lastName}`,
+        sales: c.totalSpent,
+      })),
+    [topCustRaw],
+  );
+
+  // Most frequent customers
+  const frequentCustomers = useMemo(
+    () =>
+      (freqCustRaw as { firstName: string; lastName: string; visitCount: number }[] ?? []).map((c) => ({
+        name: `${c.firstName} ${c.lastName}`,
+        visits: c.visitCount,
+      })),
+    [freqCustRaw],
+  );
+
+  // Top items + total units sold
+  const { topItems, totalUnitsSold } = useMemo(() => {
+    const colors = ["#5bc0de", "#5cb85c", "#5b5ea6", "#f0ad4e", "#d9534f"];
+    let units = 0;
+    const items = (topItemsRaw as { name: string; totalSold: number }[] ?? []).map((i, index) => {
+      units += i.totalSold;
+      return { name: i.name, units: i.totalSold, color: colors[index % colors.length] };
+    });
+    return { topItems: items, totalUnitsSold: units };
+  }, [topItemsRaw]);
+
+  // Employee hours — always 12 months
+  const hoursByMonth = useMemo(() => {
+    const map = new Map<number, number>();
+    for (const row of (hoursRaw as { month: number; totalHours: number }[] ?? [])) {
+      map.set(Number(row.month), Number(row.totalHours || 0));
+    }
+    return MONTHS_ORDER.map((name, i) => ({
+      name,
+      total: Number((map.get(i + 1) || 0).toFixed(2)),
+    }));
+  }, [hoursRaw]);
+
+  // Walk-in stats with safe fallback
+  const walkInStats: WalkInStats = (walkInRaw as WalkInStats) ?? {
     totalWalkInOrders: 0,
     walkInRevenue: 0,
     avgWalkInOrderValue: 0,
     totalOrders: 0,
     walkInPercentage: 0,
     monthlyBreakdown: [],
-  });
-
-  // Search and Year states
-  const [search, setSearch] = useState("");
-  const [salesYear, setSalesYear] = useState(
-    new Date().getFullYear().toString(),
-  );
-  const [freqYear, setFreqYear] = useState(new Date().getFullYear().toString());
-  const [hoursYear, setHoursYear] = useState(new Date().getFullYear().toString());
-  const [walkInYear, setWalkInYear] = useState(new Date().getFullYear().toString());
-
-  const fetchData = useCallback(async (silent = false) => {
-    try {
-      if (!silent) {
-        setLoading(true);
-      }
-      const [ordersRes, topCustRes, freqCustRes, topItemsRes, hoursRes, walkInRes] =
-        await Promise.all([
-          api.get(`/orders?year=${salesYear}`),
-          api.get(`/reports/top-customers?year=${salesYear}`),
-          api.get(`/reports/frequent-customers?year=${freqYear}`),
-          api.get(`/reports/top-items?year=${salesYear}`),
-          api.get(`/employee-hours/monthly?year=${hoursYear}`),
-          api.get(`/reports/walk-in-stats?year=${walkInYear}`),
-        ]);
-
-      // Process Sales Data (Monthly)
-      const orders = ordersRes.data;
-      const monthlyData = orders.reduce(
-        (
-          acc: { name: string; total: number }[],
-          order: { createdAt: string; grandTotal: number },
-        ) => {
-          const date = new Date(order.createdAt);
-          const month = date.toLocaleString("default", { month: "short" });
-          const amount = Number(order.grandTotal) || 0;
-          const existing = acc.find((d) => d.name === month);
-          if (existing) {
-            existing.total += amount;
-          } else {
-            acc.push({ name: month, total: amount });
-          }
-          return acc;
-        },
-        [],
-      );
-
-      const monthsOrder = [
-        "Jan",
-        "Feb",
-        "Mar",
-        "Apr",
-        "May",
-        "Jun",
-        "Jul",
-        "Aug",
-        "Sep",
-        "Oct",
-        "Nov",
-        "Dec",
-      ];
-
-      monthlyData.sort(
-        (
-          a: { name: string; total: number },
-          b: { name: string; total: number },
-        ) => monthsOrder.indexOf(a.name) - monthsOrder.indexOf(b.name),
-      );
-
-      setSalesData(monthlyData);
-
-      // Top Customers
-      const topCust = topCustRes.data.map(
-        (c: { firstName: string; lastName: string; totalSpent: number }) => ({
-          name: `${c.firstName} ${c.lastName}`,
-          sales: c.totalSpent,
-        }),
-      );
-      setTopCustomers(topCust);
-
-      // Frequent Customers
-      const freqCust = freqCustRes.data.map(
-        (c: { firstName: string; lastName: string; visitCount: number }) => ({
-          name: `${c.firstName} ${c.lastName}`,
-          visits: c.visitCount,
-        }),
-      );
-      setFrequentCustomers(freqCust);
-
-      // Top Items
-      let units = 0;
-      const items = topItemsRes.data.map(
-        (i: { name: string; totalSold: number }, index: number) => {
-          units += i.totalSold;
-          const colors = [
-            "#5bc0de",
-            "#5cb85c",
-            "#5b5ea6",
-            "#f0ad4e",
-            "#d9534f",
-          ];
-          return {
-            name: i.name,
-            units: i.totalSold,
-            color: colors[index % colors.length],
-          };
-        },
-      );
-      setTopItems(items);
-      setTotalUnitsSold(units);
-
-      const months = [
-        "Jan",
-        "Feb",
-        "Mar",
-        "Apr",
-        "May",
-        "Jun",
-        "Jul",
-        "Aug",
-        "Sep",
-        "Oct",
-        "Nov",
-        "Dec",
-      ];
-
-      const monthlyHoursMap = new Map<number, number>();
-      for (const row of hoursRes.data || []) {
-        monthlyHoursMap.set(Number(row.month), Number(row.totalHours || 0));
-      }
-      const formattedHours = months.map((name, index) => ({
-        name,
-        total: Number((monthlyHoursMap.get(index + 1) || 0).toFixed(2)),
-      }));
-      setHoursByMonth(formattedHours);
-
-      // Walk-In Stats
-      setWalkInStats(walkInRes.data);
-    } catch (error) {
-      console.error("Failed to fetch reports data", error);
-    } finally {
-      if (!silent) {
-        setLoading(false);
-      }
-    }
-  }, [salesYear, freqYear, hoursYear, walkInYear]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  useDashboardRealtime(() => {
-    fetchData(true);
-  });
+  };
 
   const handleExport = () => {
     if (salesData.length === 0) return;
 
     const headers = ["Month", "Total Sales"];
-    const rows = salesData.map((d: { name: string; total: number }) => [
-      d.name,
-      d.total.toFixed(2),
-    ]);
+    const rows = salesData.map((d) => [d.name, d.total.toFixed(2)]);
 
     const csvContent =
       "data:text/csv;charset=utf-8," +

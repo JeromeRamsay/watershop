@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -23,6 +23,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2 } from "lucide-react";
 import { Order, PaymentDetails } from "../types";
 import api from "@/lib/api";
+import { useSettings } from "@/lib/queries";
 
 interface EditOrderModalProps {
   open: boolean;
@@ -59,6 +60,10 @@ export function EditOrderModal({
     amount: "",
   });
 
+  // Track whether the user has interacted with payment amounts so we don't
+  // override the existing paymentStatus on initial load.
+  const paymentInteracted = useRef(false);
+
   const [formData, setFormData] = useState({
     customerId: "",
     orderStatus: "Pending",
@@ -68,7 +73,6 @@ export function EditOrderModal({
     deliveryDateTime: "",
     discount: "0",
     paymentMethod: "cash",
-    amountPaid: "0",
     emailReceipt: false,
   });
 
@@ -84,7 +88,6 @@ export function EditOrderModal({
       deliveryDateTime: toDisplayDateTime(order.scheduledDate),
       discount: String(order.discount || 0),
       paymentMethod: order.paymentMethod || "cash",
-      amountPaid: String(order.amountPaid || 0),
       emailReceipt: !!order.emailReceipt,
     });
 
@@ -105,7 +108,34 @@ export function EditOrderModal({
       });
       setSplitPayments([{ type: "cash", amount: "" }]);
     }
+    // Reset interaction flag so initial load doesn't override paymentStatus
+    paymentInteracted.current = false;
   }, [order]);
+
+  const { data: settings } = useSettings();
+  const taxRate: number = settings?.taxRate ?? 0;
+
+  // Compute derived values from payment inputs
+  const pretaxTotal = order?.grandTotal ?? order?.totalPrice ?? 0;
+  const taxAmount = pretaxTotal * taxRate;
+  const grandTotal = pretaxTotal + taxAmount;
+  const totalPaid =
+    paymentMode === "single"
+      ? Number(singlePayment.amount || 0)
+      : splitPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+  const balance = grandTotal - totalPaid;
+
+  // Auto-update payment status when payment amounts change
+  useEffect(() => {
+    if (!paymentInteracted.current) return;
+    if (totalPaid === 0) {
+      setFormData((prev) => ({ ...prev, paymentStatus: "Unpaid" }));
+    } else if (balance <= 0) {
+      setFormData((prev) => ({ ...prev, paymentStatus: "Paid" }));
+    } else {
+      setFormData((prev) => ({ ...prev, paymentStatus: "Partial" }));
+    }
+  }, [totalPaid, balance]);
 
   const handleAddSplitPayment = () => {
     setSplitPayments((prev) => [...prev, { type: "cash", amount: "" }]);
@@ -120,6 +150,7 @@ export function EditOrderModal({
     field: "type" | "amount",
     value: string,
   ) => {
+    if (field === "amount") paymentInteracted.current = true;
     setSplitPayments((prev) =>
       prev.map((payment, idx) =>
         idx === index ? { ...payment, [field]: value } : payment,
@@ -165,7 +196,7 @@ export function EditOrderModal({
         emailReceipt: formData.emailReceipt,
         paymentDetails,
         status: formData.orderStatus.toLowerCase(),
-        amountPaid: Number(formData.amountPaid || 0),
+        amountPaid: totalPaid,
       };
 
       await api.patch(`/orders/${order.id}`, payload);
@@ -183,7 +214,7 @@ export function EditOrderModal({
             : undefined,
         discount: Number(formData.discount || 0),
         paymentMethod: formData.paymentMethod as Order["paymentMethod"],
-        amountPaid: Number(formData.amountPaid || 0),
+        amountPaid: totalPaid,
         paymentDetails,
         emailReceipt: formData.emailReceipt,
       });
@@ -208,6 +239,52 @@ export function EditOrderModal({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Order Items */}
+          {((order.items?.length ?? 0) > 0 ||
+            (order.refills?.length ?? 0) > 0) && (
+            <div className="space-y-2">
+              <Label>Order Items</Label>
+              <div className="rounded-md border overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/50">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-medium">Item</th>
+                      <th className="px-3 py-2 text-left font-medium">SKU</th>
+                      <th className="px-3 py-2 text-center font-medium">Qty</th>
+                      <th className="px-3 py-2 text-right font-medium">Unit Price</th>
+                      <th className="px-3 py-2 text-right font-medium">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      ...(order.items || []),
+                      ...(order.refills || []),
+                    ].map((item, i) => (
+                      <tr key={i} className="border-t">
+                        <td className="px-3 py-2">
+                          {item.productName}
+                          {item.isRefill ? (
+                            <span className="ml-1 text-xs text-muted-foreground">(Refill)</span>
+                          ) : null}
+                        </td>
+                        <td className="px-3 py-2 text-muted-foreground">
+                          {item.sku || "—"}
+                        </td>
+                        <td className="px-3 py-2 text-center">{item.quantity}</td>
+                        <td className="px-3 py-2 text-right">
+                          ${item.unitPrice.toFixed(2)}
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          ${item.totalPrice.toFixed(2)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="edit-customer">Customer</Label>
@@ -355,20 +432,12 @@ export function EditOrderModal({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-amountPaid">Amount Paid</Label>
+              <Label htmlFor="edit-total">Total</Label>
               <Input
-                id="edit-amountPaid"
-                type="number"
-                min="0"
-                step="0.01"
-                value={formData.amountPaid}
-                onChange={(event) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    amountPaid: event.target.value,
-                  }))
-                }
-                className="h-12"
+                id="edit-total"
+                readOnly
+                value={`$${grandTotal.toFixed(2)}`}
+                className="h-12 bg-muted cursor-default select-none"
               />
             </div>
             <div className="space-y-2">
@@ -433,18 +502,19 @@ export function EditOrderModal({
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Amount</Label>
+                <Label>Total Paid</Label>
                 <Input
                   type="number"
                   min="0"
                   step="0.01"
                   value={singlePayment.amount}
-                  onChange={(event) =>
+                  onChange={(event) => {
+                    paymentInteracted.current = true;
                     setSinglePayment((prev) => ({
                       ...prev,
                       amount: event.target.value,
-                    }))
-                  }
+                    }));
+                  }}
                   className="h-12"
                 />
               </div>
@@ -508,6 +578,47 @@ export function EditOrderModal({
               </Button>
             </div>
           )}
+
+          {/* Balance Summary */}
+          <div className="rounded-md border p-3 bg-muted/30 space-y-2">
+            {taxRate > 0 && (
+              <div className="flex justify-between text-sm text-muted-foreground">
+                <span>Subtotal</span>
+                <span>${pretaxTotal.toFixed(2)}</span>
+              </div>
+            )}
+            {taxRate > 0 && (
+              <div className="flex justify-between text-sm text-muted-foreground">
+                <span>Tax ({(taxRate * 100).toFixed(0)}%)</span>
+                <span>${taxAmount.toFixed(2)}</span>
+              </div>
+            )}
+            <div className="grid grid-cols-3 gap-4 pt-1 border-t">
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Total</Label>
+                <p className="font-semibold">${grandTotal.toFixed(2)}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Total Paid</Label>
+                <p className="font-semibold">${totalPaid.toFixed(2)}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Balance</Label>
+                <p
+                  className={`font-semibold ${
+                    balance > 0 ? "text-red-600" : "text-green-600"
+                  }`}
+                >
+                  ${Math.abs(balance).toFixed(2)}
+                  {balance > 0
+                    ? " owing"
+                    : balance < 0
+                      ? " overpaid"
+                      : " (paid)"}
+                </p>
+              </div>
+            </div>
+          </div>
 
           <DialogFooter className="gap-2">
             <Button

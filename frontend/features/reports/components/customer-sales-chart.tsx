@@ -9,25 +9,21 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { CustomerSales } from "../types";
-
 interface CustomerSalesChartProps {
   data: { name: string; sales: number }[];
 }
 
 export function CustomerSalesChart({ data }: CustomerSalesChartProps) {
-  // Calculate the maximum value from the data
-  const maxValue = Math.max(...data.map((item) => item.sales));
+  // Calculate the maximum value from the data (fallback to 0 to avoid -Infinity on empty data)
+  const maxValue = Math.max(0, ...data.map((item) => item.sales));
 
   // Set the Y-axis domain with a 50% buffer above the max value
-  const yAxisMax = Math.ceil(maxValue * 1.5);
+  const yAxisMax = Math.ceil(maxValue * 1.5) || 100;
 
   // Generate ticks dynamically
   const tickCount = 6;
   const tickInterval = yAxisMax / (tickCount - 1);
-  const ticks = Array.from({ length: tickCount }, (_, i) =>
-    Math.round(i * tickInterval),
-  );
+  const ticks = [...new Set(Array.from({ length: tickCount }, (_, i) => Math.round(i * tickInterval)))];
 
   return (
     <div className="bg-white dark:bg-dark-800 rounded-2xl border-none shadow-sm p-6">

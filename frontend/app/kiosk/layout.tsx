@@ -1,12 +1,18 @@
-// app/kiosk/layout.tsx
-import type { ReactNode } from "react";
+import type { Metadata } from "next";
 
-export default function KioskLayout({ children }: { children: ReactNode }) {
+export const metadata: Metadata = {
+  title: "Kiosk — Watershop",
+  description: "Self-service water refill kiosk",
+};
+
+export default function KioskLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <html lang="en">
-      <body style={{ margin: 0 }}>
-        <main style={{ minHeight: "100vh" }}>{children}</main>
-      </body>
-    </html>
+    <div className="min-h-screen h-screen w-full bg-gradient-to-br from-blue-50 via-white to-blue-50 overflow-auto">
+      {children}
+    </div>
   );
 }

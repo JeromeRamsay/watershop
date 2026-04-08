@@ -41,27 +41,45 @@ export class OrdersService {
   ) {}
 
   async create(createOrderDto: CreateOrderDto): Promise<Order> {
-    const session = await this.connection.startSession();
+    // Attempt to use a MongoDB session/transaction (requires replica set).
+    // Falls back gracefully when running against a standalone instance.
+    let session: import("mongoose").ClientSession | null = null;
+    const topologyType: string | undefined =
+      (this.connection as any).client?.topology?.description?.type;
+    const isReplicaSet =
+      topologyType === "ReplicaSetWithPrimary" ||
+      topologyType === "ReplicaSetNoPrimary" ||
+      topologyType === "Sharded";
+    if (isReplicaSet) {
+      try {
+        session = await this.connection.startSession();
+        session.startTransaction();
+      } catch {
+        session = null;
+      }
+    }
+
     let savedOrder!: Order;
 
-    try {
-      await session.withTransaction(async () => {
-        const {
-          customerId,
-          items,
-          paymentMethod,
-          isPrepaidRedemption: globalPrepaid,
-          discount = 0,
-          isDelivery,
-          deliveryAddress,
-          paymentStatus,
-          deliveryDate,
-          emailReceipt,
-        } = createOrderDto;
-        const refillRedemption = !!createOrderDto.refillRedemption;
-        const skipRefillCreditTopup = !!createOrderDto.skipRefillCreditTopup;
+    const run = async () => {
+      const {
+        customerId,
+        items,
+        paymentMethod,
+        isPrepaidRedemption: globalPrepaid,
+        discount = 0,
+        isDelivery,
+        deliveryAddress,
+        paymentStatus,
+        deliveryDate,
+        emailReceipt,
+      } = createOrderDto;
+      const refillRedemption = !!createOrderDto.refillRedemption;
+      const skipRefillCreditTopup = !!createOrderDto.skipRefillCreditTopup;
 
-        const paymentDetails = createOrderDto.paymentDetails as PaymentDetails;
+      const paymentDetails = createOrderDto.paymentDetails as PaymentDetails;
+
+      const sess = session ?? undefined;
 
         // 1. Fetch Customer (null for walk-in orders)
         const customer = customerId
@@ -144,7 +162,7 @@ export class OrdersService {
           await this.inventoryService.update(
             inventoryItem._id.toString(),
             { stockQuantity: nextStock } as any,
-            session,
+            sess,
           );
 
           if (nextStock === 0) {
@@ -220,7 +238,7 @@ export class OrdersService {
           await this.customersService.update(
             customerId!,
             { wallet: updatedWallet },
-            session,
+            sess,
           );
         }
 
@@ -291,8 +309,8 @@ export class OrdersService {
           paymentDetails,
         });
 
-        // 5. Save Order (session-aware)
-        savedOrder = await newOrder.save({ session });
+        // 5. Save Order
+        savedOrder = await newOrder.save(sess ? { session: sess } : {});
 
         // 6. Automatic Delivery Creation (session-aware)
         if (isDelivery) {
@@ -345,12 +363,19 @@ export class OrdersService {
               scheduledDate: deliveryDate || new Date().toISOString(),
               status: "scheduled",
             },
-            session,
+            sess,
           );
         }
-      });
+    }; // end run
+
+    try {
+      await run();
+      if (session) await session.commitTransaction();
+    } catch (err) {
+      if (session) await session.abortTransaction();
+      throw err;
     } finally {
-      await session.endSession();
+      if (session) await session.endSession();
     }
 
     this.realtimeService.emitDashboardUpdate("orders.created");

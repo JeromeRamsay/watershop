@@ -33,9 +33,10 @@ api.interceptors.response.use(
           window.location.pathname.startsWith("/signup");
 
         if (!isOnAuthPage) {
-          // Clear the public token cookie and redirect to login
-          Cookies.remove("auth_token_public");
-          window.location.href = "/login";
+          // Redirect through the server-side logout route so that the
+          // HttpOnly session_token cookie is also cleared, preventing a
+          // redirect loop between /login and /dashboard.
+          window.location.href = "/api/auth/logout";
         }
       }
     }

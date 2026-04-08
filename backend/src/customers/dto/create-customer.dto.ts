@@ -47,9 +47,18 @@ class AddressDto {
 
 // --- 2. Family Member DTO ---
 class FamilyMemberDto {
-  @ApiProperty({ example: "Jane Doe" })
+  @ApiProperty({ example: "Jane" })
   @IsString()
-  name: string;
+  firstName: string;
+
+  @ApiProperty({ example: "Doe" })
+  @IsString()
+  lastName: string;
+
+  @ApiProperty({ example: "Jane Doe", required: false, description: "Legacy field — ignored when firstName/lastName are provided" })
+  @IsOptional()
+  @IsString()
+  name?: string;
 
   @ApiProperty({ example: "Wife" })
   @IsString()

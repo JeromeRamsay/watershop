@@ -39,7 +39,7 @@ export function AddProductModal({
   const [formData, setFormData] = useState({
     productId: "",
     productName: "",
-    quantity: "",
+    quantity: "1",
     unitPrice: "",
     totalPrice: "",
     discount: "",
@@ -66,7 +66,7 @@ export function AddProductModal({
     setFormData({
       productId: "",
       productName: "",
-      quantity: "",
+      quantity: "1",
       unitPrice: "",
       totalPrice: "",
       discount: "",
@@ -198,6 +198,7 @@ export function AddProductModal({
               onChange={(e) => handleQuantityChange(e.target.value)}
               placeholder="Please Enter"
               className="h-12"
+              min="0"
               required
             />
           </div>

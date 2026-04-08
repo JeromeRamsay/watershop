@@ -80,6 +80,8 @@ export function PaymentMethodModal({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
+    const balance = calculateBalance();
+
     const paymentData = {
       mode: paymentMode,
       ...(paymentMode === "single"
@@ -93,6 +95,8 @@ export function PaymentMethodModal({
               amount: Number(p.amount),
             })),
           }),
+      // Automatically set payment status based on balance
+      paymentStatus: balance <= 0 ? "paid" : "unpaid",
     };
 
     onSave(paymentData);

@@ -20,7 +20,7 @@ class OrderItemDto {
 
   @ApiProperty({ example: 2 })
   @IsNumber()
-  @Min(1)
+  @Min(0)
   quantity: number;
 
   @ApiProperty({ default: false })

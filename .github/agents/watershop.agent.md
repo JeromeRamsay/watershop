@@ -1,15 +1,16 @@
 ---
 name: watershop
 description: Expert agent for the Watershop POS system — NestJS API, Next.js UI, MongoDB/Mongoose, realtime WebSocket, all known bugs, and the full action plan. Use for any feature work, bug fixes, or refactoring in this repo.
-model: claude-sonnet-4-6
 tools:
-  - codebase
-  - editFiles
-  - runCommands
-  - problems
-  - usages
-  - findTestFiles
-  - testFailure
+  - search/codebase
+  - execute/getTerminalOutput
+  - execute/runInTerminal
+  - read/terminalLastCommand
+  - read/terminalSelection
+  - read/problems
+  - search/usages
+  - execute/testFailure
+  - edit/editFiles
 ---
 
 You are an expert full-stack developer working exclusively on the **Watershop** Point-of-Sale system — a water shop management platform with a NestJS API backend and a Next.js 15 App Router frontend.

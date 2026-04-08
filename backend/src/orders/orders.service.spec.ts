@@ -1,5 +1,5 @@
 import { BadRequestException, NotFoundException } from "@nestjs/common";
-import { getModelToken } from "@nestjs/mongoose";
+import { getModelToken, getConnectionToken } from "@nestjs/mongoose";
 import { Test, TestingModule } from "@nestjs/testing";
 import { Types } from "mongoose";
 import { CustomersService } from "../customers/customers.service";
@@ -57,8 +57,17 @@ const makeOrder = (overrides: Record<string, unknown> = {}) => ({
 });
 
 const makeChainable = (resolvedValue: unknown) => {
-  const chain: any = { populate: jest.fn(), exec: jest.fn().mockResolvedValue(resolvedValue) };
+  const chain: any = {
+    populate: jest.fn(),
+    sort: jest.fn(),
+    skip: jest.fn(),
+    limit: jest.fn(),
+    exec: jest.fn().mockResolvedValue(resolvedValue),
+  };
   chain.populate.mockReturnValue(chain);
+  chain.sort.mockReturnValue(chain);
+  chain.skip.mockReturnValue(chain);
+  chain.limit.mockReturnValue(chain);
   return chain;
 };
 
@@ -74,6 +83,7 @@ function buildMockOrderModel() {
   MockModel.findByIdAndUpdate = jest.fn();
   MockModel.findByIdAndDelete = jest.fn();
   MockModel.aggregate = jest.fn();
+  MockModel.countDocuments = jest.fn().mockResolvedValue(0);
   return MockModel;
 }
 
@@ -98,6 +108,18 @@ describe("OrdersService", () => {
         { provide: DeliveriesService, useValue: mockDeliveriesService },
         { provide: NotificationsService, useValue: mockNotificationsService },
         { provide: RealtimeService, useValue: mockRealtimeService },
+        {
+          provide: getConnectionToken(),
+          useValue: {
+            startSession: jest.fn().mockResolvedValue({
+              startTransaction: jest.fn(),
+              commitTransaction: jest.fn(),
+              abortTransaction: jest.fn(),
+              endSession: jest.fn(),
+            }),
+            client: { topology: { description: { type: "Single" } } },
+          },
+        },
       ],
     }).compile();
     service = module.get<OrdersService>(OrdersService);
@@ -119,7 +141,7 @@ describe("OrdersService", () => {
 
     it("deducts stock and emits realtime event", async () => {
       await service.create({ customerId, items: [{ itemId, quantity: 2 }], paymentMethod: "cash", discount: 0 } as any);
-      expect(mockInventoryService.update).toHaveBeenCalledWith(itemId, { stockQuantity: 98 });
+      expect(mockInventoryService.update).toHaveBeenCalledWith(itemId, { stockQuantity: 98 }, undefined);
       expect(mockRealtimeService.emitDashboardUpdate).toHaveBeenCalledWith("orders.created");
     });
 

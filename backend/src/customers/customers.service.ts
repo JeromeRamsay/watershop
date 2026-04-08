@@ -158,7 +158,18 @@ export class CustomersService {
     if (!digits) return null;
 
     const regex = new RegExp(digits.split("").join("\\D*"));
-    return this.customerModel.findOne({ phone: { $regex: regex } }).exec();
+
+    // First try primary customer phone
+    const primary = await this.customerModel
+      .findOne({ phone: { $regex: regex } })
+      .exec();
+    if (primary) return primary;
+
+    // Fall back: check if the number belongs to a family member
+    // and return the primary (owner) customer so the shared wallet is used
+    return this.customerModel
+      .findOne({ "familyMembers.phone": { $regex: regex } })
+      .exec();
   }
 
   async update(

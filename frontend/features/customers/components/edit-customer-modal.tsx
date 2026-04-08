@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { Customer } from "../types";
 import { Edit, Trash2, Plus, ArrowUpDown } from "lucide-react";
+import { formatCanadianPostalCode, formatPhoneNumber } from "@/lib/utils";
 
 interface EditCustomerModalProps {
   open: boolean;
@@ -58,14 +59,14 @@ export function EditCustomerModal({
     return {
       name: customer.name,
       email: customer.email,
-      phone: customer.phone,
+      phone: customer.phone ? formatPhoneNumber(customer.phone.replace(/\D/g, "")) : "",
       customerType: customer.customerType,
       billingAddress: customer.billingAddress || "",
       deliveryAddress: customer.deliveryAddress || "",
       country: customer.country || "",
       city: customer.city || "",
       state: customer.state || "",
-      zipCode: customer.zipCode || "",
+      zipCode: customer.zipCode ? formatCanadianPostalCode(customer.zipCode) : "",
       totalOrders: customer.orders.toString(),
       remainingCredits: customer.creditsLeft.toString(),
     };
@@ -120,7 +121,7 @@ export function EditCustomerModal({
                 <Input
                   id="name"
                   value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value.replace(/[^A-Za-z]/g, "") })}
                   className="dark:border-dark-600 dark:bg-dark-700 dark:text-white"
                 />
               </div>
@@ -139,7 +140,8 @@ export function EditCustomerModal({
                 <Input
                   id="phone"
                   value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  onChange={(e) => setFormData({ ...formData, phone: formatPhoneNumber(e.target.value) })}
+                  placeholder="(416) 123-4567"
                   className="dark:border-dark-600 dark:bg-dark-700 dark:text-white"
                 />
               </div>
@@ -235,7 +237,9 @@ export function EditCustomerModal({
                   <Input
                     id="zipCode"
                     value={formData.zipCode}
-                    onChange={(e) => setFormData({ ...formData, zipCode: e.target.value })}
+                    onChange={(e) => setFormData({ ...formData, zipCode: formatCanadianPostalCode(e.target.value) })}
+                    placeholder="A1A 1A1"
+                    maxLength={7}
                     className="dark:border-dark-600 dark:bg-dark-700 dark:text-white"
                   />
                 </div>
@@ -291,7 +295,7 @@ export function EditCustomerModal({
                           key={member.id}
                           className="border-b border-dark-200 dark:border-dark-600 last:border-0 hover:bg-dark-50 dark:hover:bg-dark-600 transition-colors"
                         >
-                          <td className="py-3 px-4 text-sm text-dark-900 dark:text-white">{member.name}</td>
+                          <td className="py-3 px-4 text-sm text-dark-900 dark:text-white">{`${member.firstName} ${member.lastName}`.trim() || member.name}</td>
                           <td className="py-3 px-4 text-sm text-dark-900 dark:text-white">{member.relationship}</td>
                           <td className="py-3 px-4 text-sm text-dark-900 dark:text-white">{member.phone}</td>
                           <td className="py-3 px-4 text-center">

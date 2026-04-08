@@ -51,7 +51,10 @@ export default function KioskRefillNamePage() {
         });
       }
       (customer?.familyMembers || []).forEach((fm: any, idx: number) => {
-        const name = fm?.name || "";
+        // Support both new firstName/lastName format and legacy name field
+        const name = fm?.firstName
+          ? `${fm.firstName || ""} ${fm.lastName || ""}`.trim()
+          : (fm?.name || "");
         if (!name) return;
         list.push({
           id: fm?._id || `${customer._id}-fm-${idx}`,
@@ -112,8 +115,8 @@ export default function KioskRefillNamePage() {
   const onPrev = () => router.push("/kiosk/refill");
 
   return (
-    <div className="min-h-screen bg-slate-100 flex items-center justify-center px-3 py-4 sm:p-4 md:p-6">
-      <div className="w-full max-w-xl md:max-w-2xl bg-white rounded-2xl md:rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+    <div className="min-h-screen h-full flex items-center justify-center px-3 py-4 sm:p-4 md:p-6 lg:p-8">
+      <div className="w-full h-full max-w-4xl lg:max-w-5xl bg-white rounded-2xl md:rounded-3xl shadow-lg border border-slate-200 overflow-hidden flex flex-col">
         {/* Top Bar */}
         <div className="flex items-center justify-between px-4 py-3 md:px-6 md:py-4 border-b border-slate-100">
           <div className="flex items-center gap-2">
@@ -138,53 +141,53 @@ export default function KioskRefillNamePage() {
           ) : null}
         </div>
 
-        <div className="px-4 py-5 sm:px-5 sm:py-6 md:px-8 md:py-8">
+        <div className="flex-1 px-4 py-5 sm:px-5 sm:py-6 md:px-8 md:py-8 lg:px-12 lg:py-10 flex flex-col">
           <div className="text-center">
-            <h1 className="text-2xl md:text-3xl font-semibold text-slate-800">
+            <h1 className="text-3xl md:text-4xl lg:text-5xl font-semibold text-slate-800">
               Water Refill
             </h1>
-            <p className="text-xs md:text-sm text-slate-400 mt-1">
+            <p className="text-sm md:text-base lg:text-lg text-slate-500 mt-2">
               Let&apos;s refill your bottle and save the planet
             </p>
-            <p className="text-sm md:text-base text-slate-600 mt-4">
+            <p className="text-base md:text-lg lg:text-xl text-slate-700 mt-4 md:mt-6">
               <span className="font-semibold">Phone Number:</span> {formatted}
             </p>
           </div>
 
-          <div className="mt-5 md:mt-6">
-            <div className="text-lg md:text-xl font-semibold text-slate-700">
+          <div className="mt-6 md:mt-8 lg:mt-10 flex-1 flex flex-col">
+            <div className="text-xl md:text-2xl lg:text-3xl font-semibold text-slate-800">
               Enter your Initials
             </div>
 
-            <div className="mt-3 border border-slate-200 bg-slate-50 rounded-xl md:rounded-2xl p-6 md:p-8 flex items-center justify-center">
-              <div className="text-5xl md:text-6xl font-semibold text-slate-700">
+            <div className="mt-4 md:mt-6 border-2 border-slate-200 bg-slate-50 rounded-xl md:rounded-2xl p-8 md:p-10 lg:p-12 flex items-center justify-center flex-1 min-h-[120px] md:min-h-[160px]">
+              <div className="text-6xl md:text-7xl lg:text-8xl font-bold text-slate-800">
                 {initials || "--"}
               </div>
             </div>
 
-            <div className="mt-4 text-xs md:text-sm text-slate-500">
+            <div className="mt-5 md:mt-6 text-sm md:text-base lg:text-lg text-slate-500">
               Example (John Smith)
             </div>
-            <div className="mt-2 h-12 md:h-14 rounded-xl border border-slate-200 bg-white text-slate-700 font-semibold flex items-center justify-center">
+            <div className="mt-2 h-14 md:h-16 lg:h-20 rounded-xl md:rounded-2xl border-2 border-slate-200 bg-white text-slate-800 text-xl md:text-2xl lg:text-3xl font-bold flex items-center justify-center">
               JS
             </div>
 
             {error ? (
-              <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-base md:text-lg text-red-700 font-medium">
                 {error}
               </div>
             ) : null}
 
             <button
               onClick={onNext}
-              className="mt-6 md:mt-7 w-full h-12 md:h-14 rounded-xl font-semibold text-white bg-sky-600 hover:bg-sky-700"
+              className="mt-6 md:mt-8 w-full h-14 md:h-16 lg:h-20 rounded-xl md:rounded-2xl font-semibold text-lg md:text-xl lg:text-2xl text-white bg-sky-600 hover:bg-sky-700 transition-all active:scale-98"
             >
               Next
             </button>
 
             <button
               onClick={onPrev}
-              className="mt-3 w-full h-12 md:h-14 rounded-xl font-semibold text-sky-700 bg-white border border-slate-200 hover:bg-slate-50"
+              className="mt-3 md:mt-4 w-full h-14 md:h-16 lg:h-20 rounded-xl md:rounded-2xl font-semibold text-lg md:text-xl lg:text-2xl text-sky-700 bg-white border-2 border-slate-200 hover:bg-slate-50 transition-all active:scale-98"
             >
               Previous
             </button>

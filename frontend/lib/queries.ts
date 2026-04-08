@@ -12,6 +12,7 @@ export const queryKeys = {
   dashboardStats: (year?: number) => ["reports", "dashboard", year] as const,
   topItems:       (year?: number) => ["reports", "top-items", year] as const,
   topCustomers:   (year?: number) => ["reports", "top-customers", year] as const,
+  frequentCustomers: (year?: number) => ["reports", "frequent-customers", year] as const,
   walkInStats:    (year?: number) => ["reports", "walk-in-stats", year] as const,
   customers:      (params?: object) => ["customers", params] as const,
   customer:       (id: string) => ["customers", id] as const,
@@ -56,6 +57,13 @@ export function useWalkInStats(year?: number) {
   return useQuery({
     queryKey: queryKeys.walkInStats(year),
     queryFn: () => api.get("/reports/walk-in-stats", { params: year ? { year } : {} }).then(r => r.data),
+  });
+}
+
+export function useFrequentCustomers(year?: number) {
+  return useQuery({
+    queryKey: queryKeys.frequentCustomers(year),
+    queryFn: () => api.get("/reports/frequent-customers", { params: year ? { year } : {} }).then(r => r.data),
   });
 }
 

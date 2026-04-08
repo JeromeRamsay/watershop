@@ -14,12 +14,20 @@ export const nameSchema = z
   .max(100, "Name must be at most 100 characters")
   .regex(/^[A-Za-z\s'\-]+$/, "Name may only contain letters, spaces, hyphens, and apostrophes");
 
-/** Canadian / international phone: digits, +, -, spaces, parens — 7–20 chars */
+/** North American (US/CA) and international long-distance phone numbers */
 export const phoneSchema = z
   .string()
-  .min(7, "Phone number is too short")
-  .max(20, "Phone number is too long")
-  .regex(/^\+?[\d\s\-().]+$/, "Phone number contains invalid characters");
+  .min(1, "Phone number is required")
+  .max(25, "Phone number is too long")
+  .refine((val) => {
+    const trimmed = val.trim();
+    // North American: optional +1 or 1 prefix, then (xxx) xxx-xxxx and common variants
+    const northAm = /^(\+?1[\s.\-]?)?\(?\d{3}\)?[\s.\-]?\d{3}[\s.\-]?\d{4}$/;
+    if (northAm.test(trimmed)) return true;
+    // International long-distance: + followed by country code and subscriber number
+    const stripped = trimmed.replace(/[\s.\-()]/g, "");
+    return /^\+[1-9]\d{6,14}$/.test(stripped);
+  }, "Enter a valid phone number (e.g. (416) 123-4567 or +44 20 1234 5678)");
 
 /** Standard email */
 export const emailSchema = z.string().email("Enter a valid email address");
@@ -54,8 +62,16 @@ export const notesSchema = z.string().max(500, "Notes must be at most 500 charac
 // ─── Customer form ────────────────────────────────────────────────────────────
 
 export const createCustomerSchema = z.object({
-  firstName: nameSchema,
-  lastName: nameSchema,
+  firstName: z
+    .string()
+    .min(1, "First name is required")
+    .max(100, "First name must be at most 100 characters")
+    .regex(/^[A-Za-z]+$/, "First name may only contain letters"),
+  lastName: z
+    .string()
+    .min(1, "Last name is required")
+    .max(100, "Last name must be at most 100 characters")
+    .regex(/^[A-Za-z]+$/, "Last name may only contain letters"),
   email: emailSchema.or(z.literal("")),
   phone: phoneSchema,
   street: addressSchema.min(1, "Street is required"),
@@ -63,12 +79,12 @@ export const createCustomerSchema = z.object({
     .string()
     .min(1, "City is required")
     .max(100, "City must be at most 100 characters")
-    .regex(/^[A-Za-z\s'\-]+$/, "City may only contain letters, spaces, hyphens, and apostrophes"),
+    .regex(/^[A-Za-z]+$/, "City may only contain letters"),
   zipCode: z
     .string()
     .min(1, "Postal code is required")
     .regex(
-      /^[ABCEGHJ-NPRSTVXY]\d[ABCEGHJ-NPRSTV-Z] ?\d[ABCEGHJ-NPRSTV-Z]\d$/i,
+      /^[A-Za-z]\d[A-Za-z] ?\d[A-Za-z]\d$/,
       "Enter a valid Canadian postal code (e.g. A1A 1A1)",
     ),
 });

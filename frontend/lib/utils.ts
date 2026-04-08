@@ -5,6 +5,34 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+/** Auto-formats a Canadian postal code into A1A 1A1, enforcing L-D-L D-L-D */
+export function formatCanadianPostalCode(value: string): string {
+  const raw = value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  let clean = "";
+  for (const ch of raw) {
+    const pos = clean.length;
+    if (pos >= 6) break;
+    const expectLetter = pos === 0 || pos === 2 || pos === 4;
+    if (expectLetter && /[A-Z]/.test(ch)) clean += ch;
+    else if (!expectLetter && /[0-9]/.test(ch)) clean += ch;
+    // Wrong type — skip
+  }
+  if (clean.length <= 3) return clean;
+  return `${clean.slice(0, 3)} ${clean.slice(3)}`;
+}
+
+/** Auto-formats a phone number as (xxx) xxx-xxxx for NA, or preserves intl (+) */
+export function formatPhoneNumber(raw: string): string {
+  if (raw.startsWith("+")) {
+    return raw.replace(/[^\d\s+.\-()]/g, "");
+  }
+  const digits = raw.replace(/\D/g, "").slice(0, 10);
+  if (digits.length === 0) return "";
+  if (digits.length <= 3) return `(${digits}`;
+  if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
+}
+
 /** Returns a full date string like "Tuesday, April 7th, 2026" */
 export function formatFullDate(
   date: string | Date | null | undefined

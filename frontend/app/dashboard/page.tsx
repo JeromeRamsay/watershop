@@ -72,7 +72,11 @@ function mapApiCustomer(c: any): Customer {
     country: da?.country||"", city: da?.city||"", state: da?.state||"", zipCode: da?.zipCode||"",
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     familyMembers: (c.familyMembers||[]).map((m: any) => ({
-      id: m._id||m.id, name: m.name||"", relationship: m.relationship||"", phone: m.phone||"", email: m.email,
+      id: m._id||m.id,
+      firstName: m.firstName || (m.name ? String(m.name).split(" ")[0] : ""),
+      lastName: m.lastName || (m.name ? String(m.name).split(" ").slice(1).join(" ") : ""),
+      name: m.name || ("" + (m.firstName||"") + " " + (m.lastName||"")).trim(),
+      relationship: m.relationship||"", phone: m.phone||"", email: m.email,
     })),
   };
 }

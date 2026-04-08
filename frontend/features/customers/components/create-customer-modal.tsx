@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/select";
 import { ReadOnlyField } from "@/components/ui/read-only-field";
 import { createCustomerSchema } from "@/lib/schemas";
+import { formatCanadianPostalCode, formatPhoneNumber } from "@/lib/utils";
 import api from "@/lib/api";
 import { Loader2 } from "lucide-react";
 
@@ -39,16 +40,7 @@ const CANADIAN_PROVINCES = [
 ];
 
 const CANADIAN_POSTAL_CODE_REGEX =
-  /^[ABCEGHJ-NPRSTVXY]\d[ABCEGHJ-NPRSTV-Z] ?\d[ABCEGHJ-NPRSTV-Z]\d$/i;
-
-function formatCanadianPostalCode(value: string) {
-  const clean = value
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, "")
-    .slice(0, 6);
-  if (clean.length <= 3) return clean;
-  return `${clean.slice(0, 3)} ${clean.slice(3)}`;
-}
+  /^[A-Za-z]\d[A-Za-z] ?\d[A-Za-z]\d$/;
 
 function normalizeCanadianPhone(value: string) {
   const digits = value.replace(/\D/g, "");
@@ -93,6 +85,20 @@ export function CreateCustomerModal({
       setFormData((prev) => ({
         ...prev,
         zipCode: formatCanadianPostalCode(value),
+      }));
+      return;
+    }
+    if (name === "firstName" || name === "lastName" || name === "city") {
+      setFormData((prev) => ({
+        ...prev,
+        [name]: value.replace(/[^A-Za-z]/g, ""),
+      }));
+      return;
+    }
+    if (name === "phone") {
+      setFormData((prev) => ({
+        ...prev,
+        phone: formatPhoneNumber(value),
       }));
       return;
     }
@@ -264,7 +270,7 @@ export function CreateCustomerModal({
               <Input
                 id="phone"
                 name="phone"
-                placeholder="4161231234"
+                placeholder="(416) 123-4567"
                 value={formData.phone}
                 onChange={handleChange}
                 required
@@ -331,6 +337,7 @@ export function CreateCustomerModal({
                 placeholder="A1A 1A1"
                 value={formData.zipCode}
                 onChange={handleChange}
+                maxLength={7}
                 required
               />
               {fieldErrors.zipCode && <p className="text-xs text-red-600">{fieldErrors.zipCode}</p>}

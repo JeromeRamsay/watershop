@@ -32,7 +32,13 @@ export class Address {
 @Schema({ _id: false })
 export class FamilyMember {
   @Prop()
-  name: string;
+  firstName: string;
+
+  @Prop()
+  lastName: string;
+
+  @Prop()
+  name: string; // kept for backward compatibility with existing records
 
   @Prop()
   relationship: string; // e.g. "Wife", "Driver"

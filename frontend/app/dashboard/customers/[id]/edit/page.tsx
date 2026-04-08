@@ -74,7 +74,9 @@ interface BackendCustomer {
   }>;
   familyMembers: Array<{
     _id?: string;
-    name: string;
+    firstName: string;
+    lastName: string;
+    name?: string; // legacy
     relationship: string;
     phone: string;
     email?: string;
@@ -141,13 +143,16 @@ export default function EditCustomerPage() {
             data.familyMembers?.map(
               (m: {
                 _id?: string;
-                name: string;
+                firstName?: string;
+                lastName?: string;
+                name?: string;
                 relationship: string;
                 phone: string;
                 email?: string;
               }) => ({
                 id: m._id || Date.now().toString() + Math.random(),
-                name: m.name,
+                firstName: m.firstName || (m.name ? m.name.split(" ")[0] : ""),
+                lastName: m.lastName || (m.name ? m.name.split(" ").slice(1).join(" ") : ""),
                 relationship: m.relationship,
                 phone: m.phone,
                 email: m.email,
@@ -190,7 +195,8 @@ export default function EditCustomerPage() {
         },
       ],
       familyMembers: currentFamilyMembers.map((m) => ({
-        name: m.name,
+        firstName: m.firstName,
+        lastName: m.lastName,
         relationship: m.relationship,
         phone: m.phone,
         email: m.email || "",
@@ -246,7 +252,8 @@ export default function EditCustomerPage() {
     try {
       const payload = {
         familyMembers: updatedMembers.map((m) => ({
-          name: m.name,
+          firstName: m.firstName,
+          lastName: m.lastName,
           relationship: m.relationship,
           phone: m.phone,
           email: m.email || "",
@@ -273,7 +280,8 @@ export default function EditCustomerPage() {
     try {
       const payload = {
         familyMembers: updatedMembers.map((m) => ({
-          name: m.name,
+          firstName: m.firstName,
+          lastName: m.lastName,
           relationship: m.relationship,
           phone: m.phone,
           email: m.email || "",
@@ -599,7 +607,7 @@ export default function EditCustomerPage() {
                           className="border-b border-dark-200 dark:border-dark-600 last:border-0 hover:bg-dark-50 dark:hover:bg-dark-600 transition-colors"
                         >
                           <td className="py-3 px-4 text-sm text-dark-900 dark:text-white">
-                            {member.name}
+                            {`${member.firstName} ${member.lastName}`.trim()}
                           </td>
                           <td className="py-3 px-4 text-sm text-dark-900 dark:text-white">
                             {member.relationship}

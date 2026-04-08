@@ -36,9 +36,7 @@ export function EmployeeHoursChart({
   const yAxisMax = Math.ceil(maxValue * 1.3);
   const tickCount = 6;
   const tickInterval = yAxisMax / (tickCount - 1);
-  const ticks = Array.from({ length: tickCount }, (_, i) =>
-    Math.round(i * tickInterval),
-  );
+  const ticks = [...new Set(Array.from({ length: tickCount }, (_, i) => Math.round(i * tickInterval)))];
 
   return (
     <div className="bg-white dark:bg-dark-800 rounded-2xl border-none shadow-sm p-6">

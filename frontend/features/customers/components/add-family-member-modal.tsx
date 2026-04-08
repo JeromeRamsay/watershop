@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FamilyMember } from "../types";
+import { formatPhoneNumber } from "@/lib/utils";
 
 interface AddFamilyMemberModalProps {
   open: boolean;
@@ -39,7 +40,8 @@ export function AddFamilyMemberModal({
   primaryCustomerAddress,
 }: AddFamilyMemberModalProps) {
   const [formData, setFormData] = useState({
-    name: "",
+    firstName: "",
+    lastName: "",
     phone: "",
     email: "",
     relationship: "",
@@ -53,7 +55,8 @@ export function AddFamilyMemberModal({
     e.preventDefault();
     const member: FamilyMember = {
       id: Date.now().toString(),
-      name: formData.name,
+      firstName: formData.firstName,
+      lastName: formData.lastName,
       phone: formData.phone,
       email: formData.email || undefined,
       relationship: formData.relationship,
@@ -64,7 +67,8 @@ export function AddFamilyMemberModal({
     onAdd(member);
     // Reset form
     setFormData({
-      name: "",
+      firstName: "",
+      lastName: "",
       phone: "",
       email: "",
       relationship: "",
@@ -94,11 +98,22 @@ export function AddFamilyMemberModal({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="fullName" className="text-dark-600 dark:text-white">Full Name</Label>
+              <Label htmlFor="firstName" className="text-dark-600 dark:text-white">First Name</Label>
               <Input
-                id="fullName"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                id="firstName"
+                value={formData.firstName}
+                onChange={(e) => setFormData({ ...formData, firstName: e.target.value.replace(/[^A-Za-z]/g, "") })}
+                placeholder="Please Enter"
+                className="dark:border-dark-600 dark:bg-dark-700 dark:text-white"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="lastName" className="text-dark-600 dark:text-white">Last Name</Label>
+              <Input
+                id="lastName"
+                value={formData.lastName}
+                onChange={(e) => setFormData({ ...formData, lastName: e.target.value.replace(/[^A-Za-z]/g, "") })}
                 placeholder="Please Enter"
                 className="dark:border-dark-600 dark:bg-dark-700 dark:text-white"
                 required
@@ -109,8 +124,8 @@ export function AddFamilyMemberModal({
               <Input
                 id="phoneNumber"
                 value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                placeholder="Please Enter"
+                onChange={(e) => setFormData({ ...formData, phone: formatPhoneNumber(e.target.value) })}
+                placeholder="(416) 123-4567"
                 className="dark:border-dark-600 dark:bg-dark-700 dark:text-white"
                 required
               />

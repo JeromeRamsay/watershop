@@ -7,7 +7,9 @@ export interface PrepaidItem {
 
 export interface FamilyMember {
   id: string;
-  name: string;
+  firstName: string;
+  lastName: string;
+  name?: string; // legacy field kept for backward compat display
   relationship: string;
   phone: string;
   email?: string;

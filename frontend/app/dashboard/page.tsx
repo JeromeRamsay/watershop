@@ -233,31 +233,32 @@ export default function DashboardPage() {
           <Notifications notifications={notificationsList} onClear={handleClearNotification} onClearAll={handleClearAll} onNotificationClick={handleNotificationClick} />
         </div>
       </div>
-      {userRole === "staff" ? (
-        <div className="grid gap-3 grid-cols-1">
+      {/* Bottom row — Upcoming Deliveries aligns under InventoryStatus(5)+QuickActions(3) = col-span-8 */}
+      <div className="grid gap-3 grid-cols-1 md:grid-cols-12">
+        <div className="md:col-span-8">
           <UpcomingDeliveries deliveries={deliveries} onCustomerClick={handleCustomerClick} />
         </div>
-      ) : (
-        <div className="grid gap-3 grid-cols-1 md:grid-cols-3">
-          <RecentTransactions transactions={transactions} />
-          <UpcomingDeliveries deliveries={deliveries} onCustomerClick={handleCustomerClick} />
-          <div className="bg-white dark:bg-dark-700 rounded-xl border border-dark-200 dark:border-dark-600 shadow-sm p-4">
-            <h3 className="text-sm font-semibold text-dark-900 dark:text-white mb-2">Recent Logged Hours</h3>
-            <div className="space-y-2">
-              {myRecentHours.length > 0 ? (
-                myRecentHours.map((entry) => (
-                  <div key={entry.id} className="flex justify-between text-xs border-b border-dark-200 dark:border-dark-600 pb-1">
-                    <span>{formatFullDate(entry.date)}</span>
-                    <span className="font-semibold">{entry.hours.toFixed(2)}h</span>
-                  </div>
-                ))
-              ) : (
-                <p className="text-xs text-dark-500">No hour entries yet.</p>
-              )}
+        {userRole !== "staff" && (
+          <div className="md:col-span-4 flex flex-col gap-3">
+            <RecentTransactions transactions={transactions} />
+            <div className="bg-white dark:bg-dark-700 rounded-xl border border-dark-200 dark:border-dark-600 shadow-sm p-4">
+              <h3 className="text-sm font-semibold text-dark-900 dark:text-white mb-2">Recent Logged Hours</h3>
+              <div className="space-y-2">
+                {myRecentHours.length > 0 ? (
+                  myRecentHours.map((entry) => (
+                    <div key={entry.id} className="flex justify-between text-xs border-b border-dark-200 dark:border-dark-600 pb-1">
+                      <span>{formatFullDate(entry.date)}</span>
+                      <span className="font-semibold">{entry.hours.toFixed(2)}h</span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-dark-500">No hour entries yet.</p>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
       <div className="text-end text-xs text-dark-500 py-2">Copyright {new Date().getFullYear()} Water Shop. All Rights Reserved</div>
       <EditOrderModal open={isEditOrderOpen} onOpenChange={setIsEditOrderOpen} order={selectedOrder} onUpdate={handleOrderUpdate} />
       <CustomerDetailsModal open={isCustomerModalOpen} onOpenChange={setIsCustomerModalOpen} customer={selectedCustomer} />

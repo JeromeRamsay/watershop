@@ -38,7 +38,7 @@ export function Notifications({
       </div>
 
       {/* List */}
-      <div className="space-y-2 max-h-[200px] overflow-y-auto">
+      <div className="flex-1 min-h-0 overflow-y-auto space-y-2">
         {notifications.length === 0 ? (
           <p className="text-xs text-dark-400 dark:text-dark-500 text-center py-4">
             No notifications

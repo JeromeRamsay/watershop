@@ -18,8 +18,9 @@ export class NotificationsService {
   ) {}
 
   async findAll() {
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
     return this.notificationModel
-      .find()
+      .find({ createdAt: { $gte: since } })
       .sort({ createdAt: -1 })
       .limit(MAX_NOTIFICATIONS)
       .exec();

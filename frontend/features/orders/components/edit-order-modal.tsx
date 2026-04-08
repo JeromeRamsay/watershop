@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -22,7 +22,6 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2 } from "lucide-react";
 import { Order, PaymentDetails } from "../types";
-import { Customer } from "@/features/customers/types";
 import api from "@/lib/api";
 
 interface EditOrderModalProps {
@@ -30,14 +29,6 @@ interface EditOrderModalProps {
   onOpenChange: (open: boolean) => void;
   order: Order | null;
   onUpdate: (data: Order) => void;
-}
-
-interface CustomerApiResponse {
-  _id: string;
-  firstName?: string;
-  lastName?: string;
-  email?: string;
-  phone?: string;
 }
 
 interface SplitPayment {
@@ -58,7 +49,6 @@ export function EditOrderModal({
   order,
   onUpdate,
 }: EditOrderModalProps) {
-  const [customers, setCustomers] = useState<Customer[]>([]);
   const [saving, setSaving] = useState(false);
   const [paymentMode, setPaymentMode] = useState<"single" | "split">("single");
   const [splitPayments, setSplitPayments] = useState<SplitPayment[]>([
@@ -81,33 +71,6 @@ export function EditOrderModal({
     amountPaid: "0",
     emailReceipt: false,
   });
-
-  useEffect(() => {
-    const fetchCustomers = async () => {
-      try {
-        const { data } = await api.get<CustomerApiResponse[]>("/customers");
-        const mapped: Customer[] = (data || []).map((customer) => ({
-          id: customer._id,
-          name: `${customer.firstName || ""} ${customer.lastName || ""}`.trim(),
-          email: customer.email || "",
-          phone: customer.phone || "",
-          address: "",
-          orders: 0,
-          creditsLeft: 0,
-          familyGroup: null,
-          customerType: "Individual",
-          status: "Active" as const,
-        }));
-        setCustomers(mapped);
-      } catch (error) {
-        console.error("Failed to fetch customers for edit modal", error);
-      }
-    };
-
-    if (open) {
-      fetchCustomers();
-    }
-  }, [open]);
 
   useEffect(() => {
     if (!order) return;
@@ -143,11 +106,6 @@ export function EditOrderModal({
       setSplitPayments([{ type: "cash", amount: "" }]);
     }
   }, [order]);
-
-  const selectedCustomer = useMemo(
-    () => customers.find((customer) => customer.id === formData.customerId),
-    [customers, formData.customerId],
-  );
 
   const handleAddSplitPayment = () => {
     setSplitPayments((prev) => [...prev, { type: "cash", amount: "" }]);
@@ -212,25 +170,17 @@ export function EditOrderModal({
 
       await api.patch(`/orders/${order.id}`, payload);
 
-      const customerName = selectedCustomer?.name || order.customer;
-      const customerEmail = selectedCustomer?.email || order.customerEmail;
-      const customerPhone = selectedCustomer?.phone || order.customerPhone;
-      const deliveryDateIso =
-        formData.deliveryType === "Delivery" && formData.deliveryDateTime
-          ? new Date(formData.deliveryDateTime).toISOString()
-          : undefined;
-
       onUpdate({
         ...order,
-        customer: customerName,
-        customerEmail,
-        customerPhone,
         customerId_raw: formData.customerId || order.customerId_raw,
         orderStatus: formData.orderStatus as Order["orderStatus"],
         paymentStatus: formData.paymentStatus as Order["paymentStatus"],
         deliveryType: formData.deliveryType as Order["deliveryType"],
         deliveryAddress: formData.deliveryAddress || undefined,
-        scheduledDate: deliveryDateIso,
+        scheduledDate:
+          formData.deliveryType === "Delivery" && formData.deliveryDateTime
+            ? new Date(formData.deliveryDateTime).toISOString()
+            : undefined,
         discount: Number(formData.discount || 0),
         paymentMethod: formData.paymentMethod as Order["paymentMethod"],
         amountPaid: Number(formData.amountPaid || 0),
@@ -261,23 +211,12 @@ export function EditOrderModal({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="edit-customer">Customer</Label>
-              <Select
-                value={formData.customerId}
-                onValueChange={(value) =>
-                  setFormData((prev) => ({ ...prev, customerId: value }))
-                }
-              >
-                <SelectTrigger className="h-12" id="edit-customer">
-                  <SelectValue placeholder="Please select customer" />
-                </SelectTrigger>
-                <SelectContent>
-                  {customers.map((customer) => (
-                    <SelectItem key={customer.id} value={customer.id}>
-                      {customer.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Input
+                id="edit-customer"
+                value={order.customer || "Walk-in Customer"}
+                readOnly
+                className="h-12 bg-muted cursor-default select-none"
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-paymentMethod">Payment Method</Label>

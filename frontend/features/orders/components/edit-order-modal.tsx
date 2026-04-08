@@ -307,12 +307,12 @@ export function EditOrderModal({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="interac">Interac</SelectItem>
+                  <SelectItem value="credit_card">Credit Card</SelectItem>
                   <SelectItem value="cash">Cash</SelectItem>
-                  <SelectItem value="card">Card</SelectItem>
-                  <SelectItem value="credit_redemption">
-                    Credit Redemption
-                  </SelectItem>
-                  <SelectItem value="store_credit">Store Credit</SelectItem>
+                  <SelectItem value="cheque">Cheque</SelectItem>
+                  <SelectItem value="e_transfer">E-Transfer</SelectItem>
+                  <SelectItem value="financeit_etransfer">Financeit E-Transfer</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -492,12 +492,12 @@ export function EditOrderModal({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="interac">Interac</SelectItem>
+                    <SelectItem value="credit_card">Credit Card</SelectItem>
                     <SelectItem value="cash">Cash</SelectItem>
-                    <SelectItem value="card">Card</SelectItem>
-                    <SelectItem value="credit_redemption">
-                      Credit Redemption
-                    </SelectItem>
-                    <SelectItem value="store_credit">Store Credit</SelectItem>
+                    <SelectItem value="cheque">Cheque</SelectItem>
+                    <SelectItem value="e_transfer">E-Transfer</SelectItem>
+                    <SelectItem value="financeit_etransfer">Financeit E-Transfer</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -536,12 +536,12 @@ export function EditOrderModal({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="interac">Interac</SelectItem>
+                      <SelectItem value="credit_card">Credit Card</SelectItem>
                       <SelectItem value="cash">Cash</SelectItem>
-                      <SelectItem value="card">Card</SelectItem>
-                      <SelectItem value="credit_redemption">
-                        Credit Redemption
-                      </SelectItem>
-                      <SelectItem value="store_credit">Store Credit</SelectItem>
+                      <SelectItem value="cheque">Cheque</SelectItem>
+                      <SelectItem value="e_transfer">E-Transfer</SelectItem>
+                      <SelectItem value="financeit_etransfer">Financeit E-Transfer</SelectItem>
                     </SelectContent>
                   </Select>
                   <Input

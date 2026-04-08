@@ -165,10 +165,12 @@ export function PaymentMethodModal({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="interac">Interac</SelectItem>
+                    <SelectItem value="credit_card">Credit Card</SelectItem>
                     <SelectItem value="cash">Cash</SelectItem>
-                    <SelectItem value="credit">Credit</SelectItem>
-                    <SelectItem value="debit">Debit</SelectItem>
-                    <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                    <SelectItem value="cheque">Cheque</SelectItem>
+                    <SelectItem value="e_transfer">E-Transfer</SelectItem>
+                    <SelectItem value="financeit_etransfer">Financeit E-Transfer</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -223,12 +225,12 @@ export function PaymentMethodModal({
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
+                          <SelectItem value="interac">Interac</SelectItem>
+                          <SelectItem value="credit_card">Credit Card</SelectItem>
                           <SelectItem value="cash">Cash</SelectItem>
-                          <SelectItem value="credit">Credit</SelectItem>
-                          <SelectItem value="debit">Debit</SelectItem>
-                          <SelectItem value="bank_transfer">
-                            Bank Transfer
-                          </SelectItem>
+                          <SelectItem value="cheque">Cheque</SelectItem>
+                          <SelectItem value="e_transfer">E-Transfer</SelectItem>
+                          <SelectItem value="financeit_etransfer">Financeit E-Transfer</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>

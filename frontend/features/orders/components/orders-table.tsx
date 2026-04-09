@@ -65,7 +65,7 @@ export function OrdersTable({
               <SortableHeader label="Order ID" sortKey="orderId" sort={sort} onSort={handleSort} className={thCls} align="center" />
               <SortableHeader label="Customer" sortKey="customer" sort={sort} onSort={handleSort} className={thCls} align="center" />
               <SortableHeader label="Items" sortKey="items" sort={sort} onSort={handleSort} className={thCls} align="center" />
-              <SortableHeader label="Total Price" sortKey="totalPrice" sort={sort} onSort={handleSort} className={thCls} align="center" />
+              <SortableHeader label="Grand Total" sortKey="grandTotal" sort={sort} onSort={handleSort} className={thCls} align="center" />
               <SortableHeader label="Delivery Type" sortKey="deliveryType" sort={sort} onSort={handleSort} className={thCls} align="center" />
               <SortableHeader label="Refill" sortKey="remainingCredits" sort={sort} onSort={handleSort} className={thCls} align="center" />
               <SortableHeader label="Order Status" sortKey="orderStatus" sort={sort} onSort={handleSort} className={thCls} align="center" />
@@ -94,7 +94,7 @@ export function OrdersTable({
                     {totalItems} items
                   </td>
                   <td className="py-2 px-3 text-xs text-dark-900 dark:text-white font-medium text-center">
-                    ${order?.totalPrice?.toFixed(2)}
+                    ${(order?.grandTotal ?? order?.totalPrice ?? 0).toFixed(2)}
                   </td>
                   <td className="py-2 px-3 text-xs text-dark-900 dark:text-white text-center">
                     {order.deliveryType}

@@ -95,19 +95,15 @@ export function ItemDetailsModal({
   });
 
   const categoryOptions = useMemo(() => {
-    const base = categories.filter((category) => category !== "All");
-    if (formData.category && !base.includes(formData.category)) {
-      return [formData.category, ...base];
-    }
-    return base;
-  }, [categories, formData.category]);
+    return categories.filter((category) => category !== "All");
+  }, [categories]);
 
   useEffect(() => {
     if (!item || !open) return;
     setIsEditMode(false);
     setFormData({
       itemName: item.itemName || "",
-      category: item.category || "",
+      category: categories.includes(item.category) ? item.category : "Unknown",
       sku: item.sku || "",
       stock: item.stock.toString(),
       unitType: item.unitType || "",

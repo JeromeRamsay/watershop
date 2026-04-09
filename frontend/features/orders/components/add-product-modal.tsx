@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -23,11 +23,26 @@ import {
 import { OrderItem } from "../types";
 import { InventoryItem } from "@/features/inventory/types";
 
+interface Promotion {
+  _id: string;
+  name: string;
+  description: string;
+  inventoryItem: { _id: string } | null;
+  discountType: "percent" | "fixed";
+  discountValue: number;
+  startDate: string;
+  endDate: string;
+  minQuantity: number;
+  maxQuantity: number | null;
+  isActive: boolean;
+}
+
 interface AddProductModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSave: (data: Omit<OrderItem, "id">) => void;
   products: InventoryItem[];
+  promotions?: Promotion[];
 }
 
 export function AddProductModal({
@@ -35,6 +50,7 @@ export function AddProductModal({
   onOpenChange,
   onSave,
   products,
+  promotions = [],
 }: AddProductModalProps) {
   const [formData, setFormData] = useState({
     productId: "",
@@ -131,6 +147,20 @@ export function AddProductModal({
       totalPrice: totalPrice.toFixed(2),
     });
   };
+
+  const activePromo = useMemo(() => {
+    if (!formData.productId || !promotions.length) return null;
+    const now = new Date();
+    const qty = Number(formData.quantity) || 0;
+    return promotions.find((p) => {
+      if (!p.isActive) return false;
+      if (p.inventoryItem?._id !== formData.productId) return false;
+      if (new Date(p.startDate) > now || new Date(p.endDate) < now) return false;
+      if (qty < p.minQuantity) return false;
+      if (p.maxQuantity !== null && qty > p.maxQuantity) return false;
+      return true;
+    }) ?? null;
+  }, [formData.productId, formData.quantity, promotions]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -238,6 +268,19 @@ export function AddProductModal({
               Credits Used
             </Label>
           </div>
+
+          {activePromo && (
+            <div className="rounded-lg border border-yellow-300 bg-yellow-50 dark:bg-yellow-900/20 dark:border-yellow-700/50 px-4 py-3 space-y-0.5">
+              <p className="text-sm font-semibold text-yellow-600 dark:text-yellow-400">Current Promotion!</p>
+              <p className="text-sm text-dark-900 dark:text-white">{activePromo.description || activePromo.name}</p>
+              <p className="text-xs text-dark-500 dark:text-dark-400">
+                {activePromo.discountType === "percent"
+                  ? `${activePromo.discountValue}% off`
+                  : `$${activePromo.discountValue.toFixed(2)} off`}
+                {activePromo.minQuantity > 1 ? ` (min qty: ${activePromo.minQuantity})` : ""}
+              </p>
+            </div>
+          )}
 
           <DialogFooter className="gap-2">
             <Button

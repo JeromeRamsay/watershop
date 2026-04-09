@@ -12,7 +12,31 @@ import { DeleteItemModal } from "@/features/inventory/components/delete-item-mod
 import { ItemDetailsModal } from "@/features/inventory/components/item-details-modal";
 import { InventoryItem, InventoryFilters } from "@/features/inventory/types";
 
-const categories = ["Water", "Accessories", "Bottles", "Dispensers"];
+const categories = [
+  "Accessories",
+  "Admin Fee",
+  "Bottled Water",
+  "Bottles",
+  "Carbon Block",
+  "Commercial RO",
+  "Coolers",
+  "Delivery",
+  "Drinks",
+  "Faucet",
+  "Filters",
+  "Housing",
+  "ICE",
+  "Installation",
+  "Iron Filter",
+  "Residential R.O.",
+  "Resin",
+  "Salt",
+  "Tank",
+  "U-Fill Water",
+  "Water Heater",
+  "Water Softeners",
+  "Unknown",
+];
 const statuses = ["In Stock", "Low Stock", "Out Stock"];
 
 import {

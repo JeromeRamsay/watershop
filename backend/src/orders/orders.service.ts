@@ -480,7 +480,44 @@ export class OrdersService {
       updates.status = updateOrderDto.status.toLowerCase();
     }
 
-    const subTotal = existing.subTotal || 0;
+    // Handle items update — rebuild items array and recompute subTotal
+    let computedSubTotal: number | undefined;
+    if (Array.isArray(updateOrderDto.items) && updateOrderDto.items.length > 0) {
+      const newItems: OrderItem[] = [];
+      let newSubTotal = 0;
+      for (const itemDto of updateOrderDto.items) {
+        try {
+          const inv = (await this.inventoryService.findOne(
+            itemDto.itemId,
+          )) as unknown as InventoryDocument;
+          const unitPrice = itemDto.isRefill
+            ? inv.refillPrice || inv.sellingPrice
+            : inv.sellingPrice;
+          const qty = itemDto.quantity;
+          const totalPrice = unitPrice * qty;
+          newSubTotal += totalPrice;
+          newItems.push({
+            item: new Types.ObjectId(itemDto.itemId),
+            name: inv.name,
+            sku: inv.sku,
+            quantity: qty,
+            unitPrice,
+            totalPrice,
+            isPrepaidRedemption: itemDto.isPrepaidRedemption || false,
+            isRefill: itemDto.isRefill || false,
+          } as unknown as OrderItem);
+        } catch {
+          // skip items that no longer exist in inventory
+        }
+      }
+      if (newItems.length > 0) {
+        updates.items = newItems;
+        updates.subTotal = newSubTotal;
+        computedSubTotal = newSubTotal;
+      }
+    }
+
+    const subTotal = (computedSubTotal ?? existing.subTotal) || 0;
     const discount = updates.discount ?? existing.discount ?? 0;
     const nextGrandTotal = Math.max(0, subTotal - discount);
     updates.grandTotal = nextGrandTotal;

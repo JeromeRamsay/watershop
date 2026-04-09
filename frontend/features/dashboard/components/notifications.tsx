@@ -82,7 +82,13 @@ export function Notifications({
 
                 {/* Text */}
                 <div className="flex-1 min-w-0">
-                  <p className={`text-xs leading-tight ${isClickable ? "text-dark-900 dark:text-white group-hover:text-primary-600 dark:group-hover:text-primary-400" : "text-dark-900 dark:text-white"}`}>
+                  <p className={`text-xs leading-tight ${
+                    isUrgent
+                      ? "text-red-600 dark:text-red-400"
+                      : isClickable
+                        ? "text-dark-900 dark:text-white group-hover:text-primary-600 dark:group-hover:text-primary-400"
+                        : "text-dark-900 dark:text-white"
+                  }`}>
                     {notification.message}
                   </p>
                   <p className="text-xs text-dark-400 dark:text-dark-500 mt-0.5">

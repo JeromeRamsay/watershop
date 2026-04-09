@@ -43,7 +43,7 @@ import {
 import Link from "next/link";
 import api from "@/lib/api";
 import { useDashboardRealtime } from "@/lib/use-dashboard-realtime";
-import { useOrders, queryKeys } from "@/lib/queries";
+import { useOrders, useSettings, queryKeys } from "@/lib/queries";
 import { useQueryClient } from "@tanstack/react-query";
 
 interface OrderApiCustomer {
@@ -166,6 +166,8 @@ export default function OrdersPage() {
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
   const { data: rawOrders, isLoading: loading } = useOrders();
+  const { data: settings } = useSettings();
+  const taxRate: number = settings?.taxRate ?? 0;
   const qc = useQueryClient();
   const invalidate = useCallback(() => {
     void qc.invalidateQueries({ queryKey: queryKeys.orders() });
@@ -177,8 +179,13 @@ export default function OrdersPage() {
     const raw = (rawOrders as OrderApiResponse[] | undefined) ?? [];
     return [...raw]
       .sort((a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime())
-      .map(mapApiOrderToOrder);
-  }, [rawOrders]);
+      .map((o) => {
+        const mapped = mapApiOrderToOrder(o);
+        const base = o.grandTotal || 0;
+        mapped.grandTotal = base * (1 + taxRate);
+        return mapped;
+      });
+  }, [rawOrders, taxRate]);
 
   // Filter and search orders
   const filteredOrders = useMemo(() => {
@@ -279,7 +286,7 @@ export default function OrdersPage() {
         "Order ID",
         "Customer",
         "Items",
-        "Total Price",
+        "Grand Total",
         "Delivery Type",
         "Order Status",
         "Payment Status",
@@ -293,7 +300,7 @@ export default function OrdersPage() {
           order.orderId,
           order.customer,
           totalItems,
-          order.totalPrice,
+          (order.grandTotal ?? order.totalPrice ?? 0).toFixed(2),
           order.deliveryType,
           order.orderStatus,
           order.paymentStatus,

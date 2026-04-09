@@ -12,6 +12,7 @@ import {
   Settings,
   UserCog,
   Clock3,
+  Tag,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Cookies from "js-cookie";
@@ -23,6 +24,7 @@ const menuItems = [
   { name: "Orders", href: "/dashboard/orders", icon: ShoppingCart },
   { name: "Deliveries", href: "/dashboard/deliveries", icon: Truck },
   { name: "Customers", href: "/dashboard/customers", icon: Users },
+  { name: "Promotions", href: "/dashboard/promotions", icon: Tag },
   { name: "Reports", href: "/dashboard/reports", icon: BarChart3 },
   { name: "Employees", href: "/dashboard/employees", icon: UserCog },
   { name: "Hours", href: "/dashboard/hours", icon: Clock3 },

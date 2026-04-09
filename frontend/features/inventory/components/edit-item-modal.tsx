@@ -72,7 +72,7 @@ export function EditItemModal({
     if (item) {
       setFormData({
         itemName: item.itemName,
-        category: item.category,
+        category: categories.includes(item.category) ? item.category : "Unknown",
         sku: item.sku,
         stock: item.stock.toString(),
         unitType: item.unitType,

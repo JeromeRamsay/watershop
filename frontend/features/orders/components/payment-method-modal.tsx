@@ -143,7 +143,7 @@ export function PaymentMethodModal({
               </p>
             </div>
             <div className="space-y-2">
-              <Label>Total ($)</Label>
+              <Label>Grand Total ($)</Label>
               <p className="flex h-10 items-center rounded-md border border-input bg-dark-50 px-3 text-sm text-dark-700 dark:bg-dark-800 dark:text-dark-300 select-text">
                 {totalAmount.toFixed(2)}
               </p>

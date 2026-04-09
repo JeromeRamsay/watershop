@@ -13,16 +13,37 @@ export class EmployeeHoursService {
     private realtimeService: RealtimeService,
   ) {}
 
+  private timeToMinutes(time: string): number {
+    const [h, m] = time.split(":").map(Number);
+    return h * 60 + m;
+  }
+
   async create(createDto: CreateEmployeeHourDto) {
     const workDate = new Date(createDto.workDate);
     if (Number.isNaN(workDate.getTime())) {
       throw new BadRequestException("Invalid work date");
     }
 
+    let hours = createDto.hours;
+
+    if (createDto.startTime && createDto.endTime) {
+      const startMins = this.timeToMinutes(createDto.startTime);
+      let endMins = this.timeToMinutes(createDto.endTime);
+      // Handle overnight shifts (end time before start time)
+      if (endMins <= startMins) endMins += 24 * 60;
+      hours = Math.round(((endMins - startMins) / 60) * 100) / 100;
+    }
+
+    if (hours === undefined || hours === null) {
+      throw new BadRequestException("Provide either hours or startTime + endTime");
+    }
+
     const entry = new this.employeeHourModel({
       user: new Types.ObjectId(createDto.userId),
       workDate,
-      hours: createDto.hours,
+      hours,
+      startTime: createDto.startTime,
+      endTime: createDto.endTime,
       notes: createDto.notes || "",
       createdBy: createDto.createdBy
         ? new Types.ObjectId(createDto.createdBy)

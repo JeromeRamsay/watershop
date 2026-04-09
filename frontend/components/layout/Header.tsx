@@ -149,7 +149,7 @@ export function Header() {
           <ThemeToggle />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="relative p-2 hover:bg-dark-100 dark:hover:bg-dark-700 rounded-full transition-colors">
+              <button suppressHydrationWarning className="relative p-2 hover:bg-dark-100 dark:hover:bg-dark-700 rounded-full transition-colors">
                 <Bell
                   size={20}
                   className="md:w-6 md:h-6 text-dark-500 dark:text-dark-300"
@@ -193,7 +193,7 @@ export function Header() {
           {/* User Profile */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <div className="flex items-center gap-2 md:gap-3 cursor-pointer hover:bg-dark-100 dark:hover:bg-dark-700 p-1.5 md:p-2 rounded-xl transition-colors">
+              <div suppressHydrationWarning className="flex items-center gap-2 md:gap-3 cursor-pointer hover:bg-dark-100 dark:hover:bg-dark-700 p-1.5 md:p-2 rounded-xl transition-colors">
                 {/* Avatar Image */}
                 <div className="w-8 h-8 md:w-10 md:h-10 rounded-full overflow-hidden border border-dark-200 dark:border-dark-700 relative">
                   <Image

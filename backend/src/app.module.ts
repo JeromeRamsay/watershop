@@ -21,6 +21,7 @@ import { JwtAuthGuard } from "./auth/jwt-auth.guard";
 import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler";
 import { TerminusModule } from "@nestjs/terminus";
 import { HealthController } from "./health.controller";
+import { PromotionsModule } from "./promotions/promotions.module";
 
 @Module({
   imports: [
@@ -60,6 +61,7 @@ import { HealthController } from "./health.controller";
     NotificationsModule,
     RealtimeModule,
     EmployeeHoursModule,
+    PromotionsModule,
   ],
   controllers: [AppController],
   providers: [

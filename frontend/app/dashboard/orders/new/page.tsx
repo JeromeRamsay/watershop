@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import api from "@/lib/api";
+import { useSettings } from "@/lib/queries";
 import { Customer } from "@/features/customers/types";
 import { InventoryItem } from "@/features/inventory/types";
 
@@ -49,6 +50,7 @@ function AddNewOrderContent() {
   >([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [promotions, setPromotions] = useState<{ _id: string; name: string; description: string; inventoryItem: { _id: string } | null; discountType: "percent" | "fixed"; discountValue: number; startDate: string; endDate: string; minQuantity: number; maxQuantity: number | null; isActive: boolean }[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
@@ -83,9 +85,10 @@ function AddNewOrderContent() {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const [customersRes, inventoryRes] = await Promise.all([
+      const [customersRes, inventoryRes, promotionsRes] = await Promise.all([
         api.get("/customers"),
         api.get("/inventory"),
+        api.get("/promotions"),
       ]);
 
       const mappedCustomers: Customer[] = (customersRes.data || []).map(
@@ -123,6 +126,7 @@ function AddNewOrderContent() {
         }),
       );
       setInventory(items);
+      setPromotions(promotionsRes.data || []);
 
       // Initialize refill items from refillable inventory
       const refills: RefillItem[] = items
@@ -274,6 +278,9 @@ function AddNewOrderContent() {
     );
   };
 
+  const { data: settings } = useSettings();
+  const taxRate: number = (settings?.taxRate ?? 0);
+
   const calculateTotal = () => {
     const subtotal = orderItems.reduce(
       (sum, item) => sum + (Number(item.totalPrice) || 0),
@@ -282,6 +289,9 @@ function AddNewOrderContent() {
     const discount = Number(formData.discount) || 0;
     return Math.max(0, subtotal - discount);
   };
+
+  const calculateTax = () => calculateTotal() * taxRate;
+  const calculateGrandTotal = () => calculateTotal() + calculateTax();
 
   const handlePaymentSave = (paymentData: any) => {
     console.log("Payment data:", paymentData);
@@ -899,7 +909,7 @@ function AddNewOrderContent() {
                   htmlFor="totalAmount"
                   className="text-sm text-dark-600 dark:text-dark-300"
                 >
-                  Total Amount (Incl. HST)
+                  Total Amount
                 </Label>
                 <Input
                   id="totalAmount"
@@ -907,6 +917,36 @@ function AddNewOrderContent() {
                   value={`$${calculateTotal().toFixed(2)}`}
                   readOnly
                   className="h-11 bg-dark-50 dark:bg-dark-600"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label
+                  htmlFor="taxAmount"
+                  className="text-sm text-dark-600 dark:text-dark-300"
+                >
+                  Tax Amount ({(taxRate * 100).toFixed(0)}%)
+                </Label>
+                <Input
+                  id="taxAmount"
+                  type="text"
+                  value={`$${calculateTax().toFixed(2)}`}
+                  readOnly
+                  className="h-11 bg-dark-50 dark:bg-dark-600"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label
+                  htmlFor="grandTotal"
+                  className="text-sm text-dark-600 dark:text-dark-300 font-semibold"
+                >
+                  Grand Total
+                </Label>
+                <Input
+                  id="grandTotal"
+                  type="text"
+                  value={`$${calculateGrandTotal().toFixed(2)}`}
+                  readOnly
+                  className="h-11 bg-dark-50 dark:bg-dark-600 font-semibold"
                 />
               </div>
             </div>
@@ -976,11 +1016,12 @@ function AddNewOrderContent() {
         onOpenChange={setIsAddProductModalOpen}
         onSave={handleAddProduct}
         products={inventory}
+        promotions={promotions}
       />
       <PaymentMethodModal
         open={isPaymentModalOpen}
         onOpenChange={setIsPaymentModalOpen}
-        totalAmount={calculateTotal()}
+        totalAmount={calculateGrandTotal()}
         onSave={handlePaymentSave}
       />
     </div>

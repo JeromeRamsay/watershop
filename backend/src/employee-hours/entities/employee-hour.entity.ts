@@ -14,6 +14,12 @@ export class EmployeeHour {
   @Prop({ required: true, min: 0, max: 24 })
   hours: number;
 
+  @Prop()
+  startTime?: string; // "HH:MM" 24-hour format
+
+  @Prop()
+  endTime?: string; // "HH:MM" 24-hour format
+
   @Prop({ default: "" })
   notes: string;
 

@@ -1,10 +1,6 @@
-/**
- * /refills → redirect to the kiosk refill flow at /kiosk/refill
- * This makes the printed/shared URL https://.../refills work correctly.
- */
-import { redirect } from "next/navigation";
+import KioskRefillPhonePage from "../kiosk/refill/page";
 
-export default function RefillsRedirectPage() {
-  redirect("/kiosk/refill");
+export default function RefillPage() {
+  return <KioskRefillPhonePage />;
 }
 

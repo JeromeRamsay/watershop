@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import api from "@/lib/api";
 
@@ -15,7 +15,13 @@ function formatPhone(digits: string) {
 export default function KioskRefillPhonePage() {
   const router = useRouter();
   const [digits, setDigits] = useState("");
-  const [welcomeName, setWelcomeName] = useState<string | null>(null);
+  const [welcomeName] = useState<string | null>(() => {
+    if (typeof window === "undefined") {
+      return null;
+    }
+
+    return localStorage.getItem("kiosk_name");
+  });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -45,7 +51,7 @@ export default function KioskRefillPhonePage() {
         }
         localStorage.setItem("kiosk_phone", digits);
         localStorage.setItem("kiosk_customer", JSON.stringify(res.data));
-        router.push("/kiosk/refill/name");
+        router.push("/refill/name");
       })
       .catch((err) => {
         const serverMsg = err?.response?.data?.message;
@@ -53,11 +59,6 @@ export default function KioskRefillPhonePage() {
       })
       .finally(() => setLoading(false));
   };
-
-  useEffect(() => {
-    const name = localStorage.getItem("kiosk_name");
-    setWelcomeName(name || null);
-  }, []);
 
   return (
     <div className="min-h-screen h-full flex items-center justify-center px-3 py-4 sm:p-4 md:p-6 lg:p-8">

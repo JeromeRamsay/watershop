@@ -5,6 +5,18 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type KioskMember = { id?: string; name: string; initials: string };
+type KioskStoredFamilyMember = {
+  _id?: string;
+  firstName?: string;
+  lastName?: string;
+  name?: string;
+};
+type KioskStoredCustomer = {
+  _id?: string;
+  firstName?: string;
+  lastName?: string;
+  familyMembers?: KioskStoredFamilyMember[];
+};
 
 function formatPhone(digits: string) {
   const d = digits.slice(0, 10);
@@ -15,65 +27,91 @@ function formatPhone(digits: string) {
 
 export default function KioskRefillNamePage() {
   const router = useRouter();
-  const [phone, setPhone] = useState("");
-  const [initials, setInitials] = useState("");
-  const [selectedName, setSelectedName] = useState("");
-  const [members, setMembers] = useState<KioskMember[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [welcomeName, setWelcomeName] = useState<string | null>(null);
 
-  const toInitials = (fullName: string) => {
+  function toInitials(fullName: string) {
     const parts = fullName.trim().split(/\s+/).filter(Boolean);
     if (parts.length === 0) return "";
     if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
     return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
-  };
+  }
 
-  useEffect(() => {
-    const p = localStorage.getItem("kiosk_phone") || "";
-    const c = localStorage.getItem("kiosk_customer");
-    if (!p) {
-      router.replace("/kiosk/refill");
-      return;
+  const [phone] = useState(() => {
+    if (typeof window === "undefined") {
+      return "";
     }
-    setPhone(p);
-    setWelcomeName(localStorage.getItem("kiosk_name"));
-    if (c) {
-      const customer = JSON.parse(c);
+
+    return localStorage.getItem("kiosk_phone") || "";
+  });
+  const [initials, setInitials] = useState("");
+  const [members] = useState<KioskMember[]>(() => {
+    if (typeof window === "undefined") {
+      return [];
+    }
+
+    const storedCustomer = localStorage.getItem("kiosk_customer");
+    if (!storedCustomer) {
+      return [];
+    }
+
+    try {
+      const customer = JSON.parse(storedCustomer) as KioskStoredCustomer;
       const list: KioskMember[] = [];
+
       if (customer?.firstName || customer?.lastName) {
-        const name =
-          `${customer.firstName || ""} ${customer.lastName || ""}`.trim();
+        const name = `${customer.firstName || ""} ${customer.lastName || ""}`.trim();
         list.push({
           id: customer._id,
           name,
           initials: toInitials(name),
         });
       }
-      (customer?.familyMembers || []).forEach((fm: any, idx: number) => {
-        // Support both new firstName/lastName format and legacy name field
-        const name = fm?.firstName
-          ? `${fm.firstName || ""} ${fm.lastName || ""}`.trim()
-          : (fm?.name || "");
-        if (!name) return;
+
+      (customer.familyMembers || []).forEach((familyMember, index) => {
+        const name = familyMember.firstName
+          ? `${familyMember.firstName || ""} ${familyMember.lastName || ""}`.trim()
+          : (familyMember.name || "");
+
+        if (!name) {
+          return;
+        }
+
         list.push({
-          id: fm?._id || `${customer._id}-fm-${idx}`,
+          id: familyMember._id || `${customer._id}-fm-${index}`,
           name,
           initials: toInitials(name),
         });
       });
-      setMembers(list);
+
+      return list;
+    } catch {
+      return [];
     }
-  }, [router]);
+  });
+  const [error, setError] = useState<string | null>(null);
+  const [welcomeName] = useState<string | null>(() => {
+    if (typeof window === "undefined") {
+      return null;
+    }
+
+    return localStorage.getItem("kiosk_name");
+  });
+
+  useEffect(() => {
+    if (!phone) {
+      router.replace("/refill");
+    }
+  }, [phone, router]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Backspace") {
+        setError(null);
         setInitials((prev) => prev.slice(0, -1));
         return;
       }
 
       if (!/^[a-zA-Z]$/.test(e.key)) return;
+      setError(null);
       setInitials((prev) => (prev + e.key.toUpperCase()).slice(0, 3));
     };
 
@@ -81,38 +119,29 @@ export default function KioskRefillNamePage() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  useEffect(() => {
-    const match = members.find(
-      (m) => m.initials.toUpperCase() === initials.toUpperCase(),
-    );
-    if (match) {
-      setSelectedName(match.name);
-      setError(null);
-    } else {
-      setSelectedName("");
-    }
-  }, [initials, members]);
-
   const formatted = useMemo(() => formatPhone(phone), [phone]);
+  const selectedMember = useMemo(
+    () =>
+      members.find(
+        (member) => member.initials.toUpperCase() === initials.toUpperCase(),
+      ) || null,
+    [initials, members],
+  );
 
   const onNext = () => {
     const clean = initials.trim();
     if (!clean) return;
     setError(null);
-    const match = members.find(
-      (m) => m.initials.toUpperCase() === clean.toUpperCase(),
-    );
-    if (!match) {
+    if (!selectedMember) {
       setError("Initials not found. Please try again.");
       return;
     }
-    setSelectedName(match.name);
-    localStorage.setItem("kiosk_initials", match.initials);
-    localStorage.setItem("kiosk_name", match.name);
-    router.push("/kiosk/refill/select");
+    localStorage.setItem("kiosk_initials", selectedMember.initials);
+    localStorage.setItem("kiosk_name", selectedMember.name);
+    router.push("/refill/select");
   };
 
-  const onPrev = () => router.push("/kiosk/refill");
+  const onPrev = () => router.push("/refill");
 
   return (
     <div className="min-h-screen h-full flex items-center justify-center px-3 py-4 sm:p-4 md:p-6 lg:p-8">

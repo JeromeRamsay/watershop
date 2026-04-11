@@ -17,61 +17,98 @@ type RefillItem = {
   name: string;
   remaining: number;
 };
+type StoredWalletItem = {
+  itemId?: string;
+  quantityRemaining?: number;
+};
+type StoredCustomer = {
+  wallet?: {
+    prepaidItems?: StoredWalletItem[];
+  };
+};
+type InventoryItem = {
+  _id: string;
+  name: string;
+  isRefillable?: boolean;
+};
 
 export default function KioskRefillSelectPage() {
   const router = useRouter();
-  const [phone, setPhone] = useState("");
-  const [name, setName] = useState("John King");
+  const [phone] = useState(() => {
+    if (typeof window === "undefined") {
+      return "";
+    }
+
+    return localStorage.getItem("kiosk_phone") || "";
+  });
+  const [name] = useState(() => {
+    if (typeof window === "undefined") {
+      return "John King";
+    }
+
+    return localStorage.getItem("kiosk_name") || "John King";
+  });
+  const [walletItems] = useState<StoredWalletItem[]>(() => {
+    if (typeof window === "undefined") {
+      return [];
+    }
+
+    const storedCustomer = localStorage.getItem("kiosk_customer");
+    if (!storedCustomer) {
+      return [];
+    }
+
+    try {
+      const customer = JSON.parse(storedCustomer) as StoredCustomer;
+      return customer.wallet?.prepaidItems || [];
+    } catch {
+      return [];
+    }
+  });
   const [items, setItems] = useState<RefillItem[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(() => phone !== "");
   const [confirmed, setConfirmed] = useState(false);
   const [confirmedQty, setConfirmedQty] = useState(0);
   const redirectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    const p = localStorage.getItem("kiosk_phone") || "";
-    const n = localStorage.getItem("kiosk_name") || "John King";
-    const c = localStorage.getItem("kiosk_customer");
-    if (!p) {
-      router.replace("/kiosk/refill");
+    if (!phone) {
+      router.replace("/refill");
       return;
     }
-    setPhone(p);
-    setName(n);
-    if (c) {
-      const customer = JSON.parse(c);
-      const walletItems = customer?.wallet?.prepaidItems || [];
 
-      setLoading(true);
-      api
-        .get("/inventory")
-        .then((res) => {
-          const refillable = (res.data || []).filter(
-            (i: any) => i.isRefillable,
+    api
+      .get("/inventory")
+      .then((res) => {
+        const inventory = Array.isArray(res.data)
+          ? (res.data as InventoryItem[])
+          : [];
+        const refillable = inventory.filter((item) => item.isRefillable);
+        const mapped = refillable.map((item) => {
+          const wallet = walletItems.find(
+            (walletItem) => walletItem.itemId?.toString() === item._id.toString(),
           );
-          const mapped = refillable.map((i: any) => {
-            const wallet = walletItems.find(
-              (w: any) => w.itemId?.toString() === i._id?.toString(),
-            );
-            return {
-              id: i._id,
-              name: i.name,
-              remaining: wallet?.quantityRemaining || 0,
-            };
-          });
-          setItems(mapped);
-          const initialCounts: Record<string, number> = {};
-          mapped.forEach((m: RefillItem) => {
-            initialCounts[m.id] = 0;
-          });
-          setCounts(initialCounts);
-        })
-        .catch(() => setError("Failed to load refill items."))
-        .finally(() => setLoading(false));
-    }
-  }, [router]);
+
+          return {
+            id: item._id,
+            name: item.name,
+            remaining: wallet?.quantityRemaining || 0,
+          };
+        });
+
+        setItems(mapped);
+
+        const initialCounts: Record<string, number> = {};
+        mapped.forEach((mappedItem: RefillItem) => {
+          initialCounts[mappedItem.id] = 0;
+        });
+        setCounts(initialCounts);
+      })
+      .catch(() => setError("Failed to load refill items."))
+      .finally(() => setLoading(false));
+  }, [phone, router, walletItems]);
 
   const formatted = useMemo(() => formatPhone(phone), [phone]);
 
@@ -118,7 +155,7 @@ export default function KioskRefillSelectPage() {
     localStorage.removeItem("kiosk_initials");
     localStorage.removeItem("kiosk_name");
     localStorage.removeItem("kiosk_customer");
-    router.push("/kiosk/refill");
+    router.push("/refill");
   };
 
   const Row = ({

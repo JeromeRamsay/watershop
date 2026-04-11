@@ -96,7 +96,7 @@ watershop/
         reports/          ← analytics & reports
         settings/         ← store settings
         suppliers/        ← supplier management
-      kiosk/refill/       ← self-service refill terminal (public)
+      refill/             ← self-service refill terminal (public, /kiosk/refill redirects here)
     features/             ← feature-scoped components (auth, customers, deliveries, inventory, orders, reports, suppliers)
     lib/
       api.ts              ← Axios instance with JWT interceptor
@@ -214,7 +214,7 @@ Rate limiting also applied globally via `ThrottlerGuard` (10 req / 60s per IP).
 | M6 | `refills.service.ts` | Unsafe `(customer as any)?._id` cast throughout the service |
 | M7 | `frontend_public/contact_mail.php`, `frontend_public/enquiry_mail.php`, `frontend_public/contact_process.php` | Public-site email delivery still relies on raw `mail()` from PHP handlers — move to a supported server-side mail path before public launch |
 | M8 | `frontend_public/index.html`, `frontend_public/contact.html` | Public-site forms post to PHP AJAX handlers, so the site cannot be moved into `frontend/` without rewriting the form backend |
-| M9 | DigitalOcean custom domains / Rebel DNS | Live DNS and MX currently resolve for `woodstockswatershop.com`, while the requested App Platform custom domains were attached on `woodstockwatershop.com`. Confirm the registered production domain spelling before final Rebel DNS cutover. |
+| M9 | Rebel apex DNS / DigitalOcean public domain | DigitalOcean custom domains now use `woodstockswatershop.com`, `employee.woodstockswatershop.com`, and `api.woodstockswatershop.com`, and Rebel authoritative DNS now returns only the intended apex records. The remaining public-site issue is propagation: some public resolvers still cache the removed `54.236.162.93` A record, and apex TLS on `woodstockswatershop.com` has not finished recovering yet. Wait for DNS/cache and certificate propagation, then recheck. |
 
 ---
 
@@ -266,8 +266,8 @@ For fastest launch, deploy `frontend_public/` as a separate public DigitalOcean 
 ### Priority 15 — Replace Public Website PHP Forms and Raw Mail
 Local env-file support now exists for `frontend_public/`, but `contact_mail.php`, `enquiry_mail.php`, and `contact_process.php` still need to move to a supported server-side path (Next.js route handlers, backend endpoints, or another mail integration). Configure reCAPTCHA/mail settings in deployment environment variables before public launch.
 
-### Priority 16 — Confirm Woodstock Domain Spelling Before DNS Cutover
-DigitalOcean App Platform custom domains were attached for `woodstockwatershop.com`, `employee.woodstockwatershop.com`, and `api.woodstockwatershop.com`, but the currently delegated Rebel-hosted DNS and MX records resolve for `woodstockswatershop.com`. Confirm which domain is actually registered and intended for production before updating Rebel DNS.
+### ~~Priority 16 — Confirm Woodstock Domain Spelling Before DNS Cutover~~ ✅ DONE
+DigitalOcean App Platform custom domains now use `woodstockswatershop.com`, `employee.woodstockswatershop.com`, and `api.woodstockswatershop.com`. Rebel authoritative DNS now returns only the intended apex records. The remaining public-site blocker is propagation: some public resolvers still cache the removed apex A record and `woodstockswatershop.com` is not yet serving valid HTTPS everywhere.
 
 ---
 

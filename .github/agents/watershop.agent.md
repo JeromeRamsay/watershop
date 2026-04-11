@@ -214,7 +214,6 @@ Rate limiting also applied globally via `ThrottlerGuard` (10 req / 60s per IP).
 | M6 | `refills.service.ts` | Unsafe `(customer as any)?._id` cast throughout the service |
 | M7 | `frontend_public/contact_mail.php`, `frontend_public/enquiry_mail.php`, `frontend_public/contact_process.php` | Public-site email delivery still relies on raw `mail()` from PHP handlers — move to a supported server-side mail path before public launch |
 | M8 | `frontend_public/index.html`, `frontend_public/contact.html` | Public-site forms post to PHP AJAX handlers, so the site cannot be moved into `frontend/` without rewriting the form backend |
-| M9 | Rebel apex DNS / DigitalOcean public domain | DigitalOcean custom domains now use `woodstockswatershop.com`, `employee.woodstockswatershop.com`, and `api.woodstockswatershop.com`, and Rebel authoritative DNS now returns only the intended apex records. The remaining public-site issue is propagation: some public resolvers still cache the removed `54.236.162.93` A record, and apex TLS on `woodstockswatershop.com` has not finished recovering yet. Wait for DNS/cache and certificate propagation, then recheck. |
 
 ---
 
@@ -291,6 +290,8 @@ Auth operations in `features/auth/actions.ts` use Next.js Server Actions (`"use 
 `frontend/` is the authenticated Next.js app for dashboard and kiosk flows. Its root currently redirects `/` to `/login`, while `proxy.ts` only protects `/dashboard`, `/login`, and `/signup`.
 
 `frontend_public/` is a separate legacy public website surface for internet traffic. It is not part of the Next.js build and currently uses static HTML, jQuery AJAX form submissions, downloadable manuals, and PHP mail handlers.
+
+The public-site "Employee" navigation links now point to `https://employee.woodstockswatershop.com/dashboard` rather than the raw DigitalOcean app hostname.
 
 Do not treat `frontend_public/` as a drop-in folder for `frontend/`. Moving it into the Next.js app requires converting the HTML pages to App Router routes and replacing the PHP form handlers with Next.js route handlers or backend endpoints.
 

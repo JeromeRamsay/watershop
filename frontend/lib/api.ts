@@ -1,8 +1,8 @@
 import axios from "axios";
 import Cookies from "js-cookie";
+import { resolveClientApiUrl } from "./runtime-api-url";
 
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL,
   headers: {
     "Content-Type": "application/json",
   },
@@ -11,6 +11,10 @@ const api = axios.create({
 // Request interceptor to add bearer token
 api.interceptors.request.use(
   (config) => {
+    if (!config.baseURL) {
+      config.baseURL = resolveClientApiUrl();
+    }
+
     const token = Cookies.get("auth_token_public");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;

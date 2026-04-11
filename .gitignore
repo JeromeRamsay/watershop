@@ -37,3 +37,8 @@ Thumbs.db
 node_modules
 .next
 next
+backend/.env.development
+backend/.env.development
+*.example
+*.example
+*.development

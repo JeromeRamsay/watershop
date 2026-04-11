@@ -214,6 +214,7 @@ Rate limiting also applied globally via `ThrottlerGuard` (10 req / 60s per IP).
 | M6 | `refills.service.ts` | Unsafe `(customer as any)?._id` cast throughout the service |
 | M7 | `frontend_public/contact_mail.php`, `frontend_public/enquiry_mail.php`, `frontend_public/contact_process.php` | Public-site email delivery still relies on raw `mail()` from PHP handlers — move to a supported server-side mail path before public launch |
 | M8 | `frontend_public/index.html`, `frontend_public/contact.html` | Public-site forms post to PHP AJAX handlers, so the site cannot be moved into `frontend/` without rewriting the form backend |
+| M9 | DigitalOcean custom domains / Rebel DNS | Live DNS and MX currently resolve for `woodstockswatershop.com`, while the requested App Platform custom domains were attached on `woodstockwatershop.com`. Confirm the registered production domain spelling before final Rebel DNS cutover. |
 
 ---
 
@@ -264,6 +265,9 @@ For fastest launch, deploy `frontend_public/` as a separate public DigitalOcean 
 
 ### Priority 15 — Replace Public Website PHP Forms and Raw Mail
 Local env-file support now exists for `frontend_public/`, but `contact_mail.php`, `enquiry_mail.php`, and `contact_process.php` still need to move to a supported server-side path (Next.js route handlers, backend endpoints, or another mail integration). Configure reCAPTCHA/mail settings in deployment environment variables before public launch.
+
+### Priority 16 — Confirm Woodstock Domain Spelling Before DNS Cutover
+DigitalOcean App Platform custom domains were attached for `woodstockwatershop.com`, `employee.woodstockwatershop.com`, and `api.woodstockwatershop.com`, but the currently delegated Rebel-hosted DNS and MX records resolve for `woodstockswatershop.com`. Confirm which domain is actually registered and intended for production before updating Rebel DNS.
 
 ---
 
@@ -351,7 +355,9 @@ After every backend change, run `npm test` and confirm all tests pass before con
 | `JWT_SECRET` | API | 🔴 **MISSING in production** — tokens use dev fallback |
 | `FRONTEND_URL` | API | ✅ Set (CORS origin) |
 | `VALKEY_HOST/PORT/PASSWORD/TLS` | API | ✅ Set |
-| `NEXT_PUBLIC_API_URL` | UI | 🔴 **MISSING in production** — all Axios calls fail silently |
+| `NEXT_PUBLIC_API_URL` | UI | ✅ Set in production on the DigitalOcean employee app |
+| `NEXT_PUBLIC_CUSTOM_APP_HOST` | UI | 🟡 Optional. Added to `frontend/.env.example` and set on the DigitalOcean employee app for custom-domain cutover logic |
+| `NEXT_PUBLIC_CUSTOM_API_URL` | UI | 🟡 Optional. Added to `frontend/.env.example` and set on the DigitalOcean employee app for custom-domain cutover logic |
 | `PUBLIC_SITE_RECAPTCHA_SECRET` | Public site server handler | 🟡 Loaded from `frontend_public/.env.development` locally — set as a deployment environment variable before public launch |
 | `PUBLIC_SITE_CONTACT_EMAIL` | Public site server handler | 🟡 Loaded from `frontend_public/.env.development` locally — set as a deployment environment variable before public launch |
 

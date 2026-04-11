@@ -1,8 +1,9 @@
 "use server";
 
 import { loginSchema, signupSchema } from "./schemas";
-import { cookies } from "next/headers"; // We need this to store the session
+import { cookies, headers } from "next/headers"; // We need this to store the session
 import { redirect } from "next/navigation";
+import { resolveServerApiUrl } from "@/lib/runtime-api-url";
 
 // Define the shape of your Node.js Backend Response
 type ApiResponse = {
@@ -18,8 +19,10 @@ export type AuthState = {
   errors?: Record<string, string[]>;
 } | null;
 
-// The URL of your separate Node.js Backend
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+async function getApiUrl() {
+  const requestHeaders = await headers();
+  return resolveServerApiUrl(requestHeaders.get("host"));
+}
 
 export async function loginAction(prevState: AuthState, formData: FormData): Promise<AuthState> {
   const data = Object.fromEntries(formData);
@@ -31,8 +34,10 @@ export async function loginAction(prevState: AuthState, formData: FormData): Pro
   }
 
   try {
+    const apiUrl = await getApiUrl();
+
     // 2. Call your separate Node.js Backend
-    const res = await fetch(`${API_URL}/users/login`, {
+    const res = await fetch(`${apiUrl}/users/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(validated.data),
@@ -94,11 +99,13 @@ export async function signupAction(prevState: AuthState, formData: FormData): Pr
   }
 
   try {
+    const apiUrl = await getApiUrl();
+
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { confirmPassword, mobile, ...signupPayload } = validated.data;
 
     // Call Node.js Backend for Signup
-    const res = await fetch(`${API_URL}/users/register`, {
+    const res = await fetch(`${apiUrl}/users/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(signupPayload),

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { resolveClientApiUrl } from "./runtime-api-url";
 
 interface DashboardRealtimeEvent {
   type: "dashboard:update";
@@ -25,8 +26,7 @@ export function useDashboardRealtime(
     let retry = 0;
     let closedManually = false;
 
-    const apiUrl = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000")
-      .replace(/\/$/, "");
+    const apiUrl = resolveClientApiUrl().replace(/\/$/, "");
     const wsUrl = apiUrl.startsWith("https://")
       ? `${apiUrl.replace(/^https/, "wss")}/ws/dashboard`
       : `${apiUrl.replace(/^http/, "ws")}/ws/dashboard`;

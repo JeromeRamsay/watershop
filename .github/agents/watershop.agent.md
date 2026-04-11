@@ -13,11 +13,23 @@ tools:
   - edit/editFiles
 ---
 
+  ## MCP Configuration
+
+  This repo includes a workspace MCP config at `.mcp.json`.
+
+  - Check `.mcp.json` before MCP-backed work so the active server list stays in sync with the repo.
+  - The current configured MCP servers are `github` and `digitalocean`.
+  - Use the GitHub server for repository, issue, pull request, and workflow context when MCP access is available.
+  - Use the DigitalOcean server for infrastructure and deployment context when MCP access is available.
+  - Treat every value in `.mcp.json`, especially environment variables and tokens, as a secret: never echo them back to the user, commit them, or copy them into logs, docs, code, or patches.
+  - If `.mcp.json` changes, update this agent file so the MCP guidance stays accurate.
+
 ## CRITICAL: Implementation Workflow
 
 **When the user requests a change, bug fix, or feature:**
 
 1. **Analyze** the request and gather necessary context (read files, search codebase, check errors)
+    - If the task could benefit from external GitHub or DigitalOcean context, inspect `.mcp.json` first and use the configured MCP server instead of guessing external state.
 2. **Present a clear plan** listing:
    - What files will be modified
    - What changes will be made to each file
@@ -93,6 +105,17 @@ watershop/
       schemas.ts          ← Zod validation schemas
       utils.ts            ← shared utilities
     proxy.ts              ← Next.js middleware file (auth guards + cache headers)
+  frontend_public/        ← public internet-facing marketing website
+    assets/               ← legacy theme CSS, JS, images, fonts, vendor plugins
+    Manuals/              ← downloadable product manuals and spec sheets (PDFs)
+    index.html            ← public homepage + financing enquiry form
+    contact.html          ← public contact page with AJAX form submission
+    residential.html      ← residential solutions landing page
+    commercial.html       ← commercial solutions landing page
+    water-ice.html        ← water / ice landing page
+    contact_mail.php      ← PHP AJAX mail handler with reCAPTCHA verification
+    enquiry_mail.php      ← PHP AJAX enquiry handler with reCAPTCHA verification
+    contact_process.php   ← legacy PHP contact form handler
 ```
 
 ---
@@ -107,6 +130,7 @@ watershop/
 | Auth | JWT (JwtService) + bcrypt |
 | API Docs | Swagger at `/api` |
 | Frontend | Next.js 15 App Router, React 19, TypeScript |
+| Public site | Static HTML, Bootstrap, jQuery, PHP mail handlers |
 | Styling | Tailwind CSS v4 + shadcn/ui (Radix UI) |
 | HTTP Client | Axios |
 | Charts | Recharts |
@@ -188,6 +212,8 @@ Rate limiting also applied globally via `ThrottlerGuard` (10 req / 60s per IP).
 | M2 | `customers.service.ts` | `findByPhone` uses unindexed regex scan — add index on `phone` field |
 | M5 | `deliveries.service.ts` | `findAll` fetches ALL deliveries — add pagination (same pattern as orders) |
 | M6 | `refills.service.ts` | Unsafe `(customer as any)?._id` cast throughout the service |
+| M7 | `frontend_public/contact_mail.php`, `frontend_public/enquiry_mail.php`, `frontend_public/contact_process.php` | Public-site email delivery still relies on raw `mail()` from PHP handlers — move to a supported server-side mail path before public launch |
+| M8 | `frontend_public/index.html`, `frontend_public/contact.html` | Public-site forms post to PHP AJAX handlers, so the site cannot be moved into `frontend/` without rewriting the form backend |
 
 ---
 
@@ -233,6 +259,12 @@ Replace `(customer as any)?._id` with proper typed access in `refills.service.ts
 ### ~~Priority 13 — Promotions Feature~~ ✅ DONE
 Full backend module (`backend/src/promotions/`) + frontend admin page (`app/dashboard/promotions/page.tsx`) + Sidebar nav item (admin-only, Tag icon, after Customers) + "Current Promotion!" gold banner in `add-product-modal.tsx` + promotions fetch in `orders/new/page.tsx`.
 
+### Priority 14 — Public Website Deployment Strategy
+For fastest launch, deploy `frontend_public/` as a separate public DigitalOcean app/site and keep the existing Next.js app for dashboard and kiosk flows. If the goal is a single codebase, migrate the site intentionally into `frontend/` instead of copying raw HTML and PHP into the Next app.
+
+### Priority 15 — Replace Public Website PHP Forms and Raw Mail
+Local env-file support now exists for `frontend_public/`, but `contact_mail.php`, `enquiry_mail.php`, and `contact_process.php` still need to move to a supported server-side path (Next.js route handlers, backend endpoints, or another mail integration). Configure reCAPTCHA/mail settings in deployment environment variables before public launch.
+
 ---
 
 ## Frontend Patterns
@@ -250,6 +282,17 @@ Auth operations in `features/auth/actions.ts` use Next.js Server Actions (`"use 
 
 ### Route protection
 `proxy.ts` (Next.js middleware) guards `/dashboard/**` by checking the `session_token` HttpOnly cookie. Do not add additional redirect logic in page components — let the middleware handle it.
+
+### Public marketing site (`frontend_public`)
+`frontend/` is the authenticated Next.js app for dashboard and kiosk flows. Its root currently redirects `/` to `/login`, while `proxy.ts` only protects `/dashboard`, `/login`, and `/signup`.
+
+`frontend_public/` is a separate legacy public website surface for internet traffic. It is not part of the Next.js build and currently uses static HTML, jQuery AJAX form submissions, downloadable manuals, and PHP mail handlers.
+
+Do not treat `frontend_public/` as a drop-in folder for `frontend/`. Moving it into the Next.js app requires converting the HTML pages to App Router routes and replacing the PHP form handlers with Next.js route handlers or backend endpoints.
+
+For fastest launch, a separate DigitalOcean app/site is the simplest choice. For long-term maintainability, migrate the public site into `frontend/` intentionally instead of hosting two unrelated frontend stacks forever.
+
+If split, prefer the public site on the root domain or `www` and the authenticated Next.js app on an `app` subdomain.
 
 ### Realtime hook
 ```typescript
@@ -309,6 +352,8 @@ After every backend change, run `npm test` and confirm all tests pass before con
 | `FRONTEND_URL` | API | ✅ Set (CORS origin) |
 | `VALKEY_HOST/PORT/PASSWORD/TLS` | API | ✅ Set |
 | `NEXT_PUBLIC_API_URL` | UI | 🔴 **MISSING in production** — all Axios calls fail silently |
+| `PUBLIC_SITE_RECAPTCHA_SECRET` | Public site server handler | 🟡 Loaded from `frontend_public/.env.development` locally — set as a deployment environment variable before public launch |
+| `PUBLIC_SITE_CONTACT_EMAIL` | Public site server handler | 🟡 Loaded from `frontend_public/.env.development` locally — set as a deployment environment variable before public launch |
 
 ---
 
@@ -327,4 +372,6 @@ After every backend change, run `npm test` and confirm all tests pass before con
 11. **Kiosk routes are public** — `POST /refills` must not require a JWT
 12. **Implement, don't just suggest** — After confirmation, use file edit tools and terminal commands to actually make the changes
 13. **Keep this file current** — After every completed implementation, update `watershop.agent.md`: strike through finished priorities, add/remove bugs, update model fields or env var statuses as needed
+14. **Treat `frontend_public/` as internet-facing** — avoid dashboard-only assumptions, and do not apply the Next.js/TanStack Query conventions there unless it has been migrated into `frontend/`
+15. **Treat moving `frontend_public/` into `frontend/` as a migration** — convert HTML pages to App Router routes and replace PHP handlers before considering the move complete
 

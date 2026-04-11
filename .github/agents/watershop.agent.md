@@ -380,4 +380,5 @@ After every backend change, run `npm test` and confirm all tests pass before con
 13. **Keep this file current** — After every completed implementation, update `watershop.agent.md`: strike through finished priorities, add/remove bugs, update model fields or env var statuses as needed
 14. **Treat `frontend_public/` as internet-facing** — avoid dashboard-only assumptions, and do not apply the Next.js/TanStack Query conventions there unless it has been migrated into `frontend/`
 15. **Treat moving `frontend_public/` into `frontend/` as a migration** — convert HTML pages to App Router routes and replace PHP handlers before considering the move complete
+16. **DigitalOcean deploys directly from GitHub** — the current App Platform apps use GitHub source with `deploy_on_push: true`, so do not assume GitHub Actions are part of the deployment path unless they are intentionally reintroduced
 

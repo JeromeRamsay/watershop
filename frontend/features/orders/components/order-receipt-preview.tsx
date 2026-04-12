@@ -47,27 +47,38 @@ const GENERIC_WARRANTY_COPY =
 const GENERIC_RETURN_COPY =
   "Returns and exchanges require proof of purchase and prior approval from Woodstock's Water Shop. Opened, installed, used, custom-order, clearance, and special-order items may not be eligible for return. Approved returns may be subject to inspection and restocking fees.";
 
-const PRINT_STYLES = `
-  body {
-    margin: 0;
-    padding: 24px;
-    background: #f5f7fb;
-    color: #0f172a;
-    font-family: Arial, Helvetica, sans-serif;
+const RECEIPT_STYLES = `
+  :root {
+    color-scheme: light;
+  }
+
+  .receipt-document,
+  .receipt-document * {
+    box-sizing: border-box;
   }
 
   .receipt-document {
+    width: 100%;
     max-width: 860px;
     margin: 0 auto;
-    background: #ffffff;
-    border: 1px solid #dbe2ea;
-    border-radius: 16px;
     padding: 32px;
-    box-sizing: border-box;
+    border: 1px solid #dbe2ea;
+    border-radius: 24px;
+    background: #ffffff;
+    color: #0f172a;
+    box-shadow: 0 18px 48px rgba(15, 23, 42, 0.08);
+  }
+
+  .receipt-document h1,
+  .receipt-document h2,
+  .receipt-document p {
+    margin: 0;
   }
 
   .receipt-header {
     display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
     justify-content: space-between;
     gap: 24px;
     padding-bottom: 24px;
@@ -75,11 +86,12 @@ const PRINT_STYLES = `
   }
 
   .receipt-brand {
-    max-width: 60%;
+    flex: 1 1 360px;
+    max-width: 560px;
   }
 
   .receipt-kicker {
-    margin: 0 0 10px;
+    margin-bottom: 8px;
     color: #1d4ed8;
     font-size: 12px;
     font-weight: 700;
@@ -88,30 +100,63 @@ const PRINT_STYLES = `
   }
 
   .receipt-store-name {
-    margin: 0;
-    font-size: 28px;
-    line-height: 1.15;
+    color: #0f172a;
+    font-size: 30px;
+    font-weight: 700;
+    line-height: 1.1;
   }
 
   .receipt-contact,
-  .receipt-meta,
+  .receipt-copy,
   .receipt-notes,
   .receipt-policy-list,
   .receipt-footer-note {
-    color: #475569;
+    color: #334155;
     font-size: 14px;
-    line-height: 1.55;
+    line-height: 1.6;
+  }
+
+  .receipt-contact {
+    display: grid;
+    gap: 4px;
+    margin-top: 16px;
   }
 
   .receipt-meta {
-    min-width: 220px;
+    flex: 0 1 280px;
+    min-width: 250px;
+    display: grid;
+    gap: 12px;
+    padding: 16px;
+    border: 1px solid #dbe2ea;
+    border-radius: 18px;
+    background: #f8fafc;
+    color: #334155;
+    font-size: 14px;
+    line-height: 1.5;
   }
 
   .receipt-meta-row,
   .receipt-summary-row {
     display: flex;
+    align-items: flex-start;
     justify-content: space-between;
     gap: 16px;
+  }
+
+  .receipt-label {
+    color: #64748b;
+    font-weight: 500;
+  }
+
+  .receipt-emphasis {
+    color: #0f172a;
+    font-weight: 600;
+  }
+
+  .receipt-meta-row span:last-child,
+  .receipt-summary-row span:last-child {
+    text-align: right;
   }
 
   .receipt-grid {
@@ -123,9 +168,9 @@ const PRINT_STYLES = `
 
   .receipt-card,
   .receipt-section {
+    padding: 20px;
     border: 1px solid #dbe2ea;
-    border-radius: 14px;
-    padding: 18px;
+    border-radius: 20px;
     background: #ffffff;
   }
 
@@ -135,18 +180,29 @@ const PRINT_STYLES = `
 
   .receipt-card-title,
   .receipt-section-title {
-    margin: 0 0 12px;
-    color: #0f172a;
-    font-size: 13px;
+    margin-bottom: 12px;
+    color: #64748b;
+    font-size: 12px;
     font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
   }
 
+  .receipt-copy > * + *,
+  .receipt-notes > * + *,
+  .receipt-copy-stack > * + *,
+  .receipt-policy-block > * + * {
+    margin-top: 6px;
+  }
+
+  .receipt-prewrap {
+    white-space: pre-wrap;
+  }
+
   .receipt-table {
     width: 100%;
-    border-collapse: collapse;
     margin-top: 8px;
+    border-collapse: collapse;
   }
 
   .receipt-table th,
@@ -154,43 +210,65 @@ const PRINT_STYLES = `
     padding: 12px;
     border-bottom: 1px solid #e2e8f0;
     text-align: left;
+    vertical-align: top;
     font-size: 14px;
   }
 
+  .receipt-table tbody tr:last-child td {
+    border-bottom: 0;
+  }
+
   .receipt-table th {
-    color: #475569;
+    color: #64748b;
     font-size: 12px;
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
   }
 
-  .receipt-table .receipt-align-center {
+  .receipt-item-name {
+    color: #0f172a;
+    font-weight: 600;
+  }
+
+  .receipt-item-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 4px;
+    color: #64748b;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  .receipt-align-center {
     text-align: center;
   }
 
-  .receipt-table .receipt-align-right {
+  .receipt-align-right {
     text-align: right;
   }
 
   .receipt-summary {
-    width: 320px;
-    margin-left: auto;
-    margin-top: 16px;
+    width: 100%;
+    max-width: 320px;
+    margin: 16px 0 0 auto;
+    color: #334155;
+    font-size: 14px;
+    line-height: 1.5;
   }
 
   .receipt-summary-row {
-    padding: 8px 0;
-    font-size: 14px;
-    color: #0f172a;
+    padding: 6px 0;
   }
 
   .receipt-summary-row.is-total {
     margin-top: 6px;
     padding-top: 12px;
     border-top: 2px solid #dbe2ea;
-    font-weight: 700;
+    color: #0f172a;
     font-size: 16px;
+    font-weight: 700;
   }
 
   .receipt-summary-row.is-balance {
@@ -199,21 +277,90 @@ const PRINT_STYLES = `
   }
 
   .receipt-policy-item + .receipt-policy-item {
-    margin-top: 12px;
-    padding-top: 12px;
+    margin-top: 16px;
+    padding-top: 16px;
     border-top: 1px solid #e2e8f0;
   }
 
-  .receipt-policy-title {
-    margin: 0 0 8px;
-    font-size: 14px;
-    font-weight: 700;
+  .receipt-policy-title,
+  .receipt-policy-subtitle {
     color: #0f172a;
+    font-weight: 600;
+  }
+
+  .receipt-policy-title {
+    margin-bottom: 8px;
+    font-size: 14px;
   }
 
   .receipt-footer-note {
     margin-top: 10px;
   }
+
+  .receipt-footer-message {
+    margin-top: 24px;
+    text-align: center;
+    color: #64748b;
+  }
+
+  .receipt-preview-surface {
+    overflow-y: auto;
+    padding: 24px;
+    background: #e2e8f0;
+  }
+
+  @media (max-width: 720px) {
+    .receipt-document {
+      padding: 20px;
+      border-radius: 20px;
+    }
+
+    .receipt-header {
+      flex-direction: column;
+    }
+
+    .receipt-meta,
+    .receipt-summary {
+      width: 100%;
+      max-width: none;
+      min-width: 0;
+    }
+
+    .receipt-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .receipt-preview-surface {
+      padding: 12px;
+    }
+
+    .receipt-table th,
+    .receipt-table td {
+      padding: 10px 8px;
+      font-size: 13px;
+    }
+  }
+`;
+
+const PRINT_STYLES = `
+  @page {
+    margin: 12mm;
+    size: auto;
+  }
+
+  html {
+    background: #ffffff;
+  }
+
+  body {
+    margin: 0;
+    padding: 24px;
+    background: #f5f7fb;
+    color: #0f172a;
+    font-family: Arial, Helvetica, sans-serif;
+  }
+
+  ${RECEIPT_STYLES}
 
   @media print {
     body {
@@ -223,30 +370,10 @@ const PRINT_STYLES = `
 
     .receipt-document {
       max-width: none;
+      padding: 0;
       border: 0;
       border-radius: 0;
-      padding: 0;
-    }
-  }
-
-  @media (max-width: 720px) {
-    body {
-      padding: 12px;
-    }
-
-    .receipt-header {
-      flex-direction: column;
-    }
-
-    .receipt-brand,
-    .receipt-meta,
-    .receipt-summary {
-      max-width: none;
-      width: 100%;
-    }
-
-    .receipt-grid {
-      grid-template-columns: 1fr;
+      box-shadow: none;
     }
   }
 `;
@@ -362,29 +489,29 @@ const OrderReceiptDocument = forwardRef<HTMLDivElement, OrderReceiptDocumentProp
 
           <div className="receipt-meta space-y-2 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 sm:min-w-[250px]">
             <div className="receipt-meta-row flex items-center justify-between gap-4">
-              <span className="font-medium text-slate-500">Order Number</span>
-              <span className="font-semibold text-slate-900">
+              <span className="receipt-label font-medium text-slate-500">Order Number</span>
+              <span className="receipt-emphasis font-semibold text-slate-900">
                 {draft || !order.orderId ? "DRAFT" : order.orderId}
               </span>
             </div>
             <div className="receipt-meta-row flex items-center justify-between gap-4">
-              <span className="font-medium text-slate-500">Created</span>
+              <span className="receipt-label font-medium text-slate-500">Created</span>
               <span>{formatDateTime(order.createdAt)}</span>
             </div>
             <div className="receipt-meta-row flex items-center justify-between gap-4">
-              <span className="font-medium text-slate-500">Delivery Type</span>
+              <span className="receipt-label font-medium text-slate-500">Delivery Type</span>
               <span>{normalizedDeliveryType}</span>
             </div>
             <div className="receipt-meta-row flex items-center justify-between gap-4">
-              <span className="font-medium text-slate-500">Order Status</span>
+              <span className="receipt-label font-medium text-slate-500">Order Status</span>
               <span>{order.orderStatus}</span>
             </div>
             <div className="receipt-meta-row flex items-center justify-between gap-4">
-              <span className="font-medium text-slate-500">Payment Status</span>
+              <span className="receipt-label font-medium text-slate-500">Payment Status</span>
               <span>{order.paymentStatus}</span>
             </div>
             <div className="receipt-meta-row flex items-center justify-between gap-4">
-              <span className="font-medium text-slate-500">Payment Method</span>
+              <span className="receipt-label font-medium text-slate-500">Payment Method</span>
               <span>
                 {order.paymentDetails?.mode === "split"
                   ? "Split Payment"
@@ -395,7 +522,7 @@ const OrderReceiptDocument = forwardRef<HTMLDivElement, OrderReceiptDocumentProp
             </div>
             {normalizedDeliveryType === "Delivery" && order.scheduledDate && (
               <div className="receipt-meta-row flex items-center justify-between gap-4">
-                <span className="font-medium text-slate-500">Scheduled</span>
+                <span className="receipt-label font-medium text-slate-500">Scheduled</span>
                 <span>{formatDateTime(order.scheduledDate)}</span>
               </div>
             )}
@@ -408,8 +535,8 @@ const OrderReceiptDocument = forwardRef<HTMLDivElement, OrderReceiptDocumentProp
               <h2 className="receipt-card-title mb-3 text-xs font-bold uppercase tracking-[0.12em] text-slate-500">
                 Customer
               </h2>
-              <div className="space-y-1.5 text-sm text-slate-700">
-                <p className="font-semibold text-slate-900">{order.customer}</p>
+              <div className="receipt-copy receipt-copy-stack space-y-1.5 text-sm text-slate-700">
+                <p className="receipt-emphasis font-semibold text-slate-900">{order.customer}</p>
                 {order.customerEmail && <p>{order.customerEmail}</p>}
                 {order.customerPhone && <p>{order.customerPhone}</p>}
               </div>
@@ -419,20 +546,20 @@ const OrderReceiptDocument = forwardRef<HTMLDivElement, OrderReceiptDocumentProp
               <h2 className="receipt-card-title mb-3 text-xs font-bold uppercase tracking-[0.12em] text-slate-500">
                 Fulfilment
               </h2>
-              <div className="space-y-1.5 text-sm text-slate-700">
+              <div className="receipt-copy receipt-copy-stack space-y-1.5 text-sm text-slate-700">
                 <p>
-                  <span className="font-medium text-slate-500">Delivery Type:</span>{" "}
+                  <span className="receipt-label font-medium text-slate-500">Delivery Type:</span>{" "}
                   {normalizedDeliveryType}
                 </p>
                 {normalizedDeliveryType === "Delivery" && order.deliveryAddress && (
                   <p>
-                    <span className="font-medium text-slate-500">Address:</span>{" "}
+                    <span className="receipt-label font-medium text-slate-500">Address:</span>{" "}
                     {order.deliveryAddress}
                   </p>
                 )}
                 {normalizedDeliveryType === "Delivery" && order.scheduledDate && (
                   <p>
-                    <span className="font-medium text-slate-500">Scheduled:</span>{" "}
+                    <span className="receipt-label font-medium text-slate-500">Scheduled:</span>{" "}
                     {formatDateTime(order.scheduledDate)}
                   </p>
                 )}
@@ -449,14 +576,14 @@ const OrderReceiptDocument = forwardRef<HTMLDivElement, OrderReceiptDocumentProp
             <div className="receipt-notes space-y-3 text-sm text-slate-700">
               {order.notes && (
                 <div>
-                  <p className="font-semibold text-slate-900">Order Notes</p>
-                  <p className="whitespace-pre-wrap">{order.notes}</p>
+                  <p className="receipt-emphasis font-semibold text-slate-900">Order Notes</p>
+                  <p className="receipt-prewrap whitespace-pre-wrap">{order.notes}</p>
                 </div>
               )}
               {normalizedDeliveryType === "Delivery" && order.deliveryNotes && (
                 <div>
-                  <p className="font-semibold text-slate-900">Delivery Notes</p>
-                  <p className="whitespace-pre-wrap">{order.deliveryNotes}</p>
+                  <p className="receipt-emphasis font-semibold text-slate-900">Delivery Notes</p>
+                  <p className="receipt-prewrap whitespace-pre-wrap">{order.deliveryNotes}</p>
                 </div>
               )}
             </div>
@@ -479,10 +606,10 @@ const OrderReceiptDocument = forwardRef<HTMLDivElement, OrderReceiptDocumentProp
             <tbody>
               {allItems.map((item, index) => (
                 <tr key={`${item.id}-${index}`}>
-                  <td>
-                    <div className="space-y-1">
-                      <p className="font-semibold text-slate-900">{item.productName}</p>
-                      <div className="flex flex-wrap gap-2 text-xs text-slate-500">
+                  <td className="receipt-item-cell">
+                    <div className="receipt-copy-stack space-y-1">
+                      <p className="receipt-item-name font-semibold text-slate-900">{item.productName}</p>
+                      <div className="receipt-item-meta flex flex-wrap gap-2 text-xs text-slate-500">
                         {item.sku && <span>SKU: {item.sku}</span>}
                         {item.isRefill && <span>Refill</span>}
                         {item.creditsUsed && <span>Prepaid Redemption</span>}
@@ -551,18 +678,18 @@ const OrderReceiptDocument = forwardRef<HTMLDivElement, OrderReceiptDocumentProp
                     </p>
                     {item.warranty && (
                       <div className="mt-2 space-y-1">
-                        <p className="font-medium text-slate-900">Warranty</p>
+                        <p className="receipt-policy-subtitle font-medium text-slate-900">Warranty</p>
                         {item.warranty.description && (
-                          <p className="whitespace-pre-wrap">{item.warranty.description}</p>
+                          <p className="receipt-prewrap whitespace-pre-wrap">{item.warranty.description}</p>
                         )}
                         {warrantyDuration && <p>Coverage period: {warrantyDuration}</p>}
                       </div>
                     )}
                     {item.returnPolicy && (
-                      <div className="mt-2 space-y-1">
-                        <p className="font-medium text-slate-900">Return Policy</p>
+                      <div className="receipt-policy-block mt-2 space-y-1">
+                        <p className="receipt-policy-subtitle font-medium text-slate-900">Return Policy</p>
                         {item.returnPolicy.description && (
-                          <p className="whitespace-pre-wrap">{item.returnPolicy.description}</p>
+                          <p className="receipt-prewrap whitespace-pre-wrap">{item.returnPolicy.description}</p>
                         )}
                         {returnDuration && <p>Return window: {returnDuration}</p>}
                       </div>
@@ -592,7 +719,7 @@ const OrderReceiptDocument = forwardRef<HTMLDivElement, OrderReceiptDocumentProp
           </p>
         </section>
 
-        <p className="receipt-footer-note mt-6 text-center text-sm text-slate-500">
+        <p className="receipt-footer-note receipt-footer-message mt-6 text-center text-sm text-slate-500">
           {receiptFooter}
         </p>
       </div>
@@ -616,16 +743,49 @@ export function OrderReceiptPreviewDialog({
     const markup = receiptRef.current?.outerHTML;
     if (!markup) return;
 
-    const printWindow = window.open("", "_blank", "noopener,noreferrer,width=1024,height=900");
-    if (!printWindow) return;
+    const printFrame = document.createElement("iframe");
+    printFrame.setAttribute(
+      "title",
+      draft ? "Draft invoice print frame" : "Receipt print frame",
+    );
+    printFrame.style.position = "fixed";
+    printFrame.style.right = "0";
+    printFrame.style.bottom = "0";
+    printFrame.style.width = "0";
+    printFrame.style.height = "0";
+    printFrame.style.border = "0";
+    printFrame.style.opacity = "0";
+    printFrame.style.pointerEvents = "none";
 
-    printWindow.document.write(`<!DOCTYPE html><html><head><title>${draft ? "Draft Invoice" : order.orderId || "Invoice"}</title><style>${PRINT_STYLES}</style></head><body>${markup}</body></html>`);
-    printWindow.document.close();
-    printWindow.focus();
-    printWindow.onload = () => {
-      printWindow.print();
-      printWindow.onafterprint = () => printWindow.close();
+    document.body.appendChild(printFrame);
+
+    const printWindow = printFrame.contentWindow;
+    const printDocument = printWindow?.document;
+
+    if (!printWindow || !printDocument) {
+      printFrame.remove();
+      return;
+    }
+
+    const cleanup = () => {
+      window.removeEventListener("afterprint", cleanup);
+      printWindow.removeEventListener("afterprint", cleanup);
+      printFrame.remove();
     };
+
+    printWindow.addEventListener("afterprint", cleanup, { once: true });
+    window.addEventListener("afterprint", cleanup, { once: true });
+
+    printDocument.open();
+    printDocument.write(`<!DOCTYPE html><html><head><meta charSet="utf-8" /><title>${draft ? "Draft Invoice" : order.orderId || "Invoice"}</title><style>${PRINT_STYLES}</style></head><body>${markup}</body></html>`);
+    printDocument.close();
+
+    printWindow.requestAnimationFrame(() => {
+      printWindow.requestAnimationFrame(() => {
+        printWindow.focus();
+        printWindow.print();
+      });
+    });
   };
 
   return (
@@ -658,7 +818,8 @@ export function OrderReceiptPreviewDialog({
             </div>
           </DialogHeader>
 
-          <div className="overflow-y-auto bg-slate-100 p-4 sm:p-6">
+          <div className="receipt-preview-surface overflow-y-auto bg-slate-100 p-4 sm:p-6">
+            <style>{RECEIPT_STYLES}</style>
             <OrderReceiptDocument
               ref={receiptRef}
               order={order}

@@ -350,6 +350,9 @@ import { useDashboardRealtime } from "@/lib/use-dashboard-realtime";
 useDashboardRealtime({ onUpdate: () => refetchData() });
 ```
 
+### Shared receipt printing
+`frontend/features/orders/components/order-receipt-preview.tsx` owns the shared receipt stylesheet and print path. Keep preview and print markup aligned there, and prefer the off-screen iframe print flow over opening a raw popup window.
+
 ### Cookie names
 | Cookie | Readable by | Purpose |
 |---|---|---|

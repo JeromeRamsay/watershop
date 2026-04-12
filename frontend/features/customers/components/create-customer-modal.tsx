@@ -78,7 +78,9 @@ export function CreateCustomerModal({
     country: "Canada",
   });
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
     const { name, value } = e.target;
     if (name === "zipCode") {
       setFormData((prev) => ({

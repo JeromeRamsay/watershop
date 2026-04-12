@@ -138,17 +138,28 @@ export function EditOrderModal({
   const { data: inventoryRaw } = useInventory();
   const inventory = useMemo<MappedInventoryItem[]>(
     () =>
-      ((inventoryRaw as InventoryQueryItem[] | undefined) ?? []).map((item) => ({
-        id: item._id || item.id,
-        itemName: item.name || item.itemName || "",
-        sku: item.sku || "",
-        sellingPrice: item.sellingPrice ?? 0,
-        refillPrice: item.refillPrice ?? 0,
-        isRefillable: !!item.isRefillable,
-        isActive: item.isActive !== false,
-        warranty: item.warranty,
-        returnPolicy: item.returnPolicy,
-      })),
+      ((inventoryRaw as InventoryQueryItem[] | undefined) ?? []).reduce<
+        MappedInventoryItem[]
+      >((items, item) => {
+        const id = item._id || item.id;
+        if (!id) {
+          return items;
+        }
+
+        items.push({
+          id,
+          itemName: item.name || item.itemName || "",
+          sku: item.sku || "",
+          sellingPrice: item.sellingPrice ?? 0,
+          refillPrice: item.refillPrice ?? 0,
+          isRefillable: !!item.isRefillable,
+          isActive: item.isActive !== false,
+          warranty: item.warranty,
+          returnPolicy: item.returnPolicy,
+        });
+
+        return items;
+      }, []),
     [inventoryRaw],
   );
 

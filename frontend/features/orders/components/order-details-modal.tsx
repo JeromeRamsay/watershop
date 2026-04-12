@@ -130,8 +130,6 @@ export function OrderDetailsModal({
   const amountPaid = order?.amountPaid ?? 0;
   const balanceDue = Math.max(0, grandTotal - amountPaid);
 
-  const allItems = [...(order?.items || []), ...(order?.refills || [])];
-
   const statusCfg = orderStatusConfig[order?.orderStatus ?? ""] ?? { color: "text-dark-600", bg: "bg-dark-100", icon: AlertCircle };
   const paymentCfg = paymentStatusConfig[order?.paymentStatus ?? ""] ?? { color: "text-dark-600", bg: "bg-dark-100" };
 

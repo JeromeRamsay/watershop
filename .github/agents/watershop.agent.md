@@ -375,6 +375,8 @@ npm test -- --coverage      # coverage report
 
 After every backend change, run `npm test` and confirm all tests pass before considering the task done.
 
+After frontend changes, run `cd frontend && npm run build` before considering deployment issues resolved. The DigitalOcean frontend deploy uses the production Next.js build, and recent blockers surfaced there from strict compile/type checks in dashboard modal components.
+
 ---
 
 ## Data Models Quick Reference

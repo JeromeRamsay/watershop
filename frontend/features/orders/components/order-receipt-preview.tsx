@@ -59,14 +59,14 @@ const RECEIPT_STYLES = `
 
   .receipt-document {
     width: 100%;
-    max-width: 860px;
+    max-width: 980px;
     margin: 0 auto;
-    padding: 32px;
+    padding: 24px;
     border: 1px solid #dbe2ea;
-    border-radius: 24px;
+    border-radius: 20px;
     background: #ffffff;
     color: #0f172a;
-    box-shadow: 0 18px 48px rgba(15, 23, 42, 0.08);
+    box-shadow: 0 12px 36px rgba(15, 23, 42, 0.06);
   }
 
   .receipt-document h1,
@@ -80,20 +80,20 @@ const RECEIPT_STYLES = `
     flex-wrap: wrap;
     align-items: flex-start;
     justify-content: space-between;
-    gap: 24px;
-    padding-bottom: 24px;
+    gap: 18px;
+    padding-bottom: 18px;
     border-bottom: 2px solid #dbe2ea;
   }
 
   .receipt-brand {
-    flex: 1 1 360px;
-    max-width: 560px;
+    flex: 1 1 420px;
+    max-width: 620px;
   }
 
   .receipt-kicker {
-    margin-bottom: 8px;
+    margin-bottom: 6px;
     color: #1d4ed8;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.14em;
     text-transform: uppercase;
@@ -101,9 +101,9 @@ const RECEIPT_STYLES = `
 
   .receipt-store-name {
     color: #0f172a;
-    font-size: 30px;
+    font-size: 28px;
     font-weight: 700;
-    line-height: 1.1;
+    line-height: 1.05;
   }
 
   .receipt-contact,
@@ -112,28 +112,28 @@ const RECEIPT_STYLES = `
   .receipt-policy-list,
   .receipt-footer-note {
     color: #334155;
-    font-size: 14px;
-    line-height: 1.6;
+    font-size: 13px;
+    line-height: 1.45;
   }
 
   .receipt-contact {
     display: grid;
-    gap: 4px;
-    margin-top: 16px;
+    gap: 3px;
+    margin-top: 12px;
   }
 
   .receipt-meta {
-    flex: 0 1 280px;
-    min-width: 250px;
+    flex: 0 1 260px;
+    min-width: 240px;
     display: grid;
-    gap: 12px;
-    padding: 16px;
+    gap: 8px;
+    padding: 12px;
     border: 1px solid #dbe2ea;
-    border-radius: 18px;
+    border-radius: 16px;
     background: #f8fafc;
     color: #334155;
-    font-size: 14px;
-    line-height: 1.5;
+    font-size: 13px;
+    line-height: 1.4;
   }
 
   .receipt-meta-row,
@@ -141,7 +141,7 @@ const RECEIPT_STYLES = `
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    gap: 16px;
+    gap: 12px;
   }
 
   .receipt-label {
@@ -162,27 +162,38 @@ const RECEIPT_STYLES = `
   .receipt-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 16px;
-    margin-top: 24px;
+    gap: 12px;
+    margin-top: 16px;
+  }
+
+  .receipt-legal-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 12px;
   }
 
   .receipt-card,
   .receipt-section {
-    padding: 20px;
+    padding: 14px;
     border: 1px solid #dbe2ea;
-    border-radius: 20px;
+    border-radius: 16px;
     background: #ffffff;
   }
 
   .receipt-section {
-    margin-top: 20px;
+    margin-top: 12px;
+  }
+
+  .receipt-section-compact {
+    margin-top: 0;
   }
 
   .receipt-card-title,
   .receipt-section-title {
-    margin-bottom: 12px;
+    margin-bottom: 8px;
     color: #64748b;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
@@ -191,8 +202,13 @@ const RECEIPT_STYLES = `
   .receipt-copy > * + *,
   .receipt-notes > * + *,
   .receipt-copy-stack > * + *,
-  .receipt-policy-block > * + * {
-    margin-top: 6px;
+  .receipt-policy-block > * + *,
+  .receipt-policy-block-start > * + * {
+    margin-top: 4px;
+  }
+
+  .receipt-policy-block-start {
+    margin-top: 8px;
   }
 
   .receipt-prewrap {
@@ -201,17 +217,17 @@ const RECEIPT_STYLES = `
 
   .receipt-table {
     width: 100%;
-    margin-top: 8px;
+    margin-top: 6px;
     border-collapse: collapse;
   }
 
   .receipt-table th,
   .receipt-table td {
-    padding: 12px;
+    padding: 9px 8px;
     border-bottom: 1px solid #e2e8f0;
     text-align: left;
     vertical-align: top;
-    font-size: 14px;
+    font-size: 13px;
   }
 
   .receipt-table tbody tr:last-child td {
@@ -220,7 +236,7 @@ const RECEIPT_STYLES = `
 
   .receipt-table th {
     color: #64748b;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -234,11 +250,11 @@ const RECEIPT_STYLES = `
   .receipt-item-meta {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 4px;
+    gap: 6px;
+    margin-top: 3px;
     color: #64748b;
-    font-size: 12px;
-    line-height: 1.5;
+    font-size: 11px;
+    line-height: 1.35;
   }
 
   .receipt-align-center {
@@ -251,23 +267,23 @@ const RECEIPT_STYLES = `
 
   .receipt-summary {
     width: 100%;
-    max-width: 320px;
-    margin: 16px 0 0 auto;
+    max-width: 280px;
+    margin: 10px 0 0 auto;
     color: #334155;
-    font-size: 14px;
-    line-height: 1.5;
+    font-size: 13px;
+    line-height: 1.4;
   }
 
   .receipt-summary-row {
-    padding: 6px 0;
+    padding: 4px 0;
   }
 
   .receipt-summary-row.is-total {
-    margin-top: 6px;
-    padding-top: 12px;
+    margin-top: 4px;
+    padding-top: 8px;
     border-top: 2px solid #dbe2ea;
     color: #0f172a;
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 700;
   }
 
@@ -277,8 +293,8 @@ const RECEIPT_STYLES = `
   }
 
   .receipt-policy-item + .receipt-policy-item {
-    margin-top: 16px;
-    padding-top: 16px;
+    margin-top: 10px;
+    padding-top: 10px;
     border-top: 1px solid #e2e8f0;
   }
 
@@ -289,30 +305,30 @@ const RECEIPT_STYLES = `
   }
 
   .receipt-policy-title {
-    margin-bottom: 8px;
-    font-size: 14px;
+    margin-bottom: 6px;
+    font-size: 13px;
   }
 
   .receipt-footer-note {
-    margin-top: 10px;
+    margin-top: 6px;
   }
 
   .receipt-footer-message {
-    margin-top: 24px;
+    margin-top: 14px;
     text-align: center;
     color: #64748b;
   }
 
   .receipt-preview-surface {
     overflow-y: auto;
-    padding: 24px;
+    padding: 16px;
     background: #e2e8f0;
   }
 
   @media (max-width: 720px) {
     .receipt-document {
-      padding: 20px;
-      border-radius: 20px;
+      padding: 16px;
+      border-radius: 16px;
     }
 
     .receipt-header {
@@ -330,21 +346,25 @@ const RECEIPT_STYLES = `
       grid-template-columns: 1fr;
     }
 
+    .receipt-legal-grid {
+      grid-template-columns: 1fr;
+    }
+
     .receipt-preview-surface {
-      padding: 12px;
+      padding: 10px;
     }
 
     .receipt-table th,
     .receipt-table td {
-      padding: 10px 8px;
-      font-size: 13px;
+      padding: 8px 6px;
+      font-size: 12px;
     }
   }
 `;
 
 const PRINT_STYLES = `
   @page {
-    margin: 12mm;
+    margin: 6mm;
     size: auto;
   }
 
@@ -374,6 +394,116 @@ const PRINT_STYLES = `
       border: 0;
       border-radius: 0;
       box-shadow: none;
+    }
+
+    .receipt-header {
+      gap: 12px;
+      padding-bottom: 12px;
+    }
+
+    .receipt-store-name {
+      font-size: 24px;
+    }
+
+    .receipt-kicker,
+    .receipt-card-title,
+    .receipt-section-title,
+    .receipt-table th {
+      font-size: 10px;
+    }
+
+    .receipt-contact,
+    .receipt-copy,
+    .receipt-notes,
+    .receipt-policy-list,
+    .receipt-footer-note,
+    .receipt-meta,
+    .receipt-summary,
+    .receipt-table td {
+      font-size: 12px;
+      line-height: 1.3;
+    }
+
+    .receipt-meta {
+      gap: 6px;
+      padding: 10px;
+      min-width: 210px;
+    }
+
+    .receipt-grid,
+    .receipt-legal-grid {
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .receipt-card,
+    .receipt-section {
+      padding: 10px;
+      border-radius: 12px;
+    }
+
+    .receipt-section {
+      margin-top: 10px;
+    }
+
+    .receipt-section-compact {
+      margin-top: 0;
+    }
+
+    .receipt-table {
+      margin-top: 4px;
+    }
+
+    .receipt-table th,
+    .receipt-table td {
+      padding: 6px 5px;
+    }
+
+    .receipt-item-meta {
+      gap: 4px;
+      margin-top: 2px;
+      font-size: 10px;
+      line-height: 1.2;
+    }
+
+    .receipt-summary {
+      max-width: 250px;
+      margin-top: 8px;
+    }
+
+    .receipt-summary-row {
+      padding: 3px 0;
+    }
+
+    .receipt-summary-row.is-total {
+      margin-top: 3px;
+      padding-top: 6px;
+      font-size: 13px;
+    }
+
+    .receipt-policy-item + .receipt-policy-item {
+      margin-top: 8px;
+      padding-top: 8px;
+    }
+
+    .receipt-policy-block-start {
+      margin-top: 6px;
+    }
+
+    .receipt-footer-message {
+      margin-top: 10px;
+    }
+
+    .receipt-card,
+    .receipt-section,
+    .receipt-summary,
+    .receipt-table,
+    .receipt-table thead,
+    .receipt-table tbody tr,
+    .receipt-policy-item,
+    .receipt-legal-grid {
+      break-inside: avoid;
+      page-break-inside: avoid;
     }
   }
 `;
@@ -677,7 +807,7 @@ const OrderReceiptDocument = forwardRef<HTMLDivElement, OrderReceiptDocumentProp
                       {item.productName}
                     </p>
                     {item.warranty && (
-                      <div className="mt-2 space-y-1">
+                      <div className="receipt-policy-block receipt-policy-block-start mt-2 space-y-1">
                         <p className="receipt-policy-subtitle font-medium text-slate-900">Warranty</p>
                         {item.warranty.description && (
                           <p className="receipt-prewrap whitespace-pre-wrap">{item.warranty.description}</p>
@@ -701,23 +831,25 @@ const OrderReceiptDocument = forwardRef<HTMLDivElement, OrderReceiptDocumentProp
           </section>
         )}
 
-        <section className="receipt-section mt-5 rounded-2xl border border-slate-200 p-5">
-          <h2 className="receipt-section-title mb-3 text-xs font-bold uppercase tracking-[0.12em] text-slate-500">
-            Warranty
-          </h2>
-          <p className="receipt-footer-note text-sm text-slate-700">
-            {GENERIC_WARRANTY_COPY}
-          </p>
-        </section>
+        <div className="receipt-legal-grid">
+          <section className="receipt-section receipt-section-compact mt-5 rounded-2xl border border-slate-200 p-5">
+            <h2 className="receipt-section-title mb-3 text-xs font-bold uppercase tracking-[0.12em] text-slate-500">
+              Warranty
+            </h2>
+            <p className="receipt-footer-note text-sm text-slate-700">
+              {GENERIC_WARRANTY_COPY}
+            </p>
+          </section>
 
-        <section className="receipt-section mt-5 rounded-2xl border border-slate-200 p-5">
-          <h2 className="receipt-section-title mb-3 text-xs font-bold uppercase tracking-[0.12em] text-slate-500">
-            Returns
-          </h2>
-          <p className="receipt-footer-note text-sm text-slate-700">
-            {GENERIC_RETURN_COPY}
-          </p>
-        </section>
+          <section className="receipt-section receipt-section-compact mt-5 rounded-2xl border border-slate-200 p-5">
+            <h2 className="receipt-section-title mb-3 text-xs font-bold uppercase tracking-[0.12em] text-slate-500">
+              Returns
+            </h2>
+            <p className="receipt-footer-note text-sm text-slate-700">
+              {GENERIC_RETURN_COPY}
+            </p>
+          </section>
+        </div>
 
         <p className="receipt-footer-note receipt-footer-message mt-6 text-center text-sm text-slate-500">
           {receiptFooter}
@@ -802,7 +934,7 @@ export function OrderReceiptPreviewDialog({
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="flex max-h-[92vh] w-full max-w-6xl flex-col gap-0 overflow-hidden p-0 !sm:max-w-6xl">
+        <DialogContent className="flex max-h-[94vh] w-[96vw] max-w-[96vw] flex-col gap-0 overflow-hidden p-0 lg:max-w-[1500px]">
           <DialogHeader className="border-b border-dark-100 bg-white px-6 py-4 dark:border-dark-700 dark:bg-dark-800">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>

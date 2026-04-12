@@ -352,6 +352,7 @@ useDashboardRealtime({ onUpdate: () => refetchData() });
 
 ### Shared receipt printing
 `frontend/features/orders/components/order-receipt-preview.tsx` owns the shared receipt stylesheet and print path. Keep preview and print markup aligned there, and prefer the off-screen iframe print flow over opening a raw popup window.
+Keep the receipt layout compact enough to fit a standard one-page print for typical orders: tighten spacing before adding new sections, and prefer side-by-side legal copy blocks over stacked boilerplate when width allows.
 
 ### Cookie names
 | Cookie | Readable by | Purpose |

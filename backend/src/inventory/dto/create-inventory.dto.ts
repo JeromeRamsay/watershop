@@ -1,12 +1,34 @@
 import { ApiProperty } from "@nestjs/swagger";
+import { Type } from "class-transformer";
 import {
   IsString,
   IsNumber,
   IsEnum,
   IsBoolean,
+  IsInt,
   IsOptional,
   Min,
+  ValidateNested,
 } from "class-validator";
+
+class PolicyDetailsDto {
+  @ApiProperty({ required: false, example: "Covers parts and labor for defects in materials and workmanship." })
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @ApiProperty({ required: false, example: 10 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  periodYears?: number;
+
+  @ApiProperty({ required: false, example: 0 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  periodMonths?: number;
+}
 
 export class CreateInventoryDto {
   @ApiProperty({ example: "18L Alkalized Water Refill" })
@@ -25,6 +47,18 @@ export class CreateInventoryDto {
   @IsOptional()
   @IsString()
   description?: string;
+  
+  @ApiProperty({ required: false, type: PolicyDetailsDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => PolicyDetailsDto)
+  warranty?: PolicyDetailsDto;
+
+  @ApiProperty({ required: false, type: PolicyDetailsDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => PolicyDetailsDto)
+  returnPolicy?: PolicyDetailsDto;
 
   @ApiProperty({ example: 100 })
   @IsNumber()

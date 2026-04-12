@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
-import { InventoryItem } from "../types";
+import { InventoryItem, PolicyDetails } from "../types";
 import { Supplier } from "@/features/suppliers/types";
 import api from "@/lib/api";
 
@@ -56,6 +56,31 @@ const formatDate = (value?: string) => {
   });
 };
 
+const formatPolicyDuration = (policy?: PolicyDetails) => {
+  if (!policy) return "-";
+  const parts: string[] = [];
+  if (policy.periodYears) parts.push(`${policy.periodYears} year${policy.periodYears === 1 ? "" : "s"}`);
+  if (policy.periodMonths) parts.push(`${policy.periodMonths} month${policy.periodMonths === 1 ? "" : "s"}`);
+  return parts.length > 0 ? parts.join(" ") : "-";
+};
+
+const buildPolicyPayload = (
+  description: string,
+  periodYears: string,
+  periodMonths: string,
+) => {
+  const trimmedDescription = description.trim();
+  if (!trimmedDescription && !periodYears && !periodMonths) {
+    return undefined;
+  }
+
+  return {
+    ...(trimmedDescription ? { description: trimmedDescription } : {}),
+    periodYears: Number(periodYears || 0),
+    periodMonths: Number(periodMonths || 0),
+  };
+};
+
 const rowClassName = "grid grid-cols-1 gap-1 md:grid-cols-2 md:gap-3 text-sm";
 const unitTypes = [
   { value: "piece", label: "Piece" },
@@ -87,6 +112,12 @@ export function ItemDetailsModal({
     sellingPrice: "",
     supplier: "",
     description: "",
+    warrantyDescription: "",
+    warrantyPeriodYears: "",
+    warrantyPeriodMonths: "",
+    returnPolicyDescription: "",
+    returnPolicyPeriodYears: "",
+    returnPolicyPeriodMonths: "",
     isTaxable: "true",
     isRefillable: "false",
     refillPrice: "0",
@@ -112,13 +143,19 @@ export function ItemDetailsModal({
       sellingPrice: String(item.sellingPrice ?? 0),
       supplier: item.supplier || "",
       description: item.description || "",
+      warrantyDescription: item.warranty?.description || "",
+      warrantyPeriodYears: String(item.warranty?.periodYears ?? 0),
+      warrantyPeriodMonths: String(item.warranty?.periodMonths ?? 0),
+      returnPolicyDescription: item.returnPolicy?.description || "",
+      returnPolicyPeriodYears: String(item.returnPolicy?.periodYears ?? 0),
+      returnPolicyPeriodMonths: String(item.returnPolicy?.periodMonths ?? 0),
       isTaxable: String(item.isTaxable ?? true),
       isRefillable: String(item.isRefillable ?? false),
       refillPrice: String(item.refillPrice ?? 0),
       rentalPrice: String(item.rentalPrice ?? 0),
       isActive: String(item.isActive ?? true),
     });
-  }, [item, open]);
+  }, [categories, item, open]);
 
   const handleSave = async () => {
     if (!item) return;
@@ -130,6 +167,16 @@ export function ItemDetailsModal({
         sku: formData.sku,
         category: formData.category,
         description: formData.description,
+        warranty: buildPolicyPayload(
+          formData.warrantyDescription,
+          formData.warrantyPeriodYears,
+          formData.warrantyPeriodMonths,
+        ),
+        returnPolicy: buildPolicyPayload(
+          formData.returnPolicyDescription,
+          formData.returnPolicyPeriodYears,
+          formData.returnPolicyPeriodMonths,
+        ),
         stockQuantity: Number(formData.stock),
         unitType: formData.unitType,
         lowStockThreshold: Number(formData.lowStockThreshold),
@@ -168,7 +215,21 @@ export function ItemDetailsModal({
         purchasePrice: data.purchasePrice ?? Number(formData.purchasePrice),
         sellingPrice: data.sellingPrice ?? Number(formData.sellingPrice),
         supplier: data.supplier || formData.supplier,
-        description: data.description || formData.description,
+        description: data.description ?? formData.description,
+        warranty:
+          data.warranty ??
+          buildPolicyPayload(
+            formData.warrantyDescription,
+            formData.warrantyPeriodYears,
+            formData.warrantyPeriodMonths,
+          ),
+        returnPolicy:
+          data.returnPolicy ??
+          buildPolicyPayload(
+            formData.returnPolicyDescription,
+            formData.returnPolicyPeriodYears,
+            formData.returnPolicyPeriodMonths,
+          ),
         lowStockThreshold: thresholdValue,
         isTaxable: data.isTaxable ?? formData.isTaxable === "true",
         isRefillable: data.isRefillable ?? formData.isRefillable === "true",
@@ -474,6 +535,102 @@ export function ItemDetailsModal({
                 }
               />
             </div>
+
+            <div className={rowClassName}>
+              <div className="space-y-1">
+                <Label htmlFor="details-warrantyDescription">Warranty Description</Label>
+                <Textarea
+                  id="details-warrantyDescription"
+                  value={formData.warrantyDescription}
+                  onChange={(event) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      warrantyDescription: event.target.value,
+                    }))
+                  }
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label htmlFor="details-warrantyYears">Warranty Years</Label>
+                  <Input
+                    id="details-warrantyYears"
+                    type="number"
+                    min="0"
+                    value={formData.warrantyPeriodYears}
+                    onChange={(event) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        warrantyPeriodYears: event.target.value,
+                      }))
+                    }
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="details-warrantyMonths">Warranty Months</Label>
+                  <Input
+                    id="details-warrantyMonths"
+                    type="number"
+                    min="0"
+                    value={formData.warrantyPeriodMonths}
+                    onChange={(event) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        warrantyPeriodMonths: event.target.value,
+                      }))
+                    }
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className={rowClassName}>
+              <div className="space-y-1">
+                <Label htmlFor="details-returnPolicyDescription">Return Policy Description</Label>
+                <Textarea
+                  id="details-returnPolicyDescription"
+                  value={formData.returnPolicyDescription}
+                  onChange={(event) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      returnPolicyDescription: event.target.value,
+                    }))
+                  }
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label htmlFor="details-returnPolicyYears">Return Policy Years</Label>
+                  <Input
+                    id="details-returnPolicyYears"
+                    type="number"
+                    min="0"
+                    value={formData.returnPolicyPeriodYears}
+                    onChange={(event) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        returnPolicyPeriodYears: event.target.value,
+                      }))
+                    }
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="details-returnPolicyMonths">Return Policy Months</Label>
+                  <Input
+                    id="details-returnPolicyMonths"
+                    type="number"
+                    min="0"
+                    value={formData.returnPolicyPeriodMonths}
+                    onChange={(event) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        returnPolicyPeriodMonths: event.target.value,
+                      }))
+                    }
+                  />
+                </div>
+              </div>
+            </div>
           </div>
         ) : (
           <div className="space-y-3">
@@ -593,6 +750,61 @@ export function ItemDetailsModal({
                 {item.description || "-"}
               </p>
             </div>
+
+            <div className={rowClassName}>
+              <div>
+                <p className="text-[#6B7280]">Warranty</p>
+                <p className="font-medium text-[#111827] whitespace-pre-wrap">
+                  {item.warranty?.description || "-"}
+                </p>
+                <p className="text-xs text-[#6B7280]">
+                  Duration: {formatPolicyDuration(item.warranty)}
+                </p>
+              </div>
+              <div>
+                <p className="text-[#6B7280]">Return Policy</p>
+                <p className="font-medium text-[#111827] whitespace-pre-wrap">
+                  {item.returnPolicy?.description || "-"}
+                </p>
+                <p className="text-xs text-[#6B7280]">
+                  Duration: {formatPolicyDuration(item.returnPolicy)}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {!loading && item && (
+          <div className="flex justify-end gap-2 border-t border-dark-100 pt-4 dark:border-dark-700">
+            {isEditMode ? (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsEditMode(false)}
+                  disabled={saving}
+                >
+                  Cancel
+                </Button>
+                <Button type="button" onClick={handleSave} disabled={saving}>
+                  {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Save Changes
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => onOpenChange(false)}
+                >
+                  Close
+                </Button>
+                <Button type="button" onClick={() => setIsEditMode(true)}>
+                  Edit Item
+                </Button>
+              </>
+            )}
           </div>
         )}
       </DialogContent>

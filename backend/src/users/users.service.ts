@@ -49,6 +49,9 @@ export class UsersService {
     // Find User (include password field explicitly if set to select: false)
     const user = await this.userModel.findOne({ username });
     if (!user) throw new UnauthorizedException("Invalid credentials");
+    if (user.archivedAt) {
+      throw new UnauthorizedException("Account is deactivated");
+    }
     if (!user.isActive) throw new UnauthorizedException("Account is deactivated");
 
     // Compare Password
@@ -78,7 +81,10 @@ export class UsersService {
   }
 
   async findStaff(includeInactive = true) {
-    const query: Record<string, unknown> = { role: { $regex: /^staff$/i } };
+    const query: Record<string, unknown> = {
+      role: { $regex: /^staff$/i },
+      archivedAt: null,
+    };
     if (!includeInactive) {
       query.isActive = true;
     }
@@ -137,6 +143,27 @@ export class UsersService {
       throw new NotFoundException("User not found");
     }
     this.realtimeService.emitDashboardUpdate("users.status_changed");
+    return updated;
+  }
+
+  async archiveManagedUser(id: string) {
+    const updated = await this.userModel
+      .findByIdAndUpdate(
+        id,
+        { isActive: false, archivedAt: new Date() },
+        { new: true },
+      )
+      .select("-password");
+
+    if (!updated) {
+      throw new NotFoundException("User not found");
+    }
+
+    if (updated.role.toLowerCase() !== "staff") {
+      throw new BadRequestException("Only staff accounts can be permanently deleted");
+    }
+
+    this.realtimeService.emitDashboardUpdate("users.archived");
     return updated;
   }
 

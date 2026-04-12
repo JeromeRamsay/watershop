@@ -5,6 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -63,6 +64,7 @@ interface BackendCustomer {
   lastName: string;
   email: string;
   phone: string;
+  notes?: string;
   addresses: Array<{
     label: string;
     street: string;
@@ -107,6 +109,7 @@ export default function EditCustomerPage() {
     email: "",
     phone: "",
     customerType: "individual",
+    notes: "",
     // Address fields
     street: "",
     city: "",
@@ -132,6 +135,7 @@ export default function EditCustomerPage() {
             email: data.email || "",
             phone: data.phone || "",
             customerType: data.type || "individual",
+            notes: data.notes || "",
             street: defaultAddress?.street || "",
             city: defaultAddress?.city || "",
             state: defaultAddress?.state || "ON",
@@ -183,6 +187,7 @@ export default function EditCustomerPage() {
       lastName: formData.lastName,
       email: formData.email,
       phone: normalizedPhone,
+      notes: formData.notes,
       addresses: [
         {
           label: "Home",
@@ -444,6 +449,24 @@ export default function EditCustomerPage() {
                     <SelectItem value="business">Business</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="col-span-2 space-y-2">
+                <Label
+                  htmlFor="notes"
+                  className="text-dark-600 dark:text-white"
+                >
+                  Customer Information / Notes
+                </Label>
+                <Textarea
+                  id="notes"
+                  value={formData.notes}
+                  onChange={(e) =>
+                    setFormData({ ...formData, notes: e.target.value })
+                  }
+                  className="dark:border-dark-600 dark:bg-dark-700 dark:text-white"
+                  rows={4}
+                  placeholder="Add internal notes about this customer"
+                />
               </div>
             </div>
           </div>

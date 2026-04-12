@@ -40,6 +40,30 @@ export class OrdersService {
     private realtimeService: RealtimeService,
   ) {}
 
+    private mapPolicySnapshot(policy?: {
+      description?: string;
+      periodYears?: number;
+      periodMonths?: number;
+    } | null) {
+      if (!policy) {
+        return undefined;
+      }
+
+      const description = policy.description?.trim();
+      const periodYears = Number(policy.periodYears || 0);
+      const periodMonths = Number(policy.periodMonths || 0);
+
+      if (!description && periodYears === 0 && periodMonths === 0) {
+        return undefined;
+      }
+
+      return {
+        ...(description ? { description } : {}),
+        periodYears,
+        periodMonths,
+      };
+    }
+
   async create(createOrderDto: CreateOrderDto): Promise<Order> {
     // Attempt to use a MongoDB session/transaction (requires replica set).
     // Falls back gracefully when running against a standalone instance.
@@ -70,9 +94,11 @@ export class OrdersService {
         discount = 0,
         isDelivery,
         deliveryAddress,
+        deliveryNotes,
         paymentStatus,
         deliveryDate,
         emailReceipt,
+        notes,
       } = createOrderDto;
       const refillRedemption = !!createOrderDto.refillRedemption;
       const skipRefillCreditTopup = !!createOrderDto.skipRefillCreditTopup;
@@ -186,6 +212,8 @@ export class OrdersService {
             quantity: itemDto.quantity,
             unitPrice,
             totalPrice,
+            warranty: this.mapPolicySnapshot(inventoryItem.warranty),
+            returnPolicy: this.mapPolicySnapshot(inventoryItem.returnPolicy),
             isPrepaidRedemption: !!isItemRedemption,
             isRefill: !!itemDto.isRefill,
           };
@@ -305,6 +333,8 @@ export class OrdersService {
           deliveryDate:
             isDelivery && deliveryDate ? new Date(deliveryDate) : undefined,
           deliveryAddress: isDelivery ? deliveryAddress : undefined,
+          deliveryNotes: isDelivery ? deliveryNotes : undefined,
+          notes,
           emailReceipt,
           paymentDetails,
         });
@@ -465,8 +495,14 @@ export class OrdersService {
     if (typeof updateOrderDto.deliveryAddress === "string") {
       updates.deliveryAddress = updateOrderDto.deliveryAddress;
     }
+    if (typeof updateOrderDto.deliveryNotes === "string") {
+      updates.deliveryNotes = updateOrderDto.deliveryNotes;
+    }
     if (typeof updateOrderDto.deliveryDate === "string") {
       updates.deliveryDate = new Date(updateOrderDto.deliveryDate);
+    }
+    if (typeof updateOrderDto.notes === "string") {
+      updates.notes = updateOrderDto.notes;
     }
     if (typeof updateOrderDto.emailReceipt === "boolean") {
       updates.emailReceipt = updateOrderDto.emailReceipt;
@@ -503,6 +539,8 @@ export class OrdersService {
             quantity: qty,
             unitPrice,
             totalPrice,
+            warranty: this.mapPolicySnapshot(inv.warranty),
+            returnPolicy: this.mapPolicySnapshot(inv.returnPolicy),
             isPrepaidRedemption: itemDto.isPrepaidRedemption || false,
             isRefill: itemDto.isRefill || false,
           } as unknown as OrderItem);

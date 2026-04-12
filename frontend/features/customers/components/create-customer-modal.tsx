@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -39,9 +40,6 @@ const CANADIAN_PROVINCES = [
   { code: "YT", name: "Yukon" },
 ];
 
-const CANADIAN_POSTAL_CODE_REGEX =
-  /^[A-Za-z]\d[A-Za-z] ?\d[A-Za-z]\d$/;
-
 function normalizeCanadianPhone(value: string) {
   const digits = value.replace(/\D/g, "");
   if (digits.length === 11 && digits.startsWith("1")) {
@@ -69,6 +67,7 @@ export function CreateCustomerModal({
     lastName: "",
     email: "",
     phone: "",
+    notes: "",
     type: "individual",
     // Address fields
     addressLabel: "Home",
@@ -121,6 +120,7 @@ export function CreateCustomerModal({
       lastName: formData.lastName,
       email: formData.email,
       phone: formData.phone,
+      notes: formData.notes,
       street: formData.street,
       city: formData.city,
       zipCode: formData.zipCode,
@@ -146,6 +146,7 @@ export function CreateCustomerModal({
         lastName: formData.lastName,
         email: formData.email,
         phone: normalizedPhone,
+        notes: formData.notes || undefined,
         addresses: [
           {
             label: formData.addressLabel,
@@ -168,6 +169,7 @@ export function CreateCustomerModal({
         lastName: "",
         email: "",
         phone: "",
+        notes: "",
         type: "individual",
         addressLabel: "Home",
         street: "",
@@ -277,6 +279,19 @@ export function CreateCustomerModal({
               />
               {fieldErrors.phone && <p className="text-xs text-red-600">{fieldErrors.phone}</p>}
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="notes">Customer Information / Notes</Label>
+            <Textarea
+              id="notes"
+              name="notes"
+              placeholder="Add internal notes about this customer"
+              value={formData.notes}
+              onChange={handleChange}
+              rows={4}
+            />
+            {fieldErrors.notes && <p className="text-xs text-red-600">{fieldErrors.notes}</p>}
           </div>
 
           <div className="space-y-2 pt-4 border-t">

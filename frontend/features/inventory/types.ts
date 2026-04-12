@@ -1,3 +1,9 @@
+export interface PolicyDetails {
+  description?: string;
+  periodYears?: number;
+  periodMonths?: number;
+}
+
 export interface InventoryItem {
   id: string;
   sku: string;
@@ -13,6 +19,8 @@ export interface InventoryItem {
   isRefillable?: boolean;
   supplier: string;
   description: string;
+  warranty?: PolicyDetails;
+  returnPolicy?: PolicyDetails;
   lowStockThreshold?: number;
   isTaxable?: boolean;
   rentalPrice?: number;

@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -30,6 +31,7 @@ import {
   X,
 } from "lucide-react";
 import { Order, PaymentDetails } from "../types";
+import { OrderReceiptPreviewDialog } from "./order-receipt-preview";
 import api from "@/lib/api";
 import { useInventory, useSettings } from "@/lib/queries";
 
@@ -53,6 +55,8 @@ interface EditableItem {
   unitPrice: number;
   totalPrice: number;
   isRefill: boolean;
+  warranty?: Order["items"][number]["warranty"];
+  returnPolicy?: Order["items"][number]["returnPolicy"];
 }
 
 interface MappedInventoryItem {
@@ -63,6 +67,22 @@ interface MappedInventoryItem {
   refillPrice: number;
   isRefillable: boolean;
   isActive: boolean;
+  warranty?: Order["items"][number]["warranty"];
+  returnPolicy?: Order["items"][number]["returnPolicy"];
+}
+
+interface InventoryQueryItem {
+  _id?: string;
+  id?: string;
+  name?: string;
+  itemName?: string;
+  sku?: string;
+  sellingPrice?: number;
+  refillPrice?: number;
+  isRefillable?: boolean;
+  isActive?: boolean;
+  warranty?: Order["items"][number]["warranty"];
+  returnPolicy?: Order["items"][number]["returnPolicy"];
 }
 
 const toDisplayDateTime = (rawDate?: string) => {
@@ -108,6 +128,8 @@ export function EditOrderModal({
     deliveryType: "Pickup",
     deliveryAddress: "",
     deliveryDateTime: "",
+    deliveryNotes: "",
+    notes: "",
     discount: "0",
     emailReceipt: false,
   });
@@ -116,7 +138,7 @@ export function EditOrderModal({
   const { data: inventoryRaw } = useInventory();
   const inventory = useMemo<MappedInventoryItem[]>(
     () =>
-      ((inventoryRaw as any[] | undefined) ?? []).map((item: any) => ({
+      ((inventoryRaw as InventoryQueryItem[] | undefined) ?? []).map((item) => ({
         id: item._id || item.id,
         itemName: item.name || item.itemName || "",
         sku: item.sku || "",
@@ -124,6 +146,8 @@ export function EditOrderModal({
         refillPrice: item.refillPrice ?? 0,
         isRefillable: !!item.isRefillable,
         isActive: item.isActive !== false,
+        warranty: item.warranty,
+        returnPolicy: item.returnPolicy,
       })),
     [inventoryRaw],
   );
@@ -140,6 +164,8 @@ export function EditOrderModal({
       deliveryType: order.deliveryType,
       deliveryAddress: order.deliveryAddress || "",
       deliveryDateTime: toDisplayDateTime(order.scheduledDate),
+      deliveryNotes: order.deliveryNotes || "",
+      notes: order.notes || "",
       discount: String(order.discount || 0),
       emailReceipt: !!order.emailReceipt,
     });
@@ -153,6 +179,8 @@ export function EditOrderModal({
         unitPrice: item.unitPrice,
         totalPrice: item.totalPrice,
         isRefill: false,
+        warranty: item.warranty,
+        returnPolicy: item.returnPolicy,
       })),
       ...(order.refills || []).map((item) => ({
         itemId: item.itemId || "",
@@ -162,6 +190,8 @@ export function EditOrderModal({
         unitPrice: item.unitPrice,
         totalPrice: item.totalPrice,
         isRefill: true,
+        warranty: item.warranty,
+        returnPolicy: item.returnPolicy,
       })),
     ];
     setEditedItems(items);
@@ -254,6 +284,8 @@ export function EditOrderModal({
           unitPrice,
           totalPrice: unitPrice,
           isRefill: newItemIsRefill,
+          warranty: inv.warranty,
+          returnPolicy: inv.returnPolicy,
         },
       ]);
     }
@@ -277,25 +309,108 @@ export function EditOrderModal({
     );
   };
 
+  const currentPaymentDetails = useMemo<PaymentDetails>(
+    () =>
+      paymentMode === "single"
+        ? {
+            mode: "single",
+            paymentMethod: singlePaymentType,
+            amount: Number(amountPaid || 0),
+          }
+        : {
+            mode: "split",
+            payments: splitPayments.map((p) => ({
+              type: p.type,
+              amount: Number(p.amount || 0),
+            })),
+          },
+    [amountPaid, paymentMode, singlePaymentType, splitPayments],
+  );
+
+  const previewOrder = useMemo<Order | null>(() => {
+    if (!order) return null;
+
+    return {
+      ...order,
+      customerId_raw: formData.customerId || order.customerId_raw,
+      orderStatus: formData.orderStatus as Order["orderStatus"],
+      paymentStatus: formData.paymentStatus as Order["paymentStatus"],
+      deliveryType: formData.deliveryType as Order["deliveryType"],
+      deliveryAddress:
+        formData.deliveryType === "Delivery"
+          ? formData.deliveryAddress || undefined
+          : undefined,
+      deliveryNotes:
+        formData.deliveryType === "Delivery"
+          ? formData.deliveryNotes.trim() || undefined
+          : undefined,
+      scheduledDate:
+        formData.deliveryType === "Delivery" && formData.deliveryDateTime
+          ? new Date(formData.deliveryDateTime).toISOString()
+          : undefined,
+      notes: formData.notes.trim() || undefined,
+      discount: Number(formData.discount || 0),
+      totalPrice: pretaxTotal,
+      grandTotal,
+      amountPaid: totalPaid,
+      paymentDetails: currentPaymentDetails,
+      emailReceipt: formData.emailReceipt,
+      items: editedItems
+        .filter((item) => !item.isRefill)
+        .map((item) => ({
+          id: item.itemId,
+          itemId: item.itemId,
+          productName: item.productName,
+          sku: item.sku,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          totalPrice: item.totalPrice,
+          creditsUsed: false,
+          isRefill: false,
+          warranty: item.warranty,
+          returnPolicy: item.returnPolicy,
+        })),
+      refills: editedItems
+        .filter((item) => item.isRefill)
+        .map((item) => ({
+          id: item.itemId,
+          itemId: item.itemId,
+          productName: item.productName,
+          sku: item.sku,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          totalPrice: item.totalPrice,
+          creditsUsed: false,
+          isRefill: true,
+          warranty: item.warranty,
+          returnPolicy: item.returnPolicy,
+        })),
+    };
+  }, [
+    editedItems,
+    formData.customerId,
+    formData.deliveryAddress,
+    formData.deliveryDateTime,
+    formData.deliveryNotes,
+    formData.deliveryType,
+    formData.discount,
+    formData.emailReceipt,
+    formData.notes,
+    formData.orderStatus,
+    formData.paymentStatus,
+    grandTotal,
+    order,
+      currentPaymentDetails,
+    pretaxTotal,
+    totalPaid,
+  ]);
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!order) return;
     try {
       setSaving(true);
-      const paymentDetails: PaymentDetails =
-        paymentMode === "single"
-          ? {
-              mode: "single",
-              paymentMethod: singlePaymentType,
-              amount: Number(amountPaid || 0),
-            }
-          : {
-              mode: "split",
-              payments: splitPayments.map((p) => ({
-                type: p.type,
-                amount: Number(p.amount || 0),
-              })),
-            };
+      const paymentDetails = currentPaymentDetails;
 
       const itemsPayload = editedItems
         .filter((i) => i.itemId)
@@ -314,10 +429,15 @@ export function EditOrderModal({
           formData.deliveryType === "Delivery"
             ? formData.deliveryAddress || undefined
             : undefined,
+        deliveryNotes:
+          formData.deliveryType === "Delivery"
+            ? formData.deliveryNotes.trim() || undefined
+            : undefined,
         deliveryDate:
           formData.deliveryType === "Delivery" && formData.deliveryDateTime
             ? new Date(formData.deliveryDateTime).toISOString()
             : undefined,
+        notes: formData.notes.trim() || undefined,
         emailReceipt: formData.emailReceipt,
         paymentDetails,
         status: formData.orderStatus.toLowerCase(),
@@ -337,11 +457,18 @@ export function EditOrderModal({
         paymentStatus: formData.paymentStatus as Order["paymentStatus"],
         deliveryType: formData.deliveryType as Order["deliveryType"],
         deliveryAddress: formData.deliveryAddress || undefined,
+        deliveryNotes:
+          formData.deliveryType === "Delivery"
+            ? formData.deliveryNotes.trim() || undefined
+            : undefined,
         scheduledDate:
           formData.deliveryType === "Delivery" && formData.deliveryDateTime
             ? new Date(formData.deliveryDateTime).toISOString()
             : undefined,
+        notes: formData.notes.trim() || undefined,
         discount: Number(formData.discount || 0),
+        totalPrice: pretaxTotal,
+        grandTotal,
         amountPaid: totalPaid,
         paymentDetails,
         emailReceipt: formData.emailReceipt,
@@ -357,6 +484,8 @@ export function EditOrderModal({
             totalPrice: i.totalPrice,
             creditsUsed: false,
             isRefill: false,
+            warranty: i.warranty,
+            returnPolicy: i.returnPolicy,
           })),
         refills: editedItems
           .filter((i) => i.isRefill)
@@ -370,6 +499,8 @@ export function EditOrderModal({
             totalPrice: i.totalPrice,
             creditsUsed: false,
             isRefill: true,
+            warranty: i.warranty,
+            returnPolicy: i.returnPolicy,
           })),
       });
       onOpenChange(false);
@@ -676,8 +807,41 @@ export function EditOrderModal({
                         className="h-11"
                       />
                     </div>
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <Label className="text-xs font-medium text-dark-500">
+                        Delivery Notes
+                      </Label>
+                      <Textarea
+                        value={formData.deliveryNotes}
+                        onChange={(e) =>
+                          setFormData((p) => ({
+                            ...p,
+                            deliveryNotes: e.target.value,
+                          }))
+                        }
+                        className="min-h-28"
+                        placeholder="Add delivery-specific instructions or access details"
+                      />
+                    </div>
                   </>
                 )}
+
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label className="text-xs font-medium text-dark-500">
+                    Order Notes
+                  </Label>
+                  <Textarea
+                    value={formData.notes}
+                    onChange={(e) =>
+                      setFormData((p) => ({
+                        ...p,
+                        notes: e.target.value,
+                      }))
+                    }
+                    className="min-h-28"
+                    placeholder="Add any order-specific notes for the team or customer"
+                  />
+                </div>
 
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium text-dark-500">
@@ -934,6 +1098,13 @@ export function EditOrderModal({
 
         {/* Fixed footer */}
         <div className="flex-none flex justify-end gap-2 border-t border-dark-100 bg-white px-6 py-4 dark:border-dark-700 dark:bg-dark-800">
+          {previewOrder && (
+            <OrderReceiptPreviewDialog
+              order={previewOrder}
+              settings={settings}
+              triggerClassName="mr-auto"
+            />
+          )}
           <Button
             type="button"
             variant="outline"

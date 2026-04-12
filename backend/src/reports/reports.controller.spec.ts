@@ -28,13 +28,29 @@ describe("ReportsController", () => {
 
   describe("getDashboardStats()", () => {
     it("delegates to ReportsService.getDashboardStats without year", async () => {
-      mockReportsService.getDashboardStats.mockResolvedValue({ totalRevenue: 0 });
+      mockReportsService.getDashboardStats.mockResolvedValue({
+        totalRevenue: 0,
+        totalOrders: 0,
+        avgOrderValue: 0,
+        todayRevenue: 0,
+        todayOrders: 0,
+        todayDeliveryOrders: 0,
+        todayPrepaidOrders: 0,
+      });
       await controller.getDashboardStats();
       expect(mockReportsService.getDashboardStats).toHaveBeenCalledWith(undefined);
     });
 
     it("parses year query param and delegates", async () => {
-      mockReportsService.getDashboardStats.mockResolvedValue({ totalRevenue: 1000 });
+      mockReportsService.getDashboardStats.mockResolvedValue({
+        totalRevenue: 1000,
+        totalOrders: 12,
+        avgOrderValue: 83.33,
+        todayRevenue: 150,
+        todayOrders: 2,
+        todayDeliveryOrders: 1,
+        todayPrepaidOrders: 0,
+      });
       await controller.getDashboardStats("2024");
       expect(mockReportsService.getDashboardStats).toHaveBeenCalledWith(2024);
     });

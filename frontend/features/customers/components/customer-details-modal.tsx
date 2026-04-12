@@ -111,6 +111,15 @@ export function CustomerDetailsModal({
 
         <div className="pt-2">
           <h3 className="text-sm font-semibold text-dark-900 dark:text-white mb-2">
+            Customer Information
+          </h3>
+          <div className="rounded-lg border border-dark-200 dark:border-dark-600 px-3 py-3 text-sm text-dark-700 dark:text-dark-200 whitespace-pre-wrap">
+            {customer.notes?.trim() || "No customer information added."}
+          </div>
+        </div>
+
+        <div className="pt-2">
+          <h3 className="text-sm font-semibold text-dark-900 dark:text-white mb-2">
             Remaining Refills
           </h3>
           <div className="border border-dark-200 dark:border-dark-600 rounded-lg overflow-x-auto">

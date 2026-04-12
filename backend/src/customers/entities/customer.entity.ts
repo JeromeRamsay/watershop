@@ -99,6 +99,9 @@ export class Customer {
 
   @Prop({ unique: true, required: true })
   phone: string;
+  
+  @Prop()
+  notes?: string;
 
   @Prop({ type: [SchemaFactory.createForClass(Address)], default: [] })
   addresses: Address[];

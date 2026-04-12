@@ -201,9 +201,7 @@ Rate limiting also applied globally via `ThrottlerGuard` (10 req / 60s per IP).
 ## Known Bugs — Never Reintroduce These
 
 ### � High
-| # | Location | Issue |
-|---|---|---|
-| H3 | `dashboard/page.tsx` | KPI card title still says `"Rental Orders"` — should be `"Delivery Orders"` (logic already uses `o.isDelivery`, just the label is wrong) |
+None currently tracked.
 
 ### 🟡 Medium
 | # | Location | Issue |
@@ -266,7 +264,52 @@ For fastest launch, deploy `frontend_public/` as a separate public DigitalOcean 
 Local env-file support now exists for `frontend_public/`, but `contact_mail.php`, `enquiry_mail.php`, and `contact_process.php` still need to move to a supported server-side path (Next.js route handlers, backend endpoints, or another mail integration). Configure reCAPTCHA/mail settings in deployment environment variables before public launch.
 
 ### ~~Priority 16 — Confirm Woodstock Domain Spelling Before DNS Cutover~~ ✅ DONE
-DigitalOcean App Platform custom domains now use `woodstockswatershop.com`, `employee.woodstockswatershop.com`, and `api.woodstockswatershop.com`. Rebel authoritative DNS now returns only the intended apex records. The remaining public-site blocker is propagation: some public resolvers still cache the removed apex A record and `woodstockswatershop.com` is not yet serving valid HTTPS everywhere.
+DigitalOcean App Platform custom domains now use `woodstockswatershop.com`, `employee.woodstockswatershop.com`, and `api.woodstockswatershop.com`. The public apex now serves valid HTTPS. The separate `www.woodstockswatershop.com` alias is attached on the public app and will remain in DigitalOcean's `CONFIGURING` state until Rebel points `www` to the public app CNAME instead of the legacy `54.236.162.93` A record.
+
+### Planning Notes — Requested April 2026 Feature Bundle
+
+- Sequence this bundle as: dashboard/report summary changes -> shared backend schemas/DTOs -> shared frontend types/schemas -> customer/order/inventory UI -> shared receipt preview -> regression tests.
+- Do not compute dashboard `today` metrics from `useOrders()` on the frontend. That hook is paginated, so the current KPI math will drift once there are more than 50 orders. Extend `/reports/dashboard` (or add a sibling summary route) to return today-scoped totals/counts using store-local calendar boundaries (`America/Toronto`).
+- For the requested staff `permanent delete`, preserve the MongoDB user document for historical order/delivery/hour references, but add an archival marker (for example `archivedAt`) and force `isActive=false`; `/users/staff` should exclude archived users so they disappear from Staff Accounts while remaining unable to log in.
+- Add notes fields once at the API/model layer, then thread them through all surfaces: `Customer.notes`, `Order.notes`, and optional `Order.deliveryNotes` when `isDelivery=true`.
+- Model inventory warranty and return policy as reusable structured objects with `description`, `periodYears`, and `periodMonths`, and snapshot that policy data onto order line items during order create/update so printed receipts remain historically correct after inventory changes.
+- Build one shared printable receipt component used by the new-order page, the order details modal, and the edit-order modal. The customer block stays hidden for walk-ins, the item-specific warranty/return section only renders when at least one line item carries policy data, and the generic warranty/returns copy from the request always renders.
+- Validation after each slice: run `cd backend && npm test` for backend changes, then run a touched-surface frontend error/type check before moving to the next priority.
+
+### ~~Priority 17 — Dashboard Daily KPI Scope & Admin Visibility~~ ✅ DONE
+The current dashboard pulls `useDashboardStats()` for year-scoped revenue and `useOrders()` for paginated order rows, so the KPI cards are not a safe base for `today` metrics.
+
+- Extend `GET /reports/dashboard` in `backend/src/reports/reports.service.ts` and `backend/src/reports/reports.controller.ts` to return today-scoped totals/counts for total sales, orders processed, delivery orders, and prepaid orders.
+- Update `frontend/app/dashboard/page.tsx` to consume the reports response instead of deriving KPI counts from `useOrders()`.
+- Rename `Rental Orders` to `Delivery Orders`, change `Total Sales` to `Total Sales Today`, and render that sales card for admin users only.
+
+### ~~Priority 18 — Staff Account Archive/Delete Flow~~ ✅ DONE
+The current user lifecycle supports activate/deactivate only; inactive staff still appear in `/users/staff?includeInactive=true`, so there is no way to remove a staff account from Staff Accounts while preserving history.
+
+- Extend `backend/src/users/entities/user.entity.ts` plus the managed-user service/controller flow with an archival marker that keeps the document but removes it from staff listings and blocks future logins.
+- Add an admin-only confirmed permanent-delete action in `frontend/app/dashboard/employees/page.tsx`; do not expose it for admin accounts or the currently logged-in user.
+- Keep historical references intact by never removing the MongoDB document itself.
+
+### ~~Priority 19 — Customer + Order Notes~~ ✅ DONE
+These changes share the same plumbing work, so they should land together to avoid touching DTOs, types, and UI mappers twice.
+
+- Add `notes` to customers and surface it in the customer details modal, the customer edit page, and the create customer flow if that slice is touched while threading the field through.
+- Add `notes` and optional `deliveryNotes` to orders; delivery notes should only display when the order is a delivery in new, edit, and details flows.
+- Thread the new fields through backend DTOs/entities/services, frontend types, mapping helpers, and any query invalidation or realtime paths touched by order/customer mutations.
+
+### ~~Priority 20 — Inventory Warranty + Return Policy Metadata~~ ✅ DONE
+This work should be completed before the receipt feature so the print template can rely on stable item-level policy data.
+
+- Add structured `warranty` and `returnPolicy` objects to inventory with `description`, `periodYears`, and `periodMonths`.
+- Update create/edit/detail inventory surfaces plus shared frontend validation in `frontend/lib/schemas.ts` and `frontend/features/inventory/types.ts` to capture and display the new fields.
+- Snapshot the inventory policy data into order line items when an order is created or its items are edited so receipts and history stay stable over time.
+
+### ~~Priority 21 — Shared Order Print Preview / Receipt~~ ✅ DONE
+There is no existing shared receipt-print surface, so implement this after order notes and inventory policy data exist.
+
+- Add a shared printable receipt view/component for draft orders and saved orders, with entry points from the new-order page, the order details modal, and the edit-order modal.
+- Use the provided business header text exactly, hide the customer section for walk-ins, include all order details, show the item-specific warranty/returns block only when at least one purchased item has policy data, and always include the generic warranty and returns sections from the request.
+- For draft orders on the new-order page, render a preview without requiring the order to be saved first; if no order number exists yet, label it as a draft invoice in the preview.
 
 ---
 
@@ -292,6 +335,8 @@ Auth operations in `features/auth/actions.ts` use Next.js Server Actions (`"use 
 `frontend_public/` is a separate legacy public website surface for internet traffic. It is not part of the Next.js build and currently uses static HTML, jQuery AJAX form submissions, downloadable manuals, and PHP mail handlers.
 
 The public-site "Employee" navigation links now point to `https://employee.woodstockswatershop.com/dashboard` rather than the raw DigitalOcean app hostname.
+
+The public-site app now has both `woodstockswatershop.com` and `www.woodstockswatershop.com` configured in DigitalOcean. If `www` is still down, verify Rebel uses a `CNAME` from `www` to `watershop-app-frontend-public-fsbmr.ondigitalocean.app` instead of the legacy `54.236.162.93` `A` record.
 
 Do not treat `frontend_public/` as a drop-in folder for `frontend/`. Moving it into the Next.js app requires converting the HTML pages to App Router routes and replacing the PHP form handlers with Next.js route handlers or backend endpoints.
 
@@ -336,10 +381,10 @@ After every backend change, run `npm test` and confirm all tests pass before con
 
 | Model | Key fields |
 |---|---|
-| User | `firstName, lastName, username (unique), password (bcrypt), role: admin\|staff, isActive` |
-| Customer | `type: individual\|business, firstName, lastName, email (unique), phone (unique), wallet: { storeCredit, prepaidItems[] }, addresses[], familyMembers[], lastVisit` |
-| Inventory | `name, sku (unique), stockQuantity, lowStockThreshold (default 10), sellingPrice, isRefillable, refillPrice, isActive (soft-delete)` |
-| Order | `orderNumber (unique), customer→Customer (optional), cashier→User, items[], refills[], subTotal, discount, grandTotal, paymentStatus: paid\|unpaid\|partial\|pending, paymentMethod: cash\|card\|credit_redemption\|store_credit, status: pending\|scheduled\|completed\|cancelled, isDelivery, isWalkIn, isPrepaidRedemption, deliveryId→Delivery, deliveryAddress, deliveryDate, emailReceipt, paymentDetails: any` |
+| User | `firstName, lastName, username (unique), password (bcrypt), role: admin\|staff, isActive, archivedAt` |
+| Customer | `type: individual\|business, firstName, lastName, email (unique), phone (unique), notes, wallet: { storeCredit, prepaidItems[] }, addresses[], familyMembers[], lastVisit` |
+| Inventory | `name, sku (unique), stockQuantity, lowStockThreshold (default 10), sellingPrice, isRefillable, refillPrice, warranty, returnPolicy, isActive (soft-delete)` |
+| Order | `orderNumber (unique), customer→Customer (optional), cashier→User, items[] { warranty?, returnPolicy? }, refills[] { warranty?, returnPolicy? }, subTotal, discount, grandTotal, notes, deliveryNotes, paymentStatus: paid\|unpaid\|partial\|pending, paymentMethod: cash\|card\|credit_redemption\|store_credit, status: pending\|scheduled\|completed\|cancelled, isDelivery, isWalkIn, isPrepaidRedemption, deliveryId→Delivery, deliveryAddress, deliveryDate, emailReceipt, paymentDetails: any` |
 | Delivery | `order→Order, customer→Customer, address, scheduledDate, status: scheduled\|out_for_delivery\|delivered\|failed\|cancelled, assignedDriver→User` |
 | Notification | `message, type: low_stock\|out_of_stock\|refill_order, inventoryItemId→Inventory, resolved (default false)` |
 | Supplier | `name, phone, email, address, isActive (soft-delete)` |

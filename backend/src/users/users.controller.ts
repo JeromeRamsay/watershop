@@ -63,6 +63,12 @@ export class UsersController {
     return this.usersService.setActiveStatus(id, true);
   }
 
+  @Patch(":id/archive")
+  @ApiOperation({ summary: "Archive a staff account without removing historical records" })
+  archiveManagedUser(@Param("id") id: string) {
+    return this.usersService.archiveManagedUser(id);
+  }
+
   @Get("login-activity")
   @ApiOperation({ summary: "Get user account and login activity" })
   loginActivity(@Query("limit") limit?: string) {

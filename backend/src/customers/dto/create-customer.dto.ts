@@ -122,6 +122,11 @@ export class CreateCustomerDto {
   @ApiProperty({ example: "555-123-4567" })
   @IsString()
   phone: string;
+  
+  @ApiProperty({ required: false, description: "Internal customer notes" })
+  @IsOptional()
+  @IsString()
+  notes?: string;
 
   @ApiProperty({ type: [AddressDto], required: false })
   @IsOptional()

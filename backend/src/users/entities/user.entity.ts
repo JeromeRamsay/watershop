@@ -28,6 +28,9 @@ export class User {
 
   @Prop()
   lastLoginAt?: Date;
+
+  @Prop({ type: Date, default: null })
+  archivedAt: Date | null;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

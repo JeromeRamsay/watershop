@@ -60,10 +60,33 @@ export function AddItemModal({
     sellingPrice: "",
     supplier: "Unknown",
     description: "",
+    warrantyDescription: "",
+    warrantyPeriodYears: "",
+    warrantyPeriodMonths: "",
+    returnPolicyDescription: "",
+    returnPolicyPeriodYears: "",
+    returnPolicyPeriodMonths: "",
     isRefillable: "false",
     refillPrice: "",
     rentalPrice: "",
   });
+
+  const buildPolicyPayload = (
+    description: string,
+    periodYears: string,
+    periodMonths: string,
+  ) => {
+    const trimmedDescription = description.trim();
+    if (!trimmedDescription && !periodYears && !periodMonths) {
+      return undefined;
+    }
+
+    return {
+      ...(trimmedDescription ? { description: trimmedDescription } : {}),
+      periodYears: Number(periodYears || 0),
+      periodMonths: Number(periodMonths || 0),
+    };
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,6 +104,16 @@ export function AddItemModal({
       sellingPrice: formData.sellingPrice,
       supplier: formData.supplier,
       description: formData.description,
+      warranty: {
+        description: formData.warrantyDescription || undefined,
+        periodYears: formData.warrantyPeriodYears || undefined,
+        periodMonths: formData.warrantyPeriodMonths || undefined,
+      },
+      returnPolicy: {
+        description: formData.returnPolicyDescription || undefined,
+        periodYears: formData.returnPolicyPeriodYears || undefined,
+        periodMonths: formData.returnPolicyPeriodMonths || undefined,
+      },
       refillPrice: formData.refillPrice || undefined,
       rentalPrice: formData.rentalPrice || undefined,
     });
@@ -101,6 +134,16 @@ export function AddItemModal({
         sku: formData.sku,
         category: formData.category,
         description: formData.description,
+        warranty: buildPolicyPayload(
+          formData.warrantyDescription,
+          formData.warrantyPeriodYears,
+          formData.warrantyPeriodMonths,
+        ),
+        returnPolicy: buildPolicyPayload(
+          formData.returnPolicyDescription,
+          formData.returnPolicyPeriodYears,
+          formData.returnPolicyPeriodMonths,
+        ),
         stockQuantity: Number(formData.stock),
         unitType: formData.unitType,
         lowStockThreshold: 10, // Default value
@@ -127,6 +170,12 @@ export function AddItemModal({
         sellingPrice: "",
         supplier: "Unknown",
         description: "",
+        warrantyDescription: "",
+        warrantyPeriodYears: "",
+        warrantyPeriodMonths: "",
+        returnPolicyDescription: "",
+        returnPolicyPeriodYears: "",
+        returnPolicyPeriodMonths: "",
         isRefillable: "false",
         refillPrice: "",
         rentalPrice: "",
@@ -438,6 +487,112 @@ export function AddItemModal({
               placeholder="Please Enter"
               className={textareaCls}
             />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-3 rounded-xl border border-[#E5E7EB] p-4">
+              <div className={fieldWrap}>
+                <Label className={labelCls} htmlFor="warrantyDescription">
+                  Warranty Description
+                </Label>
+                <Textarea
+                  id="warrantyDescription"
+                  value={formData.warrantyDescription}
+                  onChange={(e) =>
+                    setFormData({ ...formData, warrantyDescription: e.target.value })
+                  }
+                  placeholder="Please Enter"
+                  className={textareaCls}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className={fieldWrap}>
+                  <Label className={labelCls} htmlFor="warrantyPeriodYears">
+                    Warranty Years
+                  </Label>
+                  <Input
+                    id="warrantyPeriodYears"
+                    className={inputCls}
+                    type="number"
+                    min="0"
+                    value={formData.warrantyPeriodYears}
+                    onChange={(e) =>
+                      setFormData({ ...formData, warrantyPeriodYears: e.target.value })
+                    }
+                    placeholder="0"
+                  />
+                </div>
+                <div className={fieldWrap}>
+                  <Label className={labelCls} htmlFor="warrantyPeriodMonths">
+                    Warranty Months
+                  </Label>
+                  <Input
+                    id="warrantyPeriodMonths"
+                    className={inputCls}
+                    type="number"
+                    min="0"
+                    value={formData.warrantyPeriodMonths}
+                    onChange={(e) =>
+                      setFormData({ ...formData, warrantyPeriodMonths: e.target.value })
+                    }
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+              {fieldErrors.warranty && <p className="text-xs text-red-600">{fieldErrors.warranty}</p>}
+            </div>
+
+            <div className="space-y-3 rounded-xl border border-[#E5E7EB] p-4">
+              <div className={fieldWrap}>
+                <Label className={labelCls} htmlFor="returnPolicyDescription">
+                  Return Policy Description
+                </Label>
+                <Textarea
+                  id="returnPolicyDescription"
+                  value={formData.returnPolicyDescription}
+                  onChange={(e) =>
+                    setFormData({ ...formData, returnPolicyDescription: e.target.value })
+                  }
+                  placeholder="Please Enter"
+                  className={textareaCls}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className={fieldWrap}>
+                  <Label className={labelCls} htmlFor="returnPolicyPeriodYears">
+                    Return Policy Years
+                  </Label>
+                  <Input
+                    id="returnPolicyPeriodYears"
+                    className={inputCls}
+                    type="number"
+                    min="0"
+                    value={formData.returnPolicyPeriodYears}
+                    onChange={(e) =>
+                      setFormData({ ...formData, returnPolicyPeriodYears: e.target.value })
+                    }
+                    placeholder="0"
+                  />
+                </div>
+                <div className={fieldWrap}>
+                  <Label className={labelCls} htmlFor="returnPolicyPeriodMonths">
+                    Return Policy Months
+                  </Label>
+                  <Input
+                    id="returnPolicyPeriodMonths"
+                    className={inputCls}
+                    type="number"
+                    min="0"
+                    value={formData.returnPolicyPeriodMonths}
+                    onChange={(e) =>
+                      setFormData({ ...formData, returnPolicyPeriodMonths: e.target.value })
+                    }
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+              {fieldErrors.returnPolicy && <p className="text-xs text-red-600">{fieldErrors.returnPolicy}</p>}
+            </div>
           </div>
 
           <DialogFooter className="pt-2 gap-2">

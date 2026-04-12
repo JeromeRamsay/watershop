@@ -22,6 +22,8 @@ const makeInventoryItem = (overrides: Record<string, unknown> = {}) => ({
   lowStockThreshold: 10,
   isRefillable: true,
   isActive: true,
+  warranty: undefined,
+  returnPolicy: undefined,
   ...overrides,
 });
 
@@ -192,6 +194,54 @@ describe("OrdersService", () => {
       await service.create({ customerId, items: [{ itemId, quantity: 1 }], paymentMethod: "cash", isDelivery: true, deliveryDate: new Date().toISOString(), discount: 0 } as any);
       expect(mockDeliveriesService.create).toHaveBeenCalled();
     });
+
+    it("snapshots notes and policy metadata onto created orders", async () => {
+      let capturedDto: any;
+      mockCustomersService.findOne.mockResolvedValue(
+        makeCustomer({
+          _id: new Types.ObjectId(customerId),
+          addresses: [{ street: "123 Water St", city: "Town", state: "ON", zipCode: "N4S 7R3", country: "Canada", isDefault: true }],
+        }),
+      );
+      mockInventoryService.findOne.mockResolvedValue(
+        makeInventoryItem({
+          _id: new Types.ObjectId(itemId),
+          warranty: { description: "10 year warranty", periodYears: 10, periodMonths: 0 },
+          returnPolicy: { description: "30 day return", periodYears: 0, periodMonths: 1 },
+        }),
+      );
+      mockOrderModel.mockImplementation(function (dto: any) {
+        capturedDto = dto;
+        this._id = new Types.ObjectId();
+        this.save = jest.fn().mockResolvedValue({ ...dto, _id: this._id });
+        Object.assign(this, dto);
+      });
+
+      await service.create({
+        customerId,
+        items: [{ itemId, quantity: 1 }],
+        paymentMethod: "cash",
+        isDelivery: true,
+        deliveryAddress: "123 Water St",
+        deliveryDate: new Date().toISOString(),
+        deliveryNotes: "Leave at the side entrance",
+        notes: "Customer requested a phone call",
+        discount: 0,
+      } as any);
+
+      expect(capturedDto.notes).toBe("Customer requested a phone call");
+      expect(capturedDto.deliveryNotes).toBe("Leave at the side entrance");
+      expect(capturedDto.items[0].warranty).toEqual({
+        description: "10 year warranty",
+        periodYears: 10,
+        periodMonths: 0,
+      });
+      expect(capturedDto.items[0].returnPolicy).toEqual({
+        description: "30 day return",
+        periodYears: 0,
+        periodMonths: 1,
+      });
+    });
   });
 
   // ─── findAll ───────────────────────────────────────────────────────────────
@@ -267,6 +317,42 @@ describe("OrdersService", () => {
       mockOrderModel.findByIdAndUpdate.mockReturnValue(makeChainable(makeOrder()));
       await service.update("order-id", { paymentDetails: { mode: "single", amount: 0 } } as any);
       expect(mockOrderModel.findByIdAndUpdate.mock.calls[0][1].paymentStatus).toBe("unpaid");
+    });
+
+    it("threads notes and policy snapshots through order updates", async () => {
+      const itemId = makeObjectId();
+      mockInventoryService.findOne.mockResolvedValue(
+        makeInventoryItem({
+          _id: new Types.ObjectId(itemId),
+          warranty: { description: "2 year warranty", periodYears: 2, periodMonths: 0 },
+          returnPolicy: { description: "No returns after install", periodYears: 0, periodMonths: 0 },
+        }),
+      );
+      mockOrderModel.findByIdAndUpdate.mockReturnValue(makeChainable(makeOrder()));
+
+      await service.update(
+        "order-id",
+        {
+          isDelivery: true,
+          notes: "Updated order note",
+          deliveryNotes: "Ring the side bell",
+          items: [{ itemId, quantity: 1 }],
+        } as any,
+      );
+
+      const updates = mockOrderModel.findByIdAndUpdate.mock.calls[0][1];
+      expect(updates.notes).toBe("Updated order note");
+      expect(updates.deliveryNotes).toBe("Ring the side bell");
+      expect(updates.items[0].warranty).toEqual({
+        description: "2 year warranty",
+        periodYears: 2,
+        periodMonths: 0,
+      });
+      expect(updates.items[0].returnPolicy).toEqual({
+        description: "No returns after install",
+        periodYears: 0,
+        periodMonths: 0,
+      });
     });
 
     it("handles split payments correctly", async () => {

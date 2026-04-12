@@ -84,12 +84,22 @@ export class CreateOrderDto {
   @IsOptional()
   @IsString()
   deliveryAddress?: string;
+  
+  @ApiProperty({ example: "Leave at the side entrance.", required: false })
+  @IsOptional()
+  @IsString()
+  deliveryNotes?: string;
 
   // New field to capture when they want it delivered
   @ApiProperty({ example: "2025-10-25", required: false })
   @IsOptional()
   @IsDateString()
   deliveryDate?: string;
+  
+  @ApiProperty({ example: "Customer requested a call before delivery.", required: false })
+  @IsOptional()
+  @IsString()
+  notes?: string;
 
   @ApiProperty({ example: true, required: false })
   @IsOptional()

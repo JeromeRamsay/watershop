@@ -1,11 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useState, useEffect, useCallback, Suspense } from "react";
+import { useState, useEffect, useCallback, useMemo, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Select,
@@ -16,7 +17,8 @@ import {
 } from "@/components/ui/select";
 import { AddProductModal } from "@/features/orders/components/add-product-modal";
 import { PaymentMethodModal } from "@/features/orders/components/payment-method-modal";
-import { OrderItem } from "@/features/orders/types";
+import { Order, OrderItem, PaymentDetails } from "@/features/orders/types";
+import { OrderReceiptPreviewDialog } from "@/features/orders/components/order-receipt-preview";
 import {
   ArrowLeft,
   Plus,
@@ -71,6 +73,8 @@ function AddNewOrderContent() {
     deliveryType: initialType === "delivery" ? "Delivery" : "In-Store",
     deliveryAddress: "",
     scheduledDateTime: "",
+    deliveryNotes: "",
+    notes: "",
     discount: "",
     paymentMethod: "cash",
     paymentStatusSummary: "Paid",
@@ -123,6 +127,8 @@ function AddNewOrderContent() {
           isRefillable: !!i.isRefillable,
           supplier: i.supplier,
           description: i.description,
+          warranty: i.warranty,
+          returnPolicy: i.returnPolicy,
         }),
       );
       setInventory(items);
@@ -186,9 +192,15 @@ function AddNewOrderContent() {
   const selectedCustomer = customers.find((c) => c.id === formData.customerId);
 
   const handleAddProduct = (data: any) => {
+    const selectedInventoryItem = inventory.find(
+      (item) => item.id === (data.productId || data.itemId),
+    );
     const newItem: OrderItem & { productId?: string } = {
       id: Date.now().toString(),
       ...data,
+      sku: selectedInventoryItem?.sku || data.sku,
+      warranty: selectedInventoryItem?.warranty,
+      returnPolicy: selectedInventoryItem?.returnPolicy,
       creditsUsed: !!data.creditsUsed,
     };
     setOrderItems([...orderItems, newItem]);
@@ -228,6 +240,7 @@ function AddNewOrderContent() {
         );
       } else if (newQty > 0) {
         const refillInfo = refillItems.find((r) => r.id === productId);
+        const inventoryItem = inventory.find((item) => item.id === productId);
         const price = refillInfo?.price || 0;
         return [
           ...prev,
@@ -235,11 +248,14 @@ function AddNewOrderContent() {
             id: `refill-${productId}-${Date.now()}`,
             productId,
             productName,
+            sku: inventoryItem?.sku,
             quantity: newQty,
             unitPrice: price,
             totalPrice: price * newQty,
             creditsUsed: true,
             isRefill: true,
+            warranty: inventoryItem?.warranty,
+            returnPolicy: inventoryItem?.returnPolicy,
           },
         ];
       }
@@ -292,6 +308,84 @@ function AddNewOrderContent() {
 
   const calculateTax = () => calculateTotal() * taxRate;
   const calculateGrandTotal = () => calculateTotal() + calculateTax();
+
+  const draftOrder = useMemo<Order>(() => {
+    const paymentDetails = paymentMethodData?.mode
+      ? (paymentMethodData as PaymentDetails)
+      : undefined;
+    const amountPaid = paymentDetails?.mode === "single"
+      ? Number(paymentDetails.amount || 0)
+      : paymentDetails?.mode === "split"
+        ? (paymentDetails.payments || []).reduce(
+            (sum, payment) => sum + Number(payment.amount || 0),
+            0,
+          )
+        : 0;
+    const normalizedDeliveryType =
+      formData.deliveryType === "Delivery" ? "Delivery" : "Pickup";
+    const itemSubtotal = orderItems.reduce(
+      (sum, item) => sum + Number(item.totalPrice || 0),
+      0,
+    );
+    const discount = Number(formData.discount || 0);
+    const pretaxTotal = Math.max(0, itemSubtotal - discount);
+    const totalWithTax = pretaxTotal + pretaxTotal * taxRate;
+
+    return {
+      id: "draft-order",
+      orderId: "DRAFT",
+      customer: isWalkIn
+        ? "Walk-in Customer"
+        : selectedCustomer?.name || "Customer",
+      customerEmail: isWalkIn ? undefined : selectedCustomer?.email,
+      customerPhone: isWalkIn ? undefined : selectedCustomer?.phone,
+      customerId_raw: isWalkIn ? undefined : selectedCustomer?.id,
+      items: orderItems.filter((item) => !item.isRefill),
+      refills: orderItems.filter((item) => item.isRefill),
+      notes: formData.notes.trim() || undefined,
+      totalPrice: pretaxTotal,
+      grandTotal: totalWithTax,
+      amountPaid,
+      deliveryType: normalizedDeliveryType,
+      remainingCredits: 0,
+      orderStatus: "Pending",
+      paymentStatus: formData.paymentStatus as Order["paymentStatus"],
+      deliveryAddress:
+        normalizedDeliveryType === "Delivery"
+          ? formData.deliveryAddress || undefined
+          : undefined,
+      deliveryNotes:
+        normalizedDeliveryType === "Delivery"
+          ? formData.deliveryNotes.trim() || undefined
+          : undefined,
+      scheduledDate:
+        normalizedDeliveryType === "Delivery"
+          ? formData.scheduledDateTime || undefined
+          : undefined,
+      discount,
+      paymentMethod:
+        (paymentDetails?.paymentMethod as Order["paymentMethod"]) ||
+        (formData.paymentMethod as Order["paymentMethod"]),
+      paymentDetails,
+      emailReceipt: formData.emailReceipt,
+      createdAt: new Date().toISOString(),
+    };
+  }, [
+    formData.deliveryAddress,
+    formData.deliveryNotes,
+    formData.deliveryType,
+    formData.discount,
+    formData.emailReceipt,
+    formData.notes,
+    formData.paymentMethod,
+    formData.paymentStatus,
+    formData.scheduledDateTime,
+    isWalkIn,
+    orderItems,
+    paymentMethodData,
+    selectedCustomer,
+    taxRate,
+  ]);
 
   const handlePaymentSave = (paymentData: any) => {
     console.log("Payment data:", paymentData);
@@ -358,9 +452,14 @@ function AddNewOrderContent() {
         paymentMethod: formData.paymentMethod,
         discount: Number(formData.discount) || 0,
         isDelivery: formData.deliveryType === "Delivery",
+        notes: formData.notes.trim() || undefined,
         paymentStatus: formData.paymentStatus.toLowerCase(),
         emailReceipt: formData.emailReceipt,
         deliveryAddress: formData.deliveryAddress || undefined,
+        deliveryNotes:
+          formData.deliveryType === "Delivery"
+            ? formData.deliveryNotes.trim() || undefined
+            : undefined,
         deliveryDate:
           deliveryDate && !isNaN(deliveryDate.getTime())
             ? deliveryDate.toISOString()
@@ -415,6 +514,27 @@ function AddNewOrderContent() {
           {/* 1. Customer Information */}
           <div>
             <h2 className="text-lg font-semibold text-dark-900 dark:text-white mb-4">
+
+                <div className="space-y-2 md:col-span-2">
+                  <Label
+                    htmlFor="orderNotes"
+                    className="text-sm text-dark-600 dark:text-dark-300"
+                  >
+                    Order Notes
+                  </Label>
+                  <Textarea
+                    id="orderNotes"
+                    value={formData.notes}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        notes: e.target.value,
+                      })
+                    }
+                    placeholder="Add any order-specific notes for staff or the customer"
+                    className="min-h-28"
+                  />
+                </div>
               Customer Information
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -872,6 +992,26 @@ function AddNewOrderContent() {
                       <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-dark-400 pointer-events-none" />
                     </div>
                   </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label
+                      htmlFor="deliveryNotes"
+                      className="text-sm text-dark-600 dark:text-dark-300"
+                    >
+                      Delivery Notes
+                    </Label>
+                    <Textarea
+                      id="deliveryNotes"
+                      value={formData.deliveryNotes}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          deliveryNotes: e.target.value,
+                        })
+                      }
+                      placeholder="Add delivery-specific notes, access instructions, or timing details"
+                      className="min-h-28"
+                    />
+                  </div>
                 </div>
               </div>
             </>
@@ -985,6 +1125,13 @@ function AddNewOrderContent() {
                 Cancel
               </Button>
             </Link>
+            <OrderReceiptPreviewDialog
+              order={draftOrder}
+              settings={settings}
+              draft
+              disabled={orderItems.length === 0}
+              triggerClassName="border-primary-500 text-primary-500 hover:bg-primary-100 dark:hover:bg-primary-900/20 hover:text-primary-600 dark:hover:text-primary-400 px-8"
+            />
             <Button
               type="button"
               variant="outline"

@@ -1,3 +1,9 @@
+export interface PolicyDetails {
+  description?: string;
+  periodYears?: number;
+  periodMonths?: number;
+}
+
 export interface OrderItem {
   id: string;
   itemId?: string;
@@ -8,6 +14,8 @@ export interface OrderItem {
   totalPrice: number;
   creditsUsed: boolean;
   isRefill?: boolean;
+  warranty?: PolicyDetails;
+  returnPolicy?: PolicyDetails;
 }
 
 export interface PaymentDetails {
@@ -28,6 +36,7 @@ export interface Order {
   customerPhone?: string;
   items: OrderItem[];
   refills?: OrderItem[];
+  notes?: string;
   totalPrice: number;
   grandTotal?: number;
   amountPaid?: number;
@@ -36,6 +45,7 @@ export interface Order {
   orderStatus: "Completed" | "Pending" | "Scheduled" | "Cancelled";
   paymentStatus: "Paid" | "Unpaid" | "Partial" | "Pending" | "Out Stock";
   deliveryAddress?: string;
+  deliveryNotes?: string;
   customerId_raw?: string;
   scheduledDate?: string;
   scheduledTime?: string;

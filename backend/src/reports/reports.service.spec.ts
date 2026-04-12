@@ -30,11 +30,27 @@ describe("ReportsService", () => {
     it("returns zero stats when no orders exist", async () => {
       mockOrderModel.aggregate.mockResolvedValue([]);
       const result = await service.getDashboardStats();
-      expect(result).toEqual({ totalRevenue: 0, totalOrders: 0, avgOrderValue: 0 });
+      expect(result).toEqual({
+        totalRevenue: 0,
+        totalOrders: 0,
+        avgOrderValue: 0,
+        todayRevenue: 0,
+        todayOrders: 0,
+        todayDeliveryOrders: 0,
+        todayPrepaidOrders: 0,
+      });
     });
 
     it("returns aggregated stats when orders exist", async () => {
-      const stats = { totalRevenue: 500, totalOrders: 10, avgOrderValue: 50 };
+      const stats = {
+        totalRevenue: 500,
+        totalOrders: 10,
+        avgOrderValue: 50,
+        todayRevenue: 125,
+        todayOrders: 3,
+        todayDeliveryOrders: 1,
+        todayPrepaidOrders: 2,
+      };
       mockOrderModel.aggregate.mockResolvedValue([stats]);
       const result = await service.getDashboardStats();
       expect(result).toEqual(stats);
@@ -45,6 +61,16 @@ describe("ReportsService", () => {
       await service.getDashboardStats(2024);
       const pipeline = mockOrderModel.aggregate.mock.calls[0][0];
       expect(pipeline[0].$match.createdAt.$gte).toEqual(new Date("2024-01-01"));
+    });
+
+    it("uses an America/Toronto day key for today-scoped metrics", async () => {
+      mockOrderModel.aggregate.mockResolvedValue([]);
+
+      await service.getDashboardStats(undefined, new Date("2026-04-11T03:30:00.000Z"));
+
+      const pipeline = mockOrderModel.aggregate.mock.calls[0][0];
+      expect(pipeline[1].$group.todayOrders.$sum.$cond[0].$eq[0].$dateToString.timezone).toBe("America/Toronto");
+      expect(pipeline[1].$group.todayOrders.$sum.$cond[0].$eq[1]).toBe("2026-04-10");
     });
   });
 

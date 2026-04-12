@@ -59,6 +59,14 @@ export const passwordSchema = z
 /** Free text, max 500 chars */
 export const notesSchema = z.string().max(500, "Notes must be at most 500 characters");
 
+const policyPeriodSchema = quantitySchema.optional();
+
+export const policyFormSchema = z.object({
+  description: notesSchema.optional(),
+  periodYears: policyPeriodSchema,
+  periodMonths: policyPeriodSchema,
+});
+
 // ─── Customer form ────────────────────────────────────────────────────────────
 
 export const createCustomerSchema = z.object({
@@ -87,6 +95,7 @@ export const createCustomerSchema = z.object({
       /^[A-Za-z]\d[A-Za-z] ?\d[A-Za-z]\d$/,
       "Enter a valid Canadian postal code (e.g. A1A 1A1)",
     ),
+  notes: notesSchema.optional(),
 });
 
 export type CreateCustomerFormData = z.infer<typeof createCustomerSchema>;
@@ -109,6 +118,8 @@ export const inventoryItemSchema = z.object({
   sellingPrice: priceSchema.refine((v) => v !== "", { message: "Selling price is required" }),
   supplier: z.string().min(1, "Supplier is required"),
   description: notesSchema.optional(),
+  warranty: policyFormSchema.optional(),
+  returnPolicy: policyFormSchema.optional(),
   refillPrice: priceSchema.optional(),
   rentalPrice: priceSchema.optional(),
 });

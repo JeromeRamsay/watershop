@@ -61,12 +61,35 @@ export function EditItemModal({
     sellingPrice: "",
     supplier: "",
     description: "",
+    warrantyDescription: "",
+    warrantyPeriodYears: "",
+    warrantyPeriodMonths: "",
+    returnPolicyDescription: "",
+    returnPolicyPeriodYears: "",
+    returnPolicyPeriodMonths: "",
     isTaxable: "true",
     isRefillable: "false",
     refillPrice: "",
     rentalPrice: "",
     isActive: "true",
   });
+
+  const buildPolicyPayload = (
+    description: string,
+    periodYears: string,
+    periodMonths: string,
+  ) => {
+    const trimmedDescription = description.trim();
+    if (!trimmedDescription && !periodYears && !periodMonths) {
+      return undefined;
+    }
+
+    return {
+      ...(trimmedDescription ? { description: trimmedDescription } : {}),
+      periodYears: Number(periodYears || 0),
+      periodMonths: Number(periodMonths || 0),
+    };
+  };
 
   useEffect(() => {
     if (item) {
@@ -81,6 +104,12 @@ export function EditItemModal({
         sellingPrice: item.sellingPrice.toFixed(2),
         supplier: item.supplier,
         description: item.description,
+        warrantyDescription: item.warranty?.description || "",
+        warrantyPeriodYears: String(item.warranty?.periodYears ?? 0),
+        warrantyPeriodMonths: String(item.warranty?.periodMonths ?? 0),
+        returnPolicyDescription: item.returnPolicy?.description || "",
+        returnPolicyPeriodYears: String(item.returnPolicy?.periodYears ?? 0),
+        returnPolicyPeriodMonths: String(item.returnPolicy?.periodMonths ?? 0),
         isTaxable: String(item.isTaxable ?? true),
         isRefillable: String(item.isRefillable ?? false),
         refillPrice: (item.refillPrice ?? 0).toFixed(2),
@@ -88,7 +117,7 @@ export function EditItemModal({
         isActive: String(item.isActive ?? true),
       });
     }
-  }, [item]);
+  }, [categories, item]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,6 +131,16 @@ export function EditItemModal({
         sku: formData.sku,
         category: formData.category,
         description: formData.description,
+        warranty: buildPolicyPayload(
+          formData.warrantyDescription,
+          formData.warrantyPeriodYears,
+          formData.warrantyPeriodMonths,
+        ),
+        returnPolicy: buildPolicyPayload(
+          formData.returnPolicyDescription,
+          formData.returnPolicyPeriodYears,
+          formData.returnPolicyPeriodMonths,
+        ),
         stockQuantity: Number(formData.stock),
         unitType: formData.unitType,
         lowStockThreshold: Number(formData.lowStockThreshold),
@@ -394,6 +433,88 @@ export function EditItemModal({
               }
               className="min-h-24"
             />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-3 rounded-lg border border-dark-200 dark:border-dark-600 p-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-warrantyDescription">Warranty Description</Label>
+                <Textarea
+                  id="edit-warrantyDescription"
+                  value={formData.warrantyDescription}
+                  onChange={(e) =>
+                    setFormData({ ...formData, warrantyDescription: e.target.value })
+                  }
+                  className="min-h-24"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-warrantyPeriodYears">Warranty Years</Label>
+                  <Input
+                    id="edit-warrantyPeriodYears"
+                    type="number"
+                    min="0"
+                    value={formData.warrantyPeriodYears}
+                    onChange={(e) =>
+                      setFormData({ ...formData, warrantyPeriodYears: e.target.value })
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-warrantyPeriodMonths">Warranty Months</Label>
+                  <Input
+                    id="edit-warrantyPeriodMonths"
+                    type="number"
+                    min="0"
+                    value={formData.warrantyPeriodMonths}
+                    onChange={(e) =>
+                      setFormData({ ...formData, warrantyPeriodMonths: e.target.value })
+                    }
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-3 rounded-lg border border-dark-200 dark:border-dark-600 p-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-returnPolicyDescription">Return Policy Description</Label>
+                <Textarea
+                  id="edit-returnPolicyDescription"
+                  value={formData.returnPolicyDescription}
+                  onChange={(e) =>
+                    setFormData({ ...formData, returnPolicyDescription: e.target.value })
+                  }
+                  className="min-h-24"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-returnPolicyPeriodYears">Return Policy Years</Label>
+                  <Input
+                    id="edit-returnPolicyPeriodYears"
+                    type="number"
+                    min="0"
+                    value={formData.returnPolicyPeriodYears}
+                    onChange={(e) =>
+                      setFormData({ ...formData, returnPolicyPeriodYears: e.target.value })
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-returnPolicyPeriodMonths">Return Policy Months</Label>
+                  <Input
+                    id="edit-returnPolicyPeriodMonths"
+                    type="number"
+                    min="0"
+                    value={formData.returnPolicyPeriodMonths}
+                    onChange={(e) =>
+                      setFormData({ ...formData, returnPolicyPeriodMonths: e.target.value })
+                    }
+                  />
+                </div>
+              </div>
+            </div>
           </div>
 
           <DialogFooter>

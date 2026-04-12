@@ -26,6 +26,7 @@ import {
   Hash,
 } from "lucide-react";
 import { Order } from "../types";
+import { OrderReceiptPreviewDialog } from "./order-receipt-preview";
 import { useSettings } from "@/lib/queries";
 
 interface OrderDetailsModalProps {
@@ -40,6 +41,19 @@ const formatCurrency = (value?: number) =>
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
+
+const formatDateTime = (value?: string) => {
+  if (!value) return undefined;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleString("en-CA", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+};
 
 const formatPaymentType = (value?: string) => {
   if (!value) return "-";
@@ -104,10 +118,15 @@ export function OrderDetailsModal({
   const { data: settings } = useSettings();
   const taxRate: number = settings?.taxRate ?? 0;
 
-  const baseTotal = order?.totalPrice ?? 0;
+  const allItems = [...(order?.items || []), ...(order?.refills || [])];
+  const itemSubtotal = allItems.reduce(
+    (sum, item) => sum + Number(item.totalPrice || 0),
+    0,
+  );
   const discount = order?.discount ?? 0;
-  const taxAmount = baseTotal * taxRate;
-  const grandTotal = baseTotal + taxAmount;
+  const pretaxTotal = Math.max(0, itemSubtotal - discount);
+  const taxAmount = pretaxTotal * taxRate;
+  const grandTotal = pretaxTotal + taxAmount;
   const amountPaid = order?.amountPaid ?? 0;
   const balanceDue = Math.max(0, grandTotal - amountPaid);
 
@@ -136,24 +155,27 @@ export function OrderDetailsModal({
               </div>
             </div>
             {order && (
-              <div className="flex flex-wrap gap-2">
-                <StatusBadge
-                  label={order.orderStatus}
-                  colorClass={statusCfg.color}
-                  bgClass={statusCfg.bg}
-                  icon={statusCfg.icon}
-                />
-                <StatusBadge
-                  label={order.paymentStatus}
-                  colorClass={paymentCfg.color}
-                  bgClass={paymentCfg.bg}
-                />
-                <StatusBadge
-                  label={order.deliveryType}
-                  colorClass={order.deliveryType === "Delivery" ? "text-indigo-700 dark:text-indigo-400" : "text-dark-600 dark:text-dark-300"}
-                  bgClass={order.deliveryType === "Delivery" ? "bg-indigo-100 dark:bg-indigo-900/30" : "bg-dark-100 dark:bg-dark-700"}
-                  icon={order.deliveryType === "Delivery" ? Truck : Store}
-                />
+              <div className="flex flex-col gap-3 sm:items-end">
+                <OrderReceiptPreviewDialog order={order} settings={settings} />
+                <div className="flex flex-wrap gap-2 sm:justify-end">
+                  <StatusBadge
+                    label={order.orderStatus}
+                    colorClass={statusCfg.color}
+                    bgClass={statusCfg.bg}
+                    icon={statusCfg.icon}
+                  />
+                  <StatusBadge
+                    label={order.paymentStatus}
+                    colorClass={paymentCfg.color}
+                    bgClass={paymentCfg.bg}
+                  />
+                  <StatusBadge
+                    label={order.deliveryType}
+                    colorClass={order.deliveryType === "Delivery" ? "text-indigo-700 dark:text-indigo-400" : "text-dark-600 dark:text-dark-300"}
+                    bgClass={order.deliveryType === "Delivery" ? "bg-indigo-100 dark:bg-indigo-900/30" : "bg-dark-100 dark:bg-dark-700"}
+                    icon={order.deliveryType === "Delivery" ? Truck : Store}
+                  />
+                </div>
               </div>
             )}
           </div>
@@ -189,9 +211,9 @@ export function OrderDetailsModal({
                 <div className="rounded-2xl border border-dark-100 bg-white p-5 shadow-sm dark:border-dark-700 dark:bg-dark-800">
                   <SectionLabel>Order Info</SectionLabel>
                   <div className="space-y-4">
-                    <DetailItem icon={Hash} label="Created" value={order.createdAt || undefined} />
+                    <DetailItem icon={Hash} label="Created" value={formatDateTime(order.createdAt)} />
                     {order.scheduledDate && (
-                      <DetailItem icon={Calendar} label="Scheduled Date" value={order.scheduledDate} />
+                      <DetailItem icon={Calendar} label="Scheduled Date" value={formatDateTime(order.scheduledDate)} />
                     )}
                     {order.deliveryType === "Delivery" && order.deliveryAddress && (
                       <DetailItem icon={MapPin} label="Delivery Address" value={order.deliveryAddress} />
@@ -199,6 +221,27 @@ export function OrderDetailsModal({
                   </div>
                 </div>
               </div>
+
+              {(order.notes || (order.deliveryType === "Delivery" && order.deliveryNotes)) && (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  {order.notes && (
+                    <div className="rounded-2xl border border-dark-100 bg-white p-5 shadow-sm dark:border-dark-700 dark:bg-dark-800">
+                      <SectionLabel>Order Notes</SectionLabel>
+                      <p className="whitespace-pre-wrap text-sm text-dark-700 dark:text-dark-200">
+                        {order.notes}
+                      </p>
+                    </div>
+                  )}
+                  {order.deliveryType === "Delivery" && order.deliveryNotes && (
+                    <div className="rounded-2xl border border-dark-100 bg-white p-5 shadow-sm dark:border-dark-700 dark:bg-dark-800">
+                      <SectionLabel>Delivery Notes</SectionLabel>
+                      <p className="whitespace-pre-wrap text-sm text-dark-700 dark:text-dark-200">
+                        {order.deliveryNotes}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* ── Row 2: Items ── */}
               <div className="rounded-2xl border border-dark-100 bg-white shadow-sm dark:border-dark-700 dark:bg-dark-800">
@@ -281,7 +324,7 @@ export function OrderDetailsModal({
                   <div className="space-y-2.5">
                     <div className="flex justify-between text-sm">
                       <span className="text-dark-500 dark:text-dark-400">Subtotal</span>
-                      <span className="font-medium text-dark-900 dark:text-white">{formatCurrency(baseTotal)}</span>
+                      <span className="font-medium text-dark-900 dark:text-white">{formatCurrency(itemSubtotal)}</span>
                     </div>
                     {discount > 0 && (
                       <div className="flex justify-between text-sm">
@@ -295,6 +338,11 @@ export function OrderDetailsModal({
                         <span className="font-medium text-dark-900 dark:text-white">{formatCurrency(taxAmount)}</span>
                       </div>
                     )}
+
+                    <div className="flex justify-between text-sm">
+                      <span className="text-dark-500 dark:text-dark-400">Pretax Total</span>
+                      <span className="font-medium text-dark-900 dark:text-white">{formatCurrency(pretaxTotal)}</span>
+                    </div>
 
                     {/* Grand total */}
                     <div className="flex justify-between border-t border-dark-200 pt-2.5 dark:border-dark-600">

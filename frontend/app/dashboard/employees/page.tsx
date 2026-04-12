@@ -2,7 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import Cookies from "js-cookie";
-import { Loader2, Pencil, UserX, UserCheck } from "lucide-react";
+import { Loader2, Pencil, Trash2, UserX, UserCheck } from "lucide-react";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -181,6 +181,30 @@ export default function EmployeesPage() {
     }
   };
 
+  const archiveUser = async (user: StaffUser) => {
+    const confirmed = window.confirm(
+      `Permanently remove ${user.firstName} ${user.lastName} from Staff Accounts? Historical records will be kept and the account will no longer be able to log in.`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setSaving(true);
+      await api.patch(`/users/${user._id}/archive`);
+      if (selectedUserId === user._id) {
+        setSelectedUserId("");
+        setEditData({ id: "", firstName: "", lastName: "", username: "", password: "" });
+      }
+      fetchData();
+    } catch (error) {
+      console.error("Failed to permanently delete staff account", error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const submitHours = async (e: FormEvent) => {
     e.preventDefault();
     if (!hoursData.userId || !hoursData.workDate || !hoursData.hours) return;
@@ -297,6 +321,14 @@ export default function EmployeesPage() {
                   </Button>
                   <Button size="sm" variant="outline" onClick={() => toggleActive(user)}>
                     {user.isActive ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={saving || user._id === currentUserId}
+                    onClick={() => archiveUser(user)}
+                  >
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 </td>
               </tr>

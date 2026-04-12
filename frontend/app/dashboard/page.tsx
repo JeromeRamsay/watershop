@@ -34,20 +34,32 @@ function mapApiOrder(o: any): Order {
     productName: item.name || "Unknown Product",
     quantity: item.quantity || 0, unitPrice: item.unitPrice || 0,
     totalPrice: item.totalPrice || 0, creditsUsed: !!item.isPrepaidRedemption, isRefill: !!item.isRefill,
+    warranty: item.warranty, returnPolicy: item.returnPolicy,
+  }));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const refills = (o.refills || []).map((item: any, idx: number) => ({
+    id: item.item?._id || (String(o._id) + "-refill-" + idx),
+    itemId: item.item?._id, sku: item.sku,
+    productName: item.name || "Unknown Refill",
+    quantity: item.quantity || 0, unitPrice: item.unitPrice || 0,
+    totalPrice: item.totalPrice || 0, creditsUsed: !!item.isPrepaidRedemption, isRefill: true,
+    warranty: item.warranty, returnPolicy: item.returnPolicy,
   }));
   const custName = o.customer ? (String(o.customer.firstName||"") + " " + String(o.customer.lastName||"")).trim() || "Walk-in" : "Walk-in Customer";
   return {
     id: String(o._id),
     orderId: o.orderNumber || ("ORD-" + String(o._id).slice(-6).toUpperCase()),
     customer: custName, customerEmail: o.customer?.email, customerPhone: o.customer?.phone, customerId_raw: o.customer?._id,
-    items, refills: [],
+    items, refills,
+    notes: o.notes,
     totalPrice: o.grandTotal||0, grandTotal: o.grandTotal||0, amountPaid: o.amountPaid||0,
     deliveryType: o.isDelivery ? "Delivery" : "Pickup", remainingCredits: o.refillCount||0,
     orderStatus: (cap(o.status)||"Pending") as Order["orderStatus"],
     paymentStatus: (cap(o.paymentStatus)||"Unpaid") as Order["paymentStatus"],
     deliveryAddress: o.deliveryAddress,
-    scheduledDate: o.deliveryDate ? String(o.deliveryDate).split("T")[0] : "",
-    createdAt: o.createdAt ? new Date(String(o.createdAt)).toISOString().split("T")[0] : "",
+    deliveryNotes: o.deliveryNotes,
+    scheduledDate: o.deliveryDate ? String(o.deliveryDate) : "",
+    createdAt: o.createdAt ? String(o.createdAt) : "",
     discount: o.discount, paymentMethod: o.paymentMethod, paymentDetails: o.paymentDetails, emailReceipt: o.emailReceipt,
   };
 }
@@ -63,7 +75,7 @@ function mapApiCustomer(c: any): Customer {
   const creditsLeft = (c.wallet?.prepaidItems||[]).reduce((s: number, i: any) => s + (i.quantityRemaining||0), 0);
   return {
     id: String(c._id), name: (String(c.firstName||"") + " " + String(c.lastName||"")).trim(),
-    email: c.email||"", phone: c.phone||"", address: addressStr,
+    email: c.email||"", phone: c.phone||"", notes: c.notes||"", address: addressStr,
     orders: Number(c.orders||0), creditsLeft, prepaidItems: c.wallet?.prepaidItems||[],
     familyGroup: c.familyMembers?.length > 0 ? (c.familyMembers.length + " Members") : null,
     customerType: c.type === "business" ? "Business" : "Individual", status: "Active",
@@ -109,20 +121,21 @@ export default function DashboardPage() {
   const todayDateStr = todayStart.toISOString().split("T")[0]; // "YYYY-MM-DD"
 
   const orders = (ordersData as Record<string, unknown>[] | undefined) ?? [];
-  // Filter to today's orders for the KPI cards
-  const todayOrders = orders.filter((o) => {
-    const d = new Date(String(o.createdAt ?? 0));
-    return d >= todayStart;
-  });
-  const rentalOrdersCount = todayOrders.filter((o) => o.isDelivery === true).length;
-  const prePurchasesCount = todayOrders.filter((o) => !!o.isPrepaidRedemption).length;
   const unpaidOrderIds = new Set<string>(
     orders.filter((o) => o.paymentStatus === "unpaid" || o.paymentStatus === "partial").map((o) => String(o._id)),
   );
   const metrics = {
-    totalRevenue: (stats as { totalRevenue?: number } | undefined)?.totalRevenue ?? 0,
-    totalOrders:  todayOrders.length,
-    rentalOrders: rentalOrdersCount, prePurchases: prePurchasesCount,
+    totalRevenue: (stats as {
+      todayRevenue?: number;
+      todayOrders?: number;
+      todayDeliveryOrders?: number;
+      todayPrepaidOrders?: number;
+    } | undefined)?.todayRevenue ?? 0,
+    totalOrders: (stats as { todayOrders?: number } | undefined)?.todayOrders ?? 0,
+    deliveryOrders:
+      (stats as { todayDeliveryOrders?: number } | undefined)?.todayDeliveryOrders ?? 0,
+    prePurchases:
+      (stats as { todayPrepaidOrders?: number } | undefined)?.todayPrepaidOrders ?? 0,
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -224,10 +237,10 @@ export default function DashboardPage() {
       <WelcomeSection userName={userName} />
       <div className={`grid gap-2 sm:gap-3 grid-cols-2 md:grid-cols-2 ${userRole === "staff" ? "lg:grid-cols-3" : "lg:grid-cols-4"}`}>
         {userRole === "staff" ? null : (
-          <MetricCard title="Total Sales" value={"$" + metrics.totalRevenue.toFixed(2)} icon={DollarSign} iconColor="text-primary-600" iconBg="bg-primary-100" />
+          <MetricCard title="Total Sales Today" value={"$" + metrics.totalRevenue.toFixed(2)} icon={DollarSign} iconColor="text-primary-600" iconBg="bg-primary-100" />
         )}
         <MetricCard title="Orders Processed" value={metrics.totalOrders.toString()} icon={Package} iconColor="text-green-600" iconBg="bg-green-100" />
-        <MetricCard title="Rental Orders"     value={metrics.rentalOrders.toString()} icon={Box}     iconColor="text-red-600"   iconBg="bg-red-100"   />
+        <MetricCard title="Delivery Orders"   value={metrics.deliveryOrders.toString()} icon={Box}     iconColor="text-red-600"   iconBg="bg-red-100"   />
         <MetricCard title="Pre-Purchases"     value={metrics.prePurchases.toString()} icon={ShoppingCart} iconColor="text-orange-600" iconBg="bg-orange-100" />
       </div>
       {/* Single grid — Notifications row-span-2 fills from top of row 1 to bottom of row 2 */}

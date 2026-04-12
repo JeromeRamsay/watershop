@@ -10,7 +10,11 @@ import { AddItemModal } from "@/features/inventory/components/add-item-modal";
 import { EditItemModal } from "@/features/inventory/components/edit-item-modal";
 import { DeleteItemModal } from "@/features/inventory/components/delete-item-modal";
 import { ItemDetailsModal } from "@/features/inventory/components/item-details-modal";
-import { InventoryItem, InventoryFilters } from "@/features/inventory/types";
+import {
+  InventoryItem,
+  InventoryFilters,
+  PolicyDetails,
+} from "@/features/inventory/types";
 
 const categories = [
   "Accessories",
@@ -77,6 +81,8 @@ interface InventoryApiItem {
   sellingPrice: number;
   supplier?: string;
   description?: string;
+  warranty?: PolicyDetails;
+  returnPolicy?: PolicyDetails;
   isTaxable?: boolean;
   isRefillable?: boolean;
   refillPrice?: number;
@@ -137,6 +143,8 @@ export default function InventoryPage() {
           sellingPrice: item.sellingPrice,
           supplier: item.supplier ?? "",
           description: item.description ?? "",
+          warranty: item.warranty,
+          returnPolicy: item.returnPolicy,
           lowStockThreshold: item.lowStockThreshold ?? 0,
           isTaxable: item.isTaxable ?? false,
           isRefillable: item.isRefillable ?? false,
@@ -208,7 +216,9 @@ export default function InventoryPage() {
         purchasePrice: data.purchasePrice ?? item.purchasePrice,
         sellingPrice: data.sellingPrice ?? item.sellingPrice,
         supplier: data.supplier || item.supplier,
-        description: data.description || item.description,
+        description: data.description ?? item.description,
+        warranty: data.warranty ?? item.warranty,
+        returnPolicy: data.returnPolicy ?? item.returnPolicy,
         lowStockThreshold: data.lowStockThreshold ?? item.lowStockThreshold,
         isTaxable: data.isTaxable ?? item.isTaxable,
         isRefillable: data.isRefillable ?? item.isRefillable,

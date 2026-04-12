@@ -180,6 +180,17 @@ describe("UsersService", () => {
       ).rejects.toThrow(UnauthorizedException);
     });
 
+    it("throws UnauthorizedException when account is archived", async () => {
+      mockUserModel.findOne.mockResolvedValue(
+        makeUser({ archivedAt: new Date("2026-04-11T12:00:00.000Z") }),
+      );
+      mockBcryptCompare.mockResolvedValue(true);
+
+      await expect(
+        service.login({ username: "johndoe", password: "password123" }),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
     it("throws UnauthorizedException when password does not match", async () => {
       mockUserModel.findOne.mockResolvedValue(makeUser());
       mockBcryptCompare.mockResolvedValue(false);
@@ -213,7 +224,7 @@ describe("UsersService", () => {
 
       await service.findStaff(true);
 
-      expect(mockUserModel.find).toHaveBeenCalledWith({ role: expect.anything() });
+      expect(mockUserModel.find).toHaveBeenCalledWith({ role: expect.anything(), archivedAt: null });
       // isActive filter should NOT be added
       const query = mockUserModel.find.mock.calls[0][0];
       expect(query.isActive).toBeUndefined();
@@ -227,6 +238,7 @@ describe("UsersService", () => {
 
       const query = mockUserModel.find.mock.calls[0][0];
       expect(query.isActive).toBe(true);
+      expect(query.archivedAt).toBeNull();
     });
   });
 
@@ -372,6 +384,41 @@ describe("UsersService", () => {
       });
 
       await expect(service.setActiveStatus("ghost-id", true)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe("archiveManagedUser()", () => {
+    it("archives a staff user and emits realtime updates", async () => {
+      const updatedUser = makeUser({ isActive: false, archivedAt: new Date("2026-04-11T12:00:00.000Z") });
+      mockUserModel.findByIdAndUpdate.mockReturnValue({
+        select: jest.fn().mockResolvedValue(updatedUser),
+      });
+
+      const result = await service.archiveManagedUser("user-id-1");
+
+      expect(mockUserModel.findByIdAndUpdate).toHaveBeenCalledWith(
+        "user-id-1",
+        expect.objectContaining({ isActive: false, archivedAt: expect.any(Date) }),
+        { new: true },
+      );
+      expect(result).toEqual(updatedUser);
+      expect(mockRealtimeService.emitDashboardUpdate).toHaveBeenCalledWith("users.archived");
+    });
+
+    it("throws when the user does not exist", async () => {
+      mockUserModel.findByIdAndUpdate.mockReturnValue({
+        select: jest.fn().mockResolvedValue(null),
+      });
+
+      await expect(service.archiveManagedUser("missing-user")).rejects.toThrow(NotFoundException);
+    });
+
+    it("throws when trying to archive a non-staff account", async () => {
+      mockUserModel.findByIdAndUpdate.mockReturnValue({
+        select: jest.fn().mockResolvedValue(makeUser({ role: "admin", isActive: false, archivedAt: new Date() })),
+      });
+
+      await expect(service.archiveManagedUser("admin-user")).rejects.toThrow(BadRequestException);
     });
   });
 

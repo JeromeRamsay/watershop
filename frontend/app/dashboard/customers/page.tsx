@@ -77,6 +77,7 @@ export default function CustomersPage() {
       name: `${c.firstName || ""} ${c.lastName || ""}`.trim(),
       email: c.email || "",
       phone: c.phone || "",
+      notes: c.notes || "",
       address: addressStr || "No Address",
       orders: Number(c.orders || 0),
       creditsLeft,

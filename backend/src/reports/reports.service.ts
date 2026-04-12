@@ -3,10 +3,16 @@ import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
 import { Order, OrderDocument } from "../orders/entities/order.entity";
 
+const STORE_TIME_ZONE = "America/Toronto";
+
 export interface DashboardStats {
   totalRevenue: number;
   totalOrders: number;
   avgOrderValue: number;
+  todayRevenue: number;
+  todayOrders: number;
+  todayDeliveryOrders: number;
+  todayPrepaidOrders: number;
 }
 
 export interface WalkInStats {
@@ -24,8 +30,23 @@ export class ReportsService {
     @InjectModel(Order.name) private orderModel: Model<OrderDocument>,
   ) {}
 
+  private getDateKeyInTimeZone(date: Date, timeZone: string): string {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(date);
+
+    const year = parts.find((part) => part.type === "year")?.value;
+    const month = parts.find((part) => part.type === "month")?.value;
+    const day = parts.find((part) => part.type === "day")?.value;
+
+    return `${year}-${month}-${day}`;
+  }
+
   // 1. Dashboard Overview (Total Sales, Count, etc.)
-  async getDashboardStats(year?: number): Promise<DashboardStats> {
+  async getDashboardStats(year?: number, now = new Date()): Promise<DashboardStats> {
     const matchStage = year
       ? {
           $match: {
@@ -37,6 +58,20 @@ export class ReportsService {
         }
       : { $match: {} };
 
+    const todayKey = this.getDateKeyInTimeZone(now, STORE_TIME_ZONE);
+    const todayExpression = {
+      $eq: [
+        {
+          $dateToString: {
+            format: "%Y-%m-%d",
+            date: "$createdAt",
+            timezone: STORE_TIME_ZONE,
+          },
+        },
+        todayKey,
+      ],
+    };
+
     const stats = await this.orderModel.aggregate<DashboardStats>([
       matchStage,
       {
@@ -45,13 +80,54 @@ export class ReportsService {
           totalRevenue: { $sum: "$grandTotal" },
           totalOrders: { $sum: 1 },
           avgOrderValue: { $avg: "$grandTotal" },
+          todayRevenue: {
+            $sum: {
+              $cond: [todayExpression, "$grandTotal", 0],
+            },
+          },
+          todayOrders: {
+            $sum: {
+              $cond: [todayExpression, 1, 0],
+            },
+          },
+          todayDeliveryOrders: {
+            $sum: {
+              $cond: [
+                { $and: [todayExpression, { $eq: ["$isDelivery", true] }] },
+                1,
+                0,
+              ],
+            },
+          },
+          todayPrepaidOrders: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    todayExpression,
+                    { $eq: ["$isPrepaidRedemption", true] },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
+          },
         },
       },
     ]);
 
     return stats.length > 0
       ? (stats[0] as DashboardStats)
-      : { totalRevenue: 0, totalOrders: 0, avgOrderValue: 0 };
+      : {
+          totalRevenue: 0,
+          totalOrders: 0,
+          avgOrderValue: 0,
+          todayRevenue: 0,
+          todayOrders: 0,
+          todayDeliveryOrders: 0,
+          todayPrepaidOrders: 0,
+        };
   }
 
   // 2. Top 5 Selling Items (Most Purchased)

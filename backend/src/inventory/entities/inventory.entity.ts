@@ -2,6 +2,18 @@ import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { Document } from "mongoose";
 
 export type InventoryDocument = Inventory & Document;
+  
+@Schema({ _id: false })
+export class PolicyDetails {
+  @Prop()
+  description?: string;
+
+  @Prop({ default: 0 })
+  periodYears?: number;
+
+  @Prop({ default: 0 })
+  periodMonths?: number;
+}
 
 @Schema({ timestamps: true })
 export class Inventory {
@@ -16,6 +28,12 @@ export class Inventory {
 
   @Prop()
   description: string;
+  
+  @Prop({ type: SchemaFactory.createForClass(PolicyDetails), default: undefined })
+  warranty?: PolicyDetails;
+
+  @Prop({ type: SchemaFactory.createForClass(PolicyDetails), default: undefined })
+  returnPolicy?: PolicyDetails;
 
   @Prop({ required: true, default: 0 })
   stockQuantity: number;

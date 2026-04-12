@@ -2,6 +2,18 @@ import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { Document, Types } from "mongoose";
 
 export type OrderDocument = Order & Document;
+  
+@Schema({ _id: false })
+export class PolicySnapshot {
+  @Prop()
+  description?: string;
+
+  @Prop({ default: 0 })
+  periodYears?: number;
+
+  @Prop({ default: 0 })
+  periodMonths?: number;
+}
 
 @Schema({ _id: false })
 export class OrderItem {
@@ -22,6 +34,12 @@ export class OrderItem {
 
   @Prop({ required: true })
   totalPrice: number; // quantity * unitPrice
+  
+  @Prop({ type: SchemaFactory.createForClass(PolicySnapshot), default: undefined })
+  warranty?: PolicySnapshot;
+
+  @Prop({ type: SchemaFactory.createForClass(PolicySnapshot), default: undefined })
+  returnPolicy?: PolicySnapshot;
 
   @Prop({ default: false })
   isPrepaidRedemption: boolean;
@@ -40,6 +58,9 @@ export class Order {
 
   @Prop({ default: false })
   isWalkIn: boolean;
+  
+  @Prop()
+  notes?: string;
 
   @Prop({ type: Types.ObjectId, ref: "User" }) // The cashier
   cashier: Types.ObjectId;
@@ -97,6 +118,9 @@ export class Order {
 
   @Prop()
   deliveryDate?: Date;
+  
+  @Prop()
+  deliveryNotes?: string;
 
   @Prop({ default: false })
   emailReceipt: boolean;

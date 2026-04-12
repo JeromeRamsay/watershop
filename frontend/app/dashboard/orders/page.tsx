@@ -8,7 +8,7 @@ import { FiltersModal } from "@/features/orders/components/filters-modal";
 import { DeleteOrderModal } from "@/features/orders/components/delete-order-modal";
 import { EditOrderModal } from "@/features/orders/components/edit-order-modal";
 import { OrderDetailsModal } from "@/features/orders/components/order-details-modal";
-import { Order, OrderFilters } from "@/features/orders/types";
+import { Order, OrderFilters, OrderItem } from "@/features/orders/types";
 const orderStatuses = [
   "Pending",
   "Scheduled",
@@ -65,6 +65,8 @@ interface OrderApiItem {
   totalPrice?: number;
   isPrepaidRedemption?: boolean;
   isRefill?: boolean;
+  warranty?: OrderItem["warranty"];
+  returnPolicy?: OrderItem["returnPolicy"];
 }
 
 interface OrderApiResponse {
@@ -82,6 +84,8 @@ interface OrderApiResponse {
   paymentStatus?: string;
   deliveryAddress?: string;
   deliveryDate?: string;
+  notes?: string;
+  deliveryNotes?: string;
   discount?: number;
   paymentMethod?: "cash" | "card" | "credit_redemption" | "store_credit";
   paymentDetails?: Order["paymentDetails"];
@@ -103,6 +107,8 @@ const mapApiOrderToOrder = (order: OrderApiResponse): Order => {
     totalPrice: item.totalPrice || 0,
     creditsUsed: !!item.isPrepaidRedemption,
     isRefill: !!item.isRefill,
+    warranty: item.warranty,
+    returnPolicy: item.returnPolicy,
   }));
 
   const mappedRefills = (order.refills || []).map((item, index) => ({
@@ -115,6 +121,8 @@ const mapApiOrderToOrder = (order: OrderApiResponse): Order => {
     totalPrice: item.totalPrice || 0,
     creditsUsed: !!item.isPrepaidRedemption,
     isRefill: true,
+    warranty: item.warranty,
+    returnPolicy: item.returnPolicy,
   }));
 
   return {
@@ -129,6 +137,7 @@ const mapApiOrderToOrder = (order: OrderApiResponse): Order => {
     customerId_raw: order.customer?._id,
     items: mappedItems,
     refills: mappedRefills,
+    notes: order.notes,
     totalPrice: order.grandTotal || 0,
     grandTotal: order.grandTotal || 0,
     amountPaid: order.amountPaid || 0,
@@ -138,10 +147,9 @@ const mapApiOrderToOrder = (order: OrderApiResponse): Order => {
     paymentStatus: (capitalize(order.paymentStatus) ||
       "Unpaid") as Order["paymentStatus"],
     deliveryAddress: order.deliveryAddress,
-    scheduledDate: order.deliveryDate ? order.deliveryDate.split("T")[0] : "",
-    createdAt: order.createdAt
-      ? new Date(order.createdAt).toISOString().split("T")[0]
-      : "",
+    deliveryNotes: order.deliveryNotes,
+    scheduledDate: order.deliveryDate,
+    createdAt: order.createdAt || "",
     discount: order.discount,
     paymentMethod: order.paymentMethod,
     paymentDetails: order.paymentDetails,

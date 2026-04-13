@@ -389,6 +389,8 @@ import api from "@/lib/api";
 const { data } = await api.get("/customers");
 ```
 
+If a frontend report slice depends on a backend route that may lag briefly during split frontend/backend deploys, handle that compatibility case in `frontend/lib/queries.ts` and keep the page rendering with an explicit unavailable state instead of surfacing a hard failure. Current example: the Reports page treats `GET /reports/refill-override-stats` returning `404` as a temporary backend-deploy mismatch and shows placeholders until the API deploy catches up.
+
 ### Server Actions (auth only)
 Auth operations in `features/auth/actions.ts` use Next.js Server Actions (`"use server"`). All other data operations use the Axios `api` client from the browser.
 
@@ -467,6 +469,8 @@ npm run start:local         # uses frontend/.env.local against the local backend
 After every backend change, run `npm test` and confirm all tests pass before considering the task done.
 
 After frontend changes, run `cd frontend && npm run build` before considering deployment issues resolved. The DigitalOcean frontend deploy uses the production Next.js build, and recent blockers surfaced there from strict compile/type checks in dashboard modal components.
+
+Backend deploys compile with `nest build` via SWC. Keep Nest decorators such as `@Throttle()` on controller classes or route handlers only; placing them inside request/interface type declarations will pass casual review but fail the App Platform build with a SWC syntax error.
 
 ---
 

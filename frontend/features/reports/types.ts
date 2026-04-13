@@ -112,5 +112,6 @@ export interface RefillOverrideStats {
   byUser: RefillOverrideByUser[];
   byCustomer: RefillOverrideByCustomer[];
   byUserCustomer: RefillOverrideByUserCustomer[];
+  isUnavailable?: boolean;
 }
 

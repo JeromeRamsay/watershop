@@ -5,17 +5,16 @@ import {
   Req,
   UnauthorizedException,
 } from "@nestjs/common";
+import { Throttle } from "@nestjs/throttler";
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import { CreateRefillOverrideDto } from "./dto/create-refill-override.dto";
 import { RefillOverridesService } from "./refill-overrides.service";
 
-  import { Throttle } from "@nestjs/throttler";
 interface AuthenticatedRequest {
   user?: {
     userId?: string;
     username?: string;
     role?: string;
-    @Throttle({ short: { ttl: 60000, limit: 60 } })
   };
 }
 
@@ -25,6 +24,7 @@ export class RefillOverridesController {
   constructor(private readonly refillOverridesService: RefillOverridesService) {}
 
   @Post()
+  @Throttle({ short: { ttl: 60000, limit: 60 } })
   @ApiOperation({ summary: "Apply a manual refill override for a customer item" })
   create(
     @Body() createDto: CreateRefillOverrideDto,

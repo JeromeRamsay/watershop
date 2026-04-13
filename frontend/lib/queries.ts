@@ -4,7 +4,9 @@
  * Data is cached for 30 s (staleTime) and kept in memory for 5 min (gcTime).
  * Re-visiting a page shows cached data INSTANTLY while a background refresh runs.
  */
+import axios from "axios";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import type { RefillOverrideStats } from "@/features/reports/types";
 import api from "@/lib/api";
 
 export interface ReportQueryParams {
@@ -44,6 +46,20 @@ interface RefillOverrideMutationResult {
   quantityDelta: number;
   quantityRemaining: number;
 }
+
+const EMPTY_REFILL_OVERRIDE_STATS: RefillOverrideStats = {
+  summary: {
+    totalOverrides: 0,
+    quantityDelta: 0,
+    positiveQuantityDelta: 0,
+    negativeQuantityDelta: 0,
+    usersAffected: 0,
+    customersAffected: 0,
+  },
+  byUser: [],
+  byCustomer: [],
+  byUserCustomer: [],
+};
 
 function normalizeReportParams(params?: number | ReportQueryParams) {
   if (typeof params === "number") {
@@ -231,10 +247,27 @@ export function useFrequentCustomers(params?: number | ReportQueryParams) {
 
 export function useRefillOverrideStats(params?: number | ReportQueryParams) {
   const queryParams = normalizeReportParams(params);
-  return useQuery({
+  return useQuery<RefillOverrideStats>({
     queryKey: queryKeys.refillOverrideStats(queryParams),
-    queryFn: () =>
-      api.get("/reports/refill-override-stats", { params: queryParams }).then((r) => r.data),
+    queryFn: async () => {
+      try {
+        const response = await api.get<RefillOverrideStats>(
+          "/reports/refill-override-stats",
+          { params: queryParams },
+        );
+
+        return response.data;
+      } catch (error) {
+        if (axios.isAxiosError(error) && error.response?.status === 404) {
+          return {
+            ...EMPTY_REFILL_OVERRIDE_STATS,
+            isUnavailable: true,
+          };
+        }
+
+        throw error;
+      }
+    },
   });
 }
 

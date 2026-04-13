@@ -234,6 +234,9 @@ export default function ReportsPage() {
       byCustomer: [],
       byUserCustomer: [],
     };
+  const overrideStatsUnavailable = Boolean(overrideStats.isUnavailable);
+  const overrideUnavailableLabel =
+    "Refill override analytics are temporarily unavailable on this environment. Redeploy the backend to enable this section.";
 
   const searchLower = search.trim().toLowerCase();
 
@@ -473,13 +476,29 @@ export default function ReportsPage() {
         />
         <MetricCard
           label="Manual Overrides"
-          value={overrideStats.summary.totalOverrides.toString()}
-          hint={`${formatSignedValue(overrideStats.summary.quantityDelta)} net quantity delta`}
+          value={
+            overrideStatsUnavailable
+              ? "--"
+              : overrideStats.summary.totalOverrides.toString()
+          }
+          hint={
+            overrideStatsUnavailable
+              ? "Waiting for a backend deploy that includes refill override analytics"
+              : `${formatSignedValue(overrideStats.summary.quantityDelta)} net quantity delta`
+          }
         />
         <MetricCard
           label="Override Users"
-          value={overrideStats.summary.usersAffected.toString()}
-          hint={`${overrideStats.summary.customersAffected} customers affected`}
+          value={
+            overrideStatsUnavailable
+              ? "--"
+              : overrideStats.summary.usersAffected.toString()
+          }
+          hint={
+            overrideStatsUnavailable
+              ? "This metric will populate after the backend route is live"
+              : `${overrideStats.summary.customersAffected} customers affected`
+          }
         />
         <MetricCard
           label="Revenue Today"
@@ -499,6 +518,12 @@ export default function ReportsPage() {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        {overrideStatsUnavailable ? (
+          <div className="xl:col-span-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            {overrideUnavailableLabel}
+          </div>
+        ) : null}
+
         <TableCard
           title="Refill Overrides by User"
           columns={["User", "Overrides", "Net Delta", "Customers"]}
@@ -508,7 +533,11 @@ export default function ReportsPage() {
             formatSignedValue(row.quantityDelta),
             row.customersAffected,
           ])}
-          emptyLabel="No refill overrides found for this range."
+          emptyLabel={
+            overrideStatsUnavailable
+              ? overrideUnavailableLabel
+              : "No refill overrides found for this range."
+          }
         />
 
         <TableCard
@@ -520,7 +549,11 @@ export default function ReportsPage() {
             formatSignedValue(row.quantityDelta),
             row.usersAffected,
           ])}
-          emptyLabel="No customer override activity found for this range."
+          emptyLabel={
+            overrideStatsUnavailable
+              ? overrideUnavailableLabel
+              : "No customer override activity found for this range."
+          }
         />
 
         <TableCard
@@ -532,7 +565,11 @@ export default function ReportsPage() {
             row.overrideCount,
             formatSignedValue(row.quantityDelta),
           ])}
-          emptyLabel="No paired override activity found for this range."
+          emptyLabel={
+            overrideStatsUnavailable
+              ? overrideUnavailableLabel
+              : "No paired override activity found for this range."
+          }
         />
       </div>
 

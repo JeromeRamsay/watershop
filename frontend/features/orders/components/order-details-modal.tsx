@@ -137,8 +137,8 @@ export function OrderDetailsModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[92vh] w-full max-w-5xl flex-col gap-0 overflow-hidden p-0 !sm:max-w-5xl" style={{ maxWidth: "min(90vw, 72rem)" }}>
         {/* ── Top header bar ── */}
-        <DialogHeader className="shrink-0 border-b border-dark-100 bg-white px-6 pt-5 pb-4 dark:border-dark-700 dark:bg-dark-800">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <DialogHeader className="shrink-0 border-b border-dark-100 bg-white px-6 pt-5 pb-4 pr-16 dark:border-dark-700 dark:bg-dark-800 sm:pr-20">
+          <div className="flex flex-col gap-3 pr-2 sm:flex-row sm:items-center sm:justify-between sm:pr-0">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-500/10">
                 <Receipt className="h-5 w-5 text-primary-500" />

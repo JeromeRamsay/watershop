@@ -9,28 +9,12 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 interface SalesOverviewChartProps {
   data: { name: string; total: number }[];
-  year: string;
-  onYearChange: (year: string) => void;
 }
 
-export function SalesOverviewChart({
-  data,
-  year,
-  onYearChange,
-}: SalesOverviewChartProps) {
-  const years = [0, 1, 2, 3].map((offset) =>
-    (new Date().getFullYear() - offset).toString(),
-  );
+export function SalesOverviewChart({ data }: SalesOverviewChartProps) {
 
   // Calculate the maximum value from the data (fallback to 0 to avoid -Infinity on empty data)
   const maxValue = Math.max(0, ...data.map((item) => item.total));
@@ -49,18 +33,6 @@ export function SalesOverviewChart({
         <h3 className="text-lg font-bold text-dark-900 dark:text-white">
           Total Sales Overview
         </h3>
-        <Select value={year} onValueChange={onYearChange}>
-          <SelectTrigger className="w-24 h-9 text-sm bg-white dark:bg-dark-700 border-[#e5e7eb] dark:border-dark-600 rounded-lg">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {years.map((y) => (
-              <SelectItem key={y} value={y}>
-                {y}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
       </div>
       <ResponsiveContainer width="100%" height={300}>
         <LineChart

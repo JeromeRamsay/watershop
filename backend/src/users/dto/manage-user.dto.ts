@@ -1,5 +1,11 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from "@nestjs/swagger";
-import { IsBoolean, IsEnum, IsOptional, IsString, MinLength } from "class-validator";
+import {
+  IsBoolean,
+  IsEnum,
+  IsOptional,
+  IsString,
+  MinLength,
+} from "class-validator";
 
 export class CreateManagedUserDto {
   @ApiProperty()
@@ -31,3 +37,14 @@ export class CreateManagedUserDto {
 }
 
 export class UpdateManagedUserDto extends PartialType(CreateManagedUserDto) {}
+
+export class ResetPasswordDto {
+  @ApiProperty({ example: "admin" })
+  @IsString()
+  username: string;
+
+  @ApiProperty({ example: "newSecret123" })
+  @IsString()
+  @MinLength(6)
+  newPassword: string;
+}

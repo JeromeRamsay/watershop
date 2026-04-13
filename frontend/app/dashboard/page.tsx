@@ -9,8 +9,9 @@ import { Notifications } from "@/features/dashboard/components/notifications";
 import { RecentTransactions } from "@/features/dashboard/components/recent-transactions";
 import { UpcomingDeliveries } from "@/features/dashboard/components/upcoming-deliveries";
 import { EditOrderModal } from "@/features/orders/components/edit-order-modal";
+import { OrderDetailsModal } from "@/features/orders/components/order-details-modal";
 import { CustomerDetailsModal } from "@/features/customers/components/customer-details-modal";
-import { Notification } from "@/features/dashboard/types";
+import { Notification, Transaction } from "@/features/dashboard/types";
 import { Order } from "@/features/orders/types";
 import { Customer } from "@/features/customers/types";
 import { DollarSign, Package, Box, ShoppingCart, Loader2, AlertTriangle, Clock3 } from "lucide-react";
@@ -99,8 +100,11 @@ export default function DashboardPage() {
   const userRole = userInfo?.role || "admin";
   const isStaff  = userRole === "staff";
 
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [selectedOrderForEdit, setSelectedOrderForEdit] = useState<Order | null>(null);
+  const [selectedOrderForDetails, setSelectedOrderForDetails] = useState<Order | null>(null);
   const [isEditOrderOpen, setIsEditOrderOpen] = useState(false);
+  const [isOrderDetailsOpen, setIsOrderDetailsOpen] = useState(false);
+  const [isOrderDetailsLoading, setIsOrderDetailsLoading] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
 
@@ -199,7 +203,7 @@ export default function DashboardPage() {
     }));
 
   const quickActions = [
-    { id: "1", label: "New Order",    href: "/dashboard/orders/new", icon: Package },
+    { id: "1", label: "+ Add New Order", href: "/dashboard/orders/new", icon: Package },
     { id: "2", label: "Add Customer", href: "/dashboard/customers",  icon: Box },
     { id: "3", label: "Inventory",    href: "/dashboard/inventory",  icon: ShoppingCart },
     { id: "5", label: "Enter Hours",  href: "/dashboard/hours",      icon: Clock3 },
@@ -210,9 +214,27 @@ export default function DashboardPage() {
     if (!notification.orderId) return;
     try {
       const { data } = await api.get("/orders/" + notification.orderId);
-      setSelectedOrder(mapApiOrder(data));
+      setSelectedOrderForEdit(mapApiOrder(data));
       setIsEditOrderOpen(true);
     } catch (error) { console.error("Failed to fetch order for notification", error); }
+  };
+
+  const handleTransactionClick = async (transaction: Transaction) => {
+    if (!transaction.id) return;
+
+    setIsOrderDetailsLoading(true);
+    setIsOrderDetailsOpen(true);
+
+    try {
+      const { data } = await api.get("/orders/" + transaction.id);
+      setSelectedOrderForDetails(mapApiOrder(data));
+    } catch (error) {
+      console.error("Failed to fetch order for recent transaction", error);
+      setSelectedOrderForDetails(null);
+      setIsOrderDetailsOpen(false);
+    } finally {
+      setIsOrderDetailsLoading(false);
+    }
   };
 
   const handleCustomerClick = async (customerId: string) => {
@@ -226,7 +248,14 @@ export default function DashboardPage() {
 
   const handleClearNotification = (id: string) => clearOne.mutate(id);
   const handleClearAll = () => clearAll.mutate();
-  const handleOrderUpdate = () => { void qc.invalidateQueries(); setSelectedOrder(null); };
+  const handleOrderUpdate = () => { void qc.invalidateQueries(); setSelectedOrderForEdit(null); };
+  const handleOrderDetailsOpenChange = (open: boolean) => {
+    setIsOrderDetailsOpen(open);
+    if (!open) {
+      setSelectedOrderForDetails(null);
+      setIsOrderDetailsLoading(false);
+    }
+  };
 
   if (loading) {
     return (<div className="flex items-center justify-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-primary-500" /></div>);
@@ -259,7 +288,10 @@ export default function DashboardPage() {
       {/* Admin-only row: RecentTransactions + Recent Logged Hours */}
       {userRole !== "staff" && (
         <div className="grid gap-3 grid-cols-1 md:grid-cols-2">
-          <RecentTransactions transactions={transactions} />
+          <RecentTransactions
+            transactions={transactions}
+            onTransactionClick={handleTransactionClick}
+          />
           <div className="bg-white dark:bg-dark-700 rounded-xl border border-dark-200 dark:border-dark-600 shadow-sm p-4">
             <h3 className="text-sm font-semibold text-dark-900 dark:text-white mb-2">Recent Logged Hours</h3>
             <div className="space-y-2">
@@ -278,7 +310,13 @@ export default function DashboardPage() {
         </div>
       )}
       <div className="text-end text-xs text-dark-500 py-2">Copyright {new Date().getFullYear()} Water Shop. All Rights Reserved</div>
-      <EditOrderModal open={isEditOrderOpen} onOpenChange={setIsEditOrderOpen} order={selectedOrder} onUpdate={handleOrderUpdate} />
+      <EditOrderModal open={isEditOrderOpen} onOpenChange={setIsEditOrderOpen} order={selectedOrderForEdit} onUpdate={handleOrderUpdate} />
+      <OrderDetailsModal
+        open={isOrderDetailsOpen}
+        onOpenChange={handleOrderDetailsOpenChange}
+        order={selectedOrderForDetails}
+        loading={isOrderDetailsLoading}
+      />
       <CustomerDetailsModal open={isCustomerModalOpen} onOpenChange={setIsCustomerModalOpen} customer={selectedCustomer} />
     </div>
   );

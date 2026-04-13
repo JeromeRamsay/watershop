@@ -93,6 +93,7 @@ watershop/
         hours/            ← employee hours logging
         inventory/        ← inventory management
         orders/new/       ← new order flow
+        profile/          ← authenticated user profile + password update
         reports/          ← analytics & reports
         settings/         ← store settings
         suppliers/        ← supplier management
@@ -193,6 +194,9 @@ Routes decorated with `@Public()` (no JWT required):
 - `POST /users/login`
 - `POST /refills` (kiosk users are not logged-in)
 - `GET /health` (health probe)
+
+Authenticated self-service account route:
+- `PATCH /users/change-password`
 
 Rate limiting also applied globally via `ThrottlerGuard` (10 req / 60s per IP).
 
@@ -311,6 +315,68 @@ There is no existing shared receipt-print surface, so implement this after order
 - Use the provided business header text exactly, hide the customer section for walk-ins, include all order details, show the item-specific warranty/returns block only when at least one purchased item has policy data, and always include the generic warranty and returns sections from the request.
 - For draft orders on the new-order page, render a preview without requiring the order to be saved first; if no order number exists yet, label it as a draft invoice in the preview.
 
+### Planning Notes — Requested April 2026 Reports + Customer Override Bundle
+
+- Sequence this bundle as: shared report date filters and DTOs -> backend report summary aggregations -> customer detail hydration -> refill override audit model and mutation path -> customer modal UI -> override analytics on reports page -> employee-app metadata cleanup -> regression tests.
+- Do not keep the customer details modal dependent on the paginated customer row object. Fetch hydrated detail data on open so order history, prepaid items, override totals, and future customer-specific analytics stay correct.
+- Prefer a dedicated persisted refill-override audit record over storing only a net number on the customer document. The customer wallet should still hold the live usable balance, but the audit trail must preserve actor, customer, inventory item, signed quantity delta, source, and timestamps.
+- Attribute refill override actions on the server from the authenticated request user. Do not trust a client-supplied actor id for reporting.
+- For employee app metadata, prefer App Router `metadata` exports / `generateMetadata` in `frontend/app/**` instead of client-side head mutation.
+- Validation after each slice: run `cd backend && npm test`, then run `cd frontend && npm run build` after frontend changes.
+
+### ~~Priority 22 — Reports Page Date Range + Business Owner KPIs~~ ✅ DONE
+The current reports page in `frontend/app/dashboard/reports/page.tsx` is driven by chart-level year selectors, and part of its sales data still comes from the paginated `useOrders()` hook. That is not a safe base for owner reporting or arbitrary date-range analysis.
+
+- Replace the current year-only controls with shared `from` and `to` date pickers on the reports page so the entire screen is driven by one explicit date range.
+- Extend `backend/src/reports/reports.controller.ts` and `backend/src/reports/reports.service.ts` to accept `from` and `to` query params. Keep year support only where backward compatibility is needed, but drive the reports page from explicit dates.
+- Do not derive owner KPI cards from paginated frontend order hooks. Add backend summary data for the selected range so totals remain correct regardless of pagination.
+- Add business-owner metrics that are useful at a glance for the selected range, including at minimum: total revenue, total orders, average order value, unique customers served, repeat customers, repeat-customer rate, delivery orders, walk-in orders and walk-in share, prepaid redemptions, refill count, and any summary counts needed to contextualize sales activity.
+- Update the existing reports feature files in `frontend/features/reports/` plus `frontend/lib/queries.ts` and `frontend/features/reports/types.ts` so the page consumes range-based data consistently instead of mixing page-level and chart-level filters.
+- Make employee-hours reporting align with the same date range by extending `backend/src/employee-hours/employee-hours.controller.ts`, `backend/src/employee-hours/employee-hours.service.ts`, and the `useMonthlyHours` query hook if needed.
+- Add refill-override KPI surfaces here once the override audit path exists: by acting user, by customer, and by acting user for a specific customer.
+- Validation: `cd backend && npm test`, then `cd frontend && npm run build`.
+
+### ~~Priority 23 — Customer Details Order History + Refill Overrides~~ ✅ DONE
+The current customer details modal receives a mapped customer row from `frontend/app/dashboard/customers/page.tsx`, and that mapper currently hardcodes `orderHistory: []`. As a result, the modal cannot show full historical order data, and there is no supported way to manually adjust remaining refill balances.
+
+- Stop relying on the customer list row snapshot for modal detail data. Use a hydrated detail fetch on open through `frontend/lib/queries.ts` / `useCustomer(id)` and enrich `GET /customers/:id` in `backend/src/customers/customers.controller.ts` and `backend/src/customers/customers.service.ts` with the data the modal actually needs.
+- Return full customer order history for the Orders & Refills section so the modal shows every order the customer has ever made, not just paginated list-row data.
+- Add persisted refill override support so staff can manually increase or decrease a customer's remaining refills for a specific item without changing historical orders or charging the customer.
+- Prefer a dedicated backend feature for override auditability, such as `backend/src/refill-overrides/`, with controller / service / dto / entity files that follow the repo's NestJS module convention.
+- Each override record should capture at minimum: customer, inventory item, signed quantity delta, acting user, optional notes or reason, source=`manual_override`, and timestamps.
+- Applying an override should update the customer's live refill balance in `wallet.prepaidItems`, but it must not mutate prior order documents. Overrides should count the same as regular refill credits during redemption, while remaining separately reportable.
+- In `frontend/features/customers/components/customer-details-modal.tsx`, add plus / minus controls beside each remaining refill item and add an `Overrides` column beside `Remaining` so the modal shows the net manual adjustment total for each item.
+- Ensure the Remaining column reflects the live usable balance, while the Overrides column reflects the cumulative manual adjustment total for that item.
+- Emit realtime updates after successful override mutations and invalidate affected customer and report queries.
+- Add reporting aggregations for refill overrides by user, by customer, and by user/customer pair so management can audit who is applying overrides and to which accounts.
+- Validation: extend backend customer/report tests for hydrated details and override flows, then run `cd frontend && npm run build`.
+
+### ~~Priority 24 — Employee App Metadata Titles + Descriptions~~ ✅ DONE
+The authenticated frontend app still uses placeholder metadata in `frontend/app/layout.tsx`, and dashboard routes do not define page-aware titles or descriptions.
+
+- Update the employee app metadata so page titles follow the format `Woodstocks Watershop - Dashboard` or `Woodstocks Watershop - <Current Page>` for the authenticated frontend app under `frontend/app/`.
+- Replace the default root description with a concise Woodstocks Watershop business description, then add page-specific description detail where it improves clarity for the active page.
+- Prefer shared metadata templates in `frontend/app/layout.tsx` and `frontend/app/dashboard/layout.tsx`, with per-route overrides or `generateMetadata` where page-specific wording is needed.
+- Cover at minimum the authenticated employee routes: dashboard home, customers, customer edit, orders, new order, deliveries, employees, hours, inventory, profile, reports, settings, suppliers, promotions, login, and signup.
+- Keep kiosk / refill metadata intentionally separate unless the branding and copy should be unified with the employee app.
+- Validation: `cd frontend && npm run build`.
+
+### Planning Notes — Clover Integration for Employee App
+
+- Treat Clover as payment and terminal infrastructure for the authenticated employee app, not as the source of truth for the business. Watershop should continue to own orders, customers, inventory, deliveries, prepaid refills, refill overrides, and reporting models.
+- Best first phase: support Clover for card-present employee checkout only, then add refunds / voids from saved orders, then add reconciliation and reporting. Do not start by syncing customers or inventory into Clover unless a later hardware requirement justifies it.
+- Keep Clover API access backend-only. Add a dedicated NestJS integration surface such as `backend/src/clover/` or a payments module, store Clover credentials in environment variables, and expose internal backend endpoints that the frontend employee app calls through `frontend/lib/api.ts`.
+- Reuse the existing order payment fields in `backend/src/orders/dto/create-order.dto.ts` and `backend/src/orders/entities/order.entity.ts`: `paymentMethod`, `paymentStatus`, `emailReceipt`, and `paymentDetails`. Prefer keeping `paymentMethod` compatible with the current order model and storing Clover-specific processor metadata in a typed `paymentDetails` object rather than expanding enums prematurely.
+- If Clover is implemented, type `paymentDetails` to hold at minimum: `provider`, Clover payment / transaction id, tender label, card brand, last four digits, auth code if available, terminal or device id, receipt or reference URLs, processor status, and any Clover-side order / refund references needed for support or reconciliation.
+- Checkout flow should be: employee builds order in Watershop -> Watershop applies store credit, prepaid redemption, and any internal business rules first -> backend creates or coordinates the Clover payment for the remaining card balance -> success finalizes or updates the Watershop order -> realtime dashboard update is emitted. Handle recovery paths for cases where Clover succeeds but the Watershop save fails.
+- Refund flow should be initiated from saved orders in the employee app, call Clover through the backend, and then update Watershop order state, refund metadata, and reporting consistently.
+- High-value example use cases: walk-in order paid by tap / insert / swipe, split tender where Watershop applies store credit and Clover charges the remainder, refill-credit redemption plus accessory purchase where only the net balance goes to Clover, refunds initiated from the order details view, and future delivery deposits or partial payments if that workflow is introduced.
+- Primary benefits Clover could add to this employee app: real in-store card terminal support, less manual card bookkeeping, stronger processor-backed audit trails, better refund handling, reduced frontend PCI exposure when implemented correctly, and richer reporting on card volume, refunds, voids, terminal activity, and payment discrepancies.
+- Reporting opportunities after Clover integration: card-vs-cash sales mix, Clover refunds and voids, per-terminal payment totals, paid Watershop orders without Clover captures, Clover transactions without matching Watershop orders, and staff-level payment processing activity.
+- Avoid making Clover the owner of custom Watershop behavior such as refill credits, refill overrides, customer wallet balances, delivery logic, or inventory truth. Those business rules already live in Watershop and should remain there even if Clover handles the payment event.
+- If this work is prioritized, sequence it as: typed `paymentDetails` / payment metadata schema -> backend Clover module and env vars -> employee-app checkout integration in the new-order payment flow -> saved-order refund / void path -> webhook or callback verification if needed -> reconciliation and report surfaces -> regression tests.
+- Validation for any Clover slice should include backend unit tests around payment orchestration and failure recovery, `cd frontend && npm run build`, and manual Clover sandbox testing for success, decline, cancel, timeout, and refund scenarios before production rollout.
+
 ---
 
 ## Frontend Patterns
@@ -353,6 +419,11 @@ useDashboardRealtime({ onUpdate: () => refetchData() });
 ### Shared receipt printing
 `frontend/features/orders/components/order-receipt-preview.tsx` owns the shared receipt stylesheet and print path. Keep preview and print markup aligned there, and prefer the off-screen iframe print flow over opening a raw popup window.
 Keep the receipt layout compact enough to fit a standard one-page print for typical orders: tighten spacing before adding new sections, and prefer side-by-side legal copy blocks over stacked boilerplate when width allows.
+Keep enough right-side header space in the preview dialog for the built-in close button, and render item-specific warranty/return lines in the compact `Label: duration - description` style.
+
+### New-order promotions
+`frontend/features/orders/components/add-product-modal.tsx` should always show the active promotion banner for the selected inventory item when the promotion is in date, even if the current quantity does not yet satisfy the min/max threshold. Only apply the promotion discount to the saved line total once the quantity qualifies.
+Treat promotion discounts as pre-tax reductions in `frontend/app/dashboard/orders/new/page.tsx`: line-item promotion discounts reduce the subtotal first, then any order-level discount is applied, and tax is calculated on the discounted subtotal.
 
 ### Cookie names
 | Cookie | Readable by | Purpose |
@@ -377,6 +448,22 @@ npm test -- --watch         # watch mode
 npm test -- --coverage      # coverage report
 ```
 
+Local-only startup:
+```bash
+# Windows local Valkey via Docker Desktop:
+# Start Docker Desktop first, then run:
+# docker pull valkey/valkey:8-alpine
+# docker run -d --name watershop-valkey -p 127.0.0.1:6379:6379 valkey/valkey:8-alpine
+# docker exec watershop-valkey valkey-cli ping   # expect PONG
+
+cd backend
+npm run start:local         # loads backend/.env.local for local MongoDB + Valkey
+npm run seed:local-admin    # upserts a local admin/admin login in the local MongoDB
+
+cd frontend
+npm run start:local         # uses frontend/.env.local against the local backend
+```
+
 After every backend change, run `npm test` and confirm all tests pass before considering the task done.
 
 After frontend changes, run `cd frontend && npm run build` before considering deployment issues resolved. The DigitalOcean frontend deploy uses the production Next.js build, and recent blockers surfaced there from strict compile/type checks in dashboard modal components.
@@ -395,6 +482,7 @@ After frontend changes, run `cd frontend && npm run build` before considering de
 | Notification | `message, type: low_stock\|out_of_stock\|refill_order, inventoryItemId→Inventory, resolved (default false)` |
 | Supplier | `name, phone, email, address, isActive (soft-delete)` |
 | Setting | `storeName, currency, taxRate, receiptFooter, enableLowStockAlerts, contactPhone, contactEmail, operatingHours: { open, close }` |
+| RefillOverride | `customer→Customer, itemId→Inventory, itemName, quantityDelta, actedBy→User, notes, source: manual_override, createdAt` |
 | EmployeeHour | `user→User, workDate, hours (0–24), notes, createdBy→User` |
 
 ---
@@ -426,11 +514,12 @@ After frontend changes, run `cd frontend && npm run build` before considering de
 7. **Soft-delete only** for Inventory and Suppliers — set `isActive: false`, never delete the document
 8. **Run `npm test` after every backend change** — the suite must stay green
 9. **Never fetch all records** — paginate `findAll` methods that could grow large (`orders`, `deliveries`)
-10. **Use `lib/api.ts`** for all frontend HTTP calls — never bypass the interceptor
-11. **Kiosk routes are public** — `POST /refills` must not require a JWT
-12. **Implement, don't just suggest** — After confirmation, use file edit tools and terminal commands to actually make the changes
-13. **Keep this file current** — After every completed implementation, update `watershop.agent.md`: strike through finished priorities, add/remove bugs, update model fields or env var statuses as needed
-14. **Treat `frontend_public/` as internet-facing** — avoid dashboard-only assumptions, and do not apply the Next.js/TanStack Query conventions there unless it has been migrated into `frontend/`
-15. **Treat moving `frontend_public/` into `frontend/` as a migration** — convert HTML pages to App Router routes and replace PHP handlers before considering the move complete
-16. **DigitalOcean deploys directly from GitHub** — the current App Platform apps use GitHub source with `deploy_on_push: true`, so do not assume GitHub Actions are part of the deployment path unless they are intentionally reintroduced
+10. **Use route-specific `@Throttle` overrides** for authenticated staff workflows that legitimately need repeated actions (for example refill overrides) instead of weakening the global default
+11. **Use `lib/api.ts`** for all frontend HTTP calls — never bypass the interceptor
+12. **Kiosk routes are public** — `POST /refills` must not require a JWT
+13. **Implement, don't just suggest** — After confirmation, use file edit tools and terminal commands to actually make the changes
+14. **Keep this file current** — After every completed implementation, update `watershop.agent.md`: strike through finished priorities, add/remove bugs, update model fields or env var statuses as needed
+15. **Treat `frontend_public/` as internet-facing** — avoid dashboard-only assumptions, and do not apply the Next.js/TanStack Query conventions there unless it has been migrated into `frontend/`
+16. **Treat moving `frontend_public/` into `frontend/` as a migration** — convert HTML pages to App Router routes and replace PHP handlers before considering the move complete
+17. **DigitalOcean deploys directly from GitHub** — the current App Platform apps use GitHub source with `deploy_on_push: true`, so do not assume GitHub Actions are part of the deployment path unless they are intentionally reintroduced
 

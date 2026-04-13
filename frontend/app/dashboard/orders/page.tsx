@@ -344,11 +344,10 @@ export default function OrdersPage() {
           </Button> */}
           <Link href="/dashboard/orders/new">
             <Button
-              variant="outline"
-              className="border-primary-500 text-primary-500 hover:bg-primary-100 dark:hover:bg-primary-900/20 hover:text-primary-600 dark:hover:text-primary-400"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
             >
               <Plus className="h-4 w-4 mr-2" />
-              Add New Order
+              + Add New Order
             </Button>
           </Link>
           <Button

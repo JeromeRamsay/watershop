@@ -13,6 +13,7 @@ export function QuickActions({ actions }: QuickActionsProps) {
       <div className="space-y-1.5 flex flex-col">
         {actions.map((action) => {
           const Icon = action.icon;
+          const isOrderAction = action.href === "/dashboard/orders/new";
           return (
             <Link
               key={action.id}
@@ -20,17 +21,17 @@ export function QuickActions({ actions }: QuickActionsProps) {
               className="flex items-center justify-between p-2 rounded-xl hover:bg-dark-100 dark:hover:bg-dark-700 transition-colors group flex-1"
             >
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-primary-100 dark:bg-primary-900 flex items-center justify-center">
+                <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${isOrderAction ? "bg-emerald-100 dark:bg-emerald-900/40" : "bg-primary-100 dark:bg-primary-900"}`}>
                   <Icon
-                    className="w-4 h-4 text-primary-600 dark:text-primary-400"
+                    className={`w-4 h-4 ${isOrderAction ? "text-emerald-600 dark:text-emerald-400" : "text-primary-600 dark:text-primary-400"}`}
                     // @ts-expect-error - Lucide icons accept strokeWidth prop
                     strokeWidth={2.5}
                   />
                 </div>
                 <span className="text-xs font-medium text-dark-900 dark:text-white">{action.label}</span>
               </div>
-              <div className="w-5 h-5 rounded-full bg-primary-100 flex items-center justify-center">
-                <ChevronRight className="w-3 h-3 text-primary-500" />
+              <div className={`w-5 h-5 rounded-full flex items-center justify-center ${isOrderAction ? "bg-emerald-100 dark:bg-emerald-900/40" : "bg-primary-100"}`}>
+                <ChevronRight className={`w-3 h-3 ${isOrderAction ? "text-emerald-600 dark:text-emerald-400" : "text-primary-500"}`} />
               </div>
             </Link>
           );

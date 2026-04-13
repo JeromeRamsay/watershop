@@ -86,7 +86,6 @@ export default function CustomersPage() {
       customerType: c.type === "business" ? "Business" : "Individual",
       status: "Active",
       totalRefills: Number(c.totalRefills || 0),
-      orderHistory: [],
     };
   }, []);
 
@@ -184,15 +183,18 @@ export default function CustomersPage() {
             <SearchBar value={searchQuery} onChange={setSearchQuery} />
           </div>
           <Button
+            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+            onClick={() => router.push("/dashboard/orders/new")}
+          >
+            <ShoppingCart className="h-4 w-4 mr-2" />
+            + Add New Order
+          </Button>
+          <Button
             className="bg-primary-500 hover:bg-primary-600 text-white"
             onClick={() => setIsCreateModalOpen(true)}
           >
             <Plus className="h-4 w-4 mr-2" />
             Create Customer
-          </Button>
-          <Button className="bg-primary-500 hover:bg-primary-600 text-white">
-            <ShoppingCart className="h-4 w-4 mr-2" />
-            Quickly Sell
           </Button>
           <Button
             variant="outline"

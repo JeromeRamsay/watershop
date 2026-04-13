@@ -4,9 +4,13 @@ import { cn } from "@/lib/utils";
 
 interface RecentTransactionsProps {
   transactions: Transaction[];
+  onTransactionClick?: (transaction: Transaction) => void;
 }
 
-export function RecentTransactions({ transactions }: RecentTransactionsProps) {
+export function RecentTransactions({
+  transactions,
+  onTransactionClick,
+}: RecentTransactionsProps) {
   return (
     <div className="bg-white dark:bg-dark-700 rounded-xl border border-dark-200 dark:border-dark-600 shadow-sm dark:shadow-dark-900/50 p-4 flex flex-col w-full overflow-hidden">
       <div className="flex items-center justify-between mb-3 shrink-0">
@@ -42,7 +46,29 @@ export function RecentTransactions({ transactions }: RecentTransactionsProps) {
             {transactions.map((transaction) => (
               <tr
                 key={transaction.id}
-                className="border-b border-dark-200 dark:border-dark-600 last:border-0 hover:bg-dark-50 dark:hover:bg-dark-600 transition-colors"
+                className={cn(
+                  "border-b border-dark-200 dark:border-dark-600 last:border-0 transition-colors",
+                  onTransactionClick
+                    ? "cursor-pointer hover:bg-dark-50 dark:hover:bg-dark-600"
+                    : "",
+                )}
+                onClick={
+                  onTransactionClick
+                    ? () => onTransactionClick(transaction)
+                    : undefined
+                }
+                onKeyDown={
+                  onTransactionClick
+                    ? (event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          onTransactionClick(transaction);
+                        }
+                      }
+                    : undefined
+                }
+                role={onTransactionClick ? "button" : undefined}
+                tabIndex={onTransactionClick ? 0 : undefined}
               >
                 <td className="py-2 px-2 text-xs text-dark-900 dark:text-white text-center">
                   {transaction.customer}

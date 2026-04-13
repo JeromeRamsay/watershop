@@ -1,5 +1,12 @@
+import type { Metadata } from "next";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
+import { buildPageMetadata } from "@/lib/metadata";
+
+export const metadata: Metadata = buildPageMetadata(
+  "Dashboard",
+  "Monitor orders, deliveries, sales activity, and staff operations from the Woodstocks Watershop dashboard.",
+);
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (

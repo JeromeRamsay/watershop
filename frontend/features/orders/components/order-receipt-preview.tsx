@@ -547,6 +547,16 @@ const formatPolicyDuration = (policy?: PolicyDetails) => {
   return parts.length > 0 ? parts.join(" ") : undefined;
 };
 
+const formatPolicyLine = (label: string, policy?: PolicyDetails) => {
+  if (!policy) return undefined;
+
+  const duration = formatPolicyDuration(policy);
+  const description = policy.description?.trim();
+  const details = [duration, description].filter(Boolean).join(" - ");
+
+  return details ? `${label}: ${details}` : undefined;
+};
+
 const getAmountPaid = (order: Order) => {
   if (typeof order.amountPaid === "number") {
     return order.amountPaid;
@@ -617,30 +627,30 @@ const OrderReceiptDocument = forwardRef<HTMLDivElement, OrderReceiptDocumentProp
             </div>
           </div>
 
-          <div className="receipt-meta space-y-2 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 sm:min-w-[250px]">
-            <div className="receipt-meta-row flex items-center justify-between gap-4">
+          <div className="receipt-meta space-y-0 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 sm:min-w-[250px]">
+            <div className="receipt-meta-row flex items-center justify-between gap-4 leading-tight">
               <span className="receipt-label font-medium text-slate-500">Order Number</span>
               <span className="receipt-emphasis font-semibold text-slate-900">
                 {draft || !order.orderId ? "DRAFT" : order.orderId}
               </span>
             </div>
-            <div className="receipt-meta-row flex items-center justify-between gap-4">
+            <div className="receipt-meta-row flex items-center justify-between gap-4 leading-tight">
               <span className="receipt-label font-medium text-slate-500">Created</span>
               <span>{formatDateTime(order.createdAt)}</span>
             </div>
-            <div className="receipt-meta-row flex items-center justify-between gap-4">
+            <div className="receipt-meta-row flex items-center justify-between gap-4 leading-tight">
               <span className="receipt-label font-medium text-slate-500">Delivery Type</span>
               <span>{normalizedDeliveryType}</span>
             </div>
-            <div className="receipt-meta-row flex items-center justify-between gap-4">
+            <div className="receipt-meta-row flex items-center justify-between gap-4 leading-tight">
               <span className="receipt-label font-medium text-slate-500">Order Status</span>
               <span>{order.orderStatus}</span>
             </div>
-            <div className="receipt-meta-row flex items-center justify-between gap-4">
+            <div className="receipt-meta-row flex items-center justify-between gap-4 leading-tight">
               <span className="receipt-label font-medium text-slate-500">Payment Status</span>
               <span>{order.paymentStatus}</span>
             </div>
-            <div className="receipt-meta-row flex items-center justify-between gap-4">
+            <div className="receipt-meta-row flex items-center justify-between gap-4 leading-tight">
               <span className="receipt-label font-medium text-slate-500">Payment Method</span>
               <span>
                 {order.paymentDetails?.mode === "split"
@@ -795,35 +805,34 @@ const OrderReceiptDocument = forwardRef<HTMLDivElement, OrderReceiptDocumentProp
             </h2>
             <div className="receipt-policy-list space-y-4 text-sm text-slate-700">
               {policyItems.map((item, index) => {
-                const warrantyDuration = formatPolicyDuration(item.warranty);
-                const returnDuration = formatPolicyDuration(item.returnPolicy);
+                const warrantyLine = formatPolicyLine(
+                  "Warranty Period",
+                  item.warranty,
+                );
+                const returnPolicyLine = formatPolicyLine(
+                  "Return Policy Period",
+                  item.returnPolicy,
+                );
+
+                if (!warrantyLine && !returnPolicyLine) {
+                  return null;
+                }
 
                 return (
                   <div
                     key={`${item.id}-policy-${index}`}
                     className="receipt-policy-item border-t border-slate-200 pt-4 first:border-t-0 first:pt-0"
                   >
-                    <p className="receipt-policy-title text-sm font-semibold text-slate-900">
-                      {item.productName}
-                    </p>
-                    {item.warranty && (
-                      <div className="receipt-policy-block receipt-policy-block-start mt-2 space-y-1">
-                        <p className="receipt-policy-subtitle font-medium text-slate-900">Warranty</p>
-                        {item.warranty.description && (
-                          <p className="receipt-prewrap whitespace-pre-wrap">{item.warranty.description}</p>
-                        )}
-                        {warrantyDuration && <p>Coverage period: {warrantyDuration}</p>}
-                      </div>
-                    )}
-                    {item.returnPolicy && (
-                      <div className="receipt-policy-block mt-2 space-y-1">
-                        <p className="receipt-policy-subtitle font-medium text-slate-900">Return Policy</p>
-                        {item.returnPolicy.description && (
-                          <p className="receipt-prewrap whitespace-pre-wrap">{item.returnPolicy.description}</p>
-                        )}
-                        {returnDuration && <p>Return window: {returnDuration}</p>}
-                      </div>
-                    )}
+                    {warrantyLine ? (
+                      <p className="receipt-prewrap whitespace-pre-wrap">
+                        {warrantyLine}
+                      </p>
+                    ) : null}
+                    {returnPolicyLine ? (
+                      <p className="receipt-prewrap whitespace-pre-wrap">
+                        {returnPolicyLine}
+                      </p>
+                    ) : null}
                   </div>
                 );
               })}
@@ -851,7 +860,7 @@ const OrderReceiptDocument = forwardRef<HTMLDivElement, OrderReceiptDocumentProp
           </section>
         </div>
 
-        <p className="receipt-footer-note receipt-footer-message mt-6 text-center text-sm text-slate-500">
+        <p className="receipt-footer-note receipt-footer-message mt-6 pt-1 text-center text-sm text-slate-500">
           {receiptFooter}
         </p>
       </div>
@@ -935,8 +944,8 @@ export function OrderReceiptPreviewDialog({
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="flex max-h-[94vh] w-[96vw] max-w-[96vw] flex-col gap-0 overflow-hidden p-0 lg:max-w-[1500px]">
-          <DialogHeader className="border-b border-dark-100 bg-white px-6 py-4 dark:border-dark-700 dark:bg-dark-800">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <DialogHeader className="border-b border-dark-100 bg-white px-6 py-4 pr-16 dark:border-dark-700 dark:bg-dark-800 sm:pr-20">
+            <div className="flex flex-col gap-3 pr-2 sm:flex-row sm:items-center sm:justify-between sm:pr-0">
               <div>
                 <DialogTitle>Receipt Preview</DialogTitle>
                 <DialogDescription>

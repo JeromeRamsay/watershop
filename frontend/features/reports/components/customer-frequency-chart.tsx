@@ -9,28 +9,12 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 interface CustomerFrequencyChartProps {
   data: { name: string; visits: number }[];
-  year: string;
-  onYearChange: (year: string) => void;
 }
 
-export function CustomerFrequencyChart({
-  data,
-  year,
-  onYearChange,
-}: CustomerFrequencyChartProps) {
-  const years = [0, 1, 2, 3].map((offset) =>
-    (new Date().getFullYear() - offset).toString(),
-  );
+export function CustomerFrequencyChart({ data }: CustomerFrequencyChartProps) {
 
   // Calculate the maximum value from the data (fallback to 0 to avoid -Infinity on empty data)
   const maxValue = Math.max(0, ...data.map((item) => item.visits));
@@ -49,18 +33,6 @@ export function CustomerFrequencyChart({
         <h3 className="text-lg font-bold text-dark-900 dark:text-white">
           Most Frequent Customers
         </h3>
-        <Select value={year} onValueChange={onYearChange}>
-          <SelectTrigger className="w-24 h-9 text-sm bg-white dark:bg-dark-700 border-[#e5e7eb] dark:border-dark-600 rounded-lg">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {years.map((y) => (
-              <SelectItem key={y} value={y}>
-                {y}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
       </div>
       <ResponsiveContainer width="100%" height={300}>
         <BarChart

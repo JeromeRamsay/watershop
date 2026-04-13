@@ -8,12 +8,20 @@ import { ClientSession, Model } from "mongoose";
 import { CreateCustomerDto } from "./dto/create-customer.dto";
 import { UpdateCustomerDto } from "./dto/update-customer.dto";
 import { Customer, CustomerDocument } from "./entities/customer.entity";
+import { Order, OrderDocument } from "../orders/entities/order.entity";
 import { RealtimeService } from "../realtime/realtime.service";
+import {
+  RefillOverride,
+  RefillOverrideDocument,
+} from "../refill-overrides/entities/refill-override.entity";
 
 @Injectable()
 export class CustomersService {
   constructor(
     @InjectModel(Customer.name) private customerModel: Model<CustomerDocument>,
+    @InjectModel(Order.name) private orderModel: Model<OrderDocument>,
+    @InjectModel(RefillOverride.name)
+    private refillOverrideModel: Model<RefillOverrideDocument>,
     private realtimeService: RealtimeService,
   ) {}
 
@@ -132,12 +140,106 @@ export class CustomersService {
     };
   }
 
-  async findOne(id: string): Promise<Customer> {
+  async findOne(id: string): Promise<Record<string, unknown>> {
     const customer = await this.customerModel.findById(id).exec();
     if (!customer) {
       throw new NotFoundException(`Customer with ID ${id} not found`);
     }
-    return customer;
+
+    const customerRecord =
+      typeof (customer as CustomerDocument & { toObject?: () => Record<string, unknown> }).toObject ===
+      "function"
+        ? (customer as CustomerDocument & { toObject: () => Record<string, unknown> }).toObject()
+        : (customer as unknown as Record<string, unknown>);
+
+    const customerId = customerRecord._id;
+
+    const [orders, overrideTotals] = await Promise.all([
+      this.orderModel.find({ customer: customerId }).sort({ createdAt: -1 }).exec(),
+      this.refillOverrideModel.aggregate([
+        { $match: { customer: customerId } },
+        {
+          $group: {
+            _id: "$itemId",
+            itemName: { $last: "$itemName" },
+            quantityDelta: { $sum: "$quantityDelta" },
+            count: { $sum: 1 },
+          },
+        },
+      ]),
+    ]);
+
+    const overrideMap = new Map<string, number>(
+      (overrideTotals || []).map((row: { _id: { toString: () => string }; quantityDelta: number }) => [
+        row._id.toString(),
+        Number(row.quantityDelta || 0),
+      ]),
+    );
+
+    const wallet =
+      (customerRecord.wallet as
+        | {
+            storeCredit?: number;
+            prepaidItems?: Array<{
+              itemId?: { toString?: () => string } | string;
+              itemName?: string;
+              quantityRemaining?: number;
+              expiryDate?: Date;
+            }>;
+          }
+        | undefined) || { storeCredit: 0, prepaidItems: [] };
+
+    const orderHistory = orders.map((order) => {
+      const orderRecord =
+        typeof (order as OrderDocument & { toObject?: () => Record<string, unknown> }).toObject ===
+        "function"
+          ? (order as OrderDocument & { toObject: () => Record<string, unknown> }).toObject()
+          : (order as unknown as Record<string, unknown>);
+
+      const items = Array.isArray(orderRecord.items)
+        ? (orderRecord.items as Array<{ quantity?: number }>)
+        : [];
+      const refills = Array.isArray(orderRecord.refills)
+        ? (orderRecord.refills as Array<{ quantity?: number }>)
+        : [];
+
+      return {
+        id: String(orderRecord._id),
+        orderId: String(orderRecord.orderNumber || orderRecord._id),
+        createdAt: orderRecord.createdAt,
+        totalPrice: Number(orderRecord.grandTotal || 0),
+        orderStatus: String(orderRecord.status || ""),
+        paymentStatus: String(orderRecord.paymentStatus || ""),
+        itemsCount: items.reduce(
+          (sum, item) => sum + Number(item.quantity || 0),
+          0,
+        ),
+        refillCount: Number(
+          orderRecord.refillCount ||
+            refills.reduce((sum, item) => sum + Number(item.quantity || 0), 0),
+        ),
+      };
+    });
+
+    return {
+      ...customerRecord,
+      wallet: {
+        storeCredit: Number(wallet.storeCredit || 0),
+        prepaidItems: (wallet.prepaidItems || []).map((item) => ({
+          ...item,
+          overrideQuantity: overrideMap.get(String(item.itemId?.toString?.() || item.itemId || "")) || 0,
+        })),
+      },
+      orderHistory,
+      overrideTotals: (overrideTotals || []).map(
+        (row: { _id: { toString: () => string }; itemName: string; quantityDelta: number; count: number }) => ({
+          itemId: row._id.toString(),
+          itemName: row.itemName,
+          quantityDelta: Number(row.quantityDelta || 0),
+          count: Number(row.count || 0),
+        }),
+      ),
+    };
   }
 
   // Search by Phone or Name (Useful for POS search bar)

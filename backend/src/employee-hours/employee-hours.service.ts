@@ -155,34 +155,62 @@ export class EmployeeHoursService {
     ]);
   }
 
-  async getMonthlySummary(year?: number, userId?: string) {
+  async getMonthlySummary(filters: {
+    year?: number;
+    userId?: string;
+    from?: string;
+    to?: string;
+  } = {}) {
     const now = new Date();
-    const targetYear = year || now.getFullYear();
+    const targetYear = filters.year || now.getFullYear();
 
-    const match: Record<string, unknown> = {
-      workDate: {
+    const match: Record<string, unknown> = {};
+
+    if (filters.from || filters.to) {
+      const dateQuery: Record<string, Date> = {};
+      if (filters.from) {
+        const from = new Date(filters.from);
+        if (Number.isNaN(from.getTime())) {
+          throw new BadRequestException("Invalid from date");
+        }
+        dateQuery.$gte = from;
+      }
+      if (filters.to) {
+        const to = new Date(filters.to);
+        if (Number.isNaN(to.getTime())) {
+          throw new BadRequestException("Invalid to date");
+        }
+        dateQuery.$lte = to;
+      }
+      match.workDate = dateQuery;
+    } else {
+      match.workDate = {
         $gte: new Date(`${targetYear}-01-01T00:00:00.000Z`),
         $lte: new Date(`${targetYear}-12-31T23:59:59.999Z`),
-      },
-    };
+      };
+    }
 
-    if (userId) {
-      match.user = new Types.ObjectId(userId);
+    if (filters.userId) {
+      match.user = new Types.ObjectId(filters.userId);
     }
 
     return this.employeeHourModel.aggregate([
       { $match: match },
       {
         $group: {
-          _id: { $month: "$workDate" },
+          _id: {
+            year: { $year: "$workDate" },
+            month: { $month: "$workDate" },
+          },
           totalHours: { $sum: "$hours" },
         },
       },
-      { $sort: { _id: 1 } },
+      { $sort: { "_id.year": 1, "_id.month": 1 } },
       {
         $project: {
           _id: 0,
-          month: "$_id",
+          year: "$_id.year",
+          month: "$_id.month",
           totalHours: 1,
         },
       },

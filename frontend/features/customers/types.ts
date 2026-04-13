@@ -2,6 +2,7 @@ export interface PrepaidItem {
   itemId: string;
   itemName: string;
   quantityRemaining: number;
+  overrideQuantity?: number;
   expiryDate?: string;
 }
 
@@ -26,6 +27,40 @@ export interface CustomerOrderSummary {
   paymentStatus: string;
   itemsCount: number;
   refillCount: number;
+}
+
+export interface CustomerOverrideTotal {
+  itemId: string;
+  itemName: string;
+  quantityDelta: number;
+  count: number;
+}
+
+export interface CustomerAddress {
+  street?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+  country?: string;
+  isDefault?: boolean;
+}
+
+export interface HydratedCustomer {
+  _id: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
+  notes?: string;
+  type?: "individual" | "business";
+  addresses?: CustomerAddress[];
+  familyMembers?: FamilyMember[];
+  wallet?: {
+    storeCredit?: number;
+    prepaidItems?: PrepaidItem[];
+  };
+  orderHistory?: CustomerOrderSummary[];
+  overrideTotals?: CustomerOverrideTotal[];
 }
 
 export interface Customer {

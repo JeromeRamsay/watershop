@@ -9,28 +9,12 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 interface WalkInTrendChartProps {
   data: { month: string; orders: number }[];
-  year: string;
-  onYearChange: (year: string) => void;
 }
 
-export function WalkInTrendChart({
-  data,
-  year,
-  onYearChange,
-}: WalkInTrendChartProps) {
-  const years = [0, 1, 2, 3].map((offset) =>
-    (new Date().getFullYear() - offset).toString(),
-  );
+export function WalkInTrendChart({ data }: WalkInTrendChartProps) {
 
   const maxValue = Math.max(...data.map((item) => item.orders), 1);
   const yAxisMax = Math.ceil(maxValue * 1.5);
@@ -44,18 +28,6 @@ export function WalkInTrendChart({
         <h3 className="text-lg font-bold text-dark-900 dark:text-white">
           Walk-in Orders by Month
         </h3>
-        <Select value={year} onValueChange={onYearChange}>
-          <SelectTrigger className="w-24 h-9 text-sm bg-white dark:bg-dark-700 border-[#e5e7eb] dark:border-dark-600 rounded-lg">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {years.map((y) => (
-              <SelectItem key={y} value={y}>
-                {y}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
       </div>
       <ResponsiveContainer width="100%" height={300}>
         <BarChart

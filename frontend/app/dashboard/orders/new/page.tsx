@@ -514,27 +514,6 @@ function AddNewOrderContent() {
           {/* 1. Customer Information */}
           <div>
             <h2 className="text-lg font-semibold text-dark-900 dark:text-white mb-4">
-
-                <div className="space-y-2 md:col-span-2">
-                  <Label
-                    htmlFor="orderNotes"
-                    className="text-sm text-dark-600 dark:text-dark-300"
-                  >
-                    Order Notes
-                  </Label>
-                  <Textarea
-                    id="orderNotes"
-                    value={formData.notes}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        notes: e.target.value,
-                      })
-                    }
-                    placeholder="Add any order-specific notes for staff or the customer"
-                    className="min-h-28"
-                  />
-                </div>
               Customer Information
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -1090,6 +1069,27 @@ function AddNewOrderContent() {
                 />
               </div>
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label
+              htmlFor="orderNotes"
+              className="text-sm text-dark-600 dark:text-dark-300"
+            >
+              Order Notes
+            </Label>
+            <Textarea
+              id="orderNotes"
+              value={formData.notes}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  notes: e.target.value,
+                })
+              }
+              placeholder="Add any order-specific notes for staff or the customer"
+              className="min-h-28"
+            />
           </div>
 
           {/* Divider */}

@@ -279,7 +279,7 @@ export default function InventoryPage() {
           </h1>
 
           <div className="flex items-center gap-3 flex-wrap">
-            <Button className={solidBlue} onClick={() => router.push("/dashboard/orders/new")}>New Order</Button>
+            <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => router.push("/dashboard/orders/new")}>+ Add New Order</Button>
 
             <Button
               variant="outline"

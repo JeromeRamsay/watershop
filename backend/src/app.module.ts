@@ -22,6 +22,7 @@ import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler";
 import { TerminusModule } from "@nestjs/terminus";
 import { HealthController } from "./health.controller";
 import { PromotionsModule } from "./promotions/promotions.module";
+import { RefillOverridesModule } from "./refill-overrides/refill-overrides.module";
 
 @Module({
   imports: [
@@ -62,6 +63,7 @@ import { PromotionsModule } from "./promotions/promotions.module";
     RealtimeModule,
     EmployeeHoursModule,
     PromotionsModule,
+    RefillOverridesModule,
   ],
   controllers: [AppController],
   providers: [

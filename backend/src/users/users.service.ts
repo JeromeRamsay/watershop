@@ -1,6 +1,7 @@
 import {
   Injectable,
   BadRequestException,
+  ForbiddenException,
   UnauthorizedException,
   NotFoundException,
 } from "@nestjs/common";
@@ -8,7 +9,12 @@ import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
 import { User, UserDocument } from "./entities/user.entity";
 import { RegisterDto, LoginDto } from "./dto/auth.dto";
-import { CreateManagedUserDto, UpdateManagedUserDto } from "./dto/manage-user.dto";
+import {
+  CreateManagedUserDto,
+  UpdateManagedUserDto,
+  ResetPasswordDto,
+} from "./dto/manage-user.dto";
+import { ChangePasswordDto } from "./dto/change-password.dto";
 import * as bcrypt from "bcrypt";
 import { JwtService } from "@nestjs/jwt";
 import { RealtimeService } from "../realtime/realtime.service";
@@ -52,7 +58,8 @@ export class UsersService {
     if (user.archivedAt) {
       throw new UnauthorizedException("Account is deactivated");
     }
-    if (!user.isActive) throw new UnauthorizedException("Account is deactivated");
+    if (!user.isActive)
+      throw new UnauthorizedException("Account is deactivated");
 
     // Compare Password
     const isMatch = await bcrypt.compare(password, user.password);
@@ -88,11 +95,16 @@ export class UsersService {
     if (!includeInactive) {
       query.isActive = true;
     }
-    return this.userModel.find(query).select("-password").sort({ createdAt: -1 });
+    return this.userModel
+      .find(query)
+      .select("-password")
+      .sort({ createdAt: -1 });
   }
 
   async createManagedUser(createDto: CreateManagedUserDto) {
-    const existing = await this.userModel.findOne({ username: createDto.username });
+    const existing = await this.userModel.findOne({
+      username: createDto.username,
+    });
     if (existing) throw new BadRequestException("Username already taken");
 
     const hashedPassword = await bcrypt.hash(createDto.password, 10);
@@ -108,6 +120,26 @@ export class UsersService {
       message: "User created successfully",
       user: await this.userModel.findById(user._id).select("-password"),
     };
+  }
+
+  async changePassword(userId: string, dto: ChangePasswordDto) {
+    const user = await this.userModel.findById(userId);
+    if (!user) {
+      throw new NotFoundException("User not found");
+    }
+    if (user.archivedAt || !user.isActive) {
+      throw new UnauthorizedException("Account is deactivated");
+    }
+
+    const isMatch = await bcrypt.compare(dto.currentPassword, user.password);
+    if (!isMatch) {
+      throw new UnauthorizedException("Current password is incorrect");
+    }
+
+    user.password = await bcrypt.hash(dto.newPassword, 10);
+    await user.save();
+    this.realtimeService.emitDashboardUpdate("users.password_changed");
+    return { message: "Password updated successfully" };
   }
 
   async updateManagedUser(id: string, updateDto: UpdateManagedUserDto) {
@@ -160,18 +192,36 @@ export class UsersService {
     }
 
     if (updated.role.toLowerCase() !== "staff") {
-      throw new BadRequestException("Only staff accounts can be permanently deleted");
+      throw new BadRequestException(
+        "Only staff accounts can be permanently deleted",
+      );
     }
 
     this.realtimeService.emitDashboardUpdate("users.archived");
     return updated;
   }
 
+  async resetPassword(dto: ResetPasswordDto) {
+    if (process.env.NODE_ENV === "production") {
+      throw new ForbiddenException("This endpoint is disabled in production");
+    }
+    const user = await this.userModel.findOne({ username: dto.username });
+    if (!user) throw new NotFoundException(`User "${dto.username}" not found`);
+    user.password = await bcrypt.hash(dto.newPassword, 10);
+    await user.save();
+    this.realtimeService.emitDashboardUpdate("users.password_reset");
+    return { message: `Password reset successfully for user "${dto.username}"` };
+  }
+
   async getLoginActivity(limit = 50) {
-    const safeLimit = Number.isFinite(limit) ? Math.min(Math.max(limit, 1), 200) : 50;
+    const safeLimit = Number.isFinite(limit)
+      ? Math.min(Math.max(limit, 1), 200)
+      : 50;
     return this.userModel
       .find()
-      .select("firstName lastName username role isActive createdAt lastLoginAt loginCount")
+      .select(
+        "firstName lastName username role isActive createdAt lastLoginAt loginCount",
+      )
       .sort({ lastLoginAt: -1, createdAt: -1 })
       .limit(safeLimit);
   }

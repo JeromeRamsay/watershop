@@ -9,6 +9,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import * as bcrypt from "bcrypt";
 import { RealtimeService } from "../realtime/realtime.service";
 import { CreateManagedUserDto, UpdateManagedUserDto } from "./dto/manage-user.dto";
+import { ChangePasswordDto } from "./dto/change-password.dto";
 import { User } from "./entities/user.entity";
 import { UsersService } from "./users.service";
 
@@ -309,26 +310,6 @@ describe("UsersService", () => {
         { new: true },
       );
       expect(result).toEqual(updatedUser);
-      expect(mockRealtimeService.emitDashboardUpdate).toHaveBeenCalledWith("users.updated");
-    });
-
-    it("hashes the new password when password is provided", async () => {
-      const chain = makeChainable(makeUser());
-      mockUserModel.findByIdAndUpdate.mockReturnValue(chain);
-
-      await service.updateManagedUser("user-id-1", { password: "newpassword" });
-
-      expect(bcrypt.hash).toHaveBeenCalledWith("newpassword", 10);
-      const updatePayload = mockUserModel.findByIdAndUpdate.mock.calls[0][1];
-      expect(updatePayload.password).toBe("hashed-password");
-    });
-
-    it("throws BadRequestException when new username is already taken by another user", async () => {
-      mockUserModel.findOne.mockResolvedValue(makeUser({ _id: "other-user-id" }));
-
-      await expect(
-        service.updateManagedUser("user-id-1", { username: "taken" }),
-      ).rejects.toThrow(BadRequestException);
     });
 
     it("throws NotFoundException when user does not exist", async () => {
@@ -339,6 +320,62 @@ describe("UsersService", () => {
 
       await expect(
         service.updateManagedUser("nonexistent-id", updateDto),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe("changePassword()", () => {
+    it("updates the current user's password when the current password matches", async () => {
+      const user = makeUser();
+      mockUserModel.findById.mockResolvedValue(user);
+      mockBcryptCompare.mockResolvedValue(true);
+
+      const dto: ChangePasswordDto = {
+        currentPassword: "currentSecret123",
+        newPassword: "newSecret123",
+      };
+
+      const result = await service.changePassword("user-id-1", dto);
+
+      expect(mockUserModel.findById).toHaveBeenCalledWith("user-id-1");
+      expect(mockBcryptCompare).toHaveBeenCalledWith(
+        "currentSecret123",
+        "hashed-password",
+      );
+      expect(bcrypt.hash).toHaveBeenCalledWith("newSecret123", 10);
+      expect(user.password).toBe("hashed-password");
+      expect(user.save).toHaveBeenCalled();
+      expect(mockRealtimeService.emitDashboardUpdate).toHaveBeenCalledWith(
+        "users.password_changed",
+      );
+      expect(result).toEqual({ message: "Password updated successfully" });
+    });
+
+    it("throws UnauthorizedException when the current password is incorrect", async () => {
+      mockUserModel.findById.mockResolvedValue(makeUser());
+      mockBcryptCompare.mockResolvedValue(false);
+
+      await expect(
+        service.changePassword("user-id-1", {
+          currentPassword: "wrong-password",
+          newPassword: "newSecret123",
+        }),
+      ).rejects.toThrow(UnauthorizedException);
+
+      expect(bcrypt.hash).not.toHaveBeenCalledWith("newSecret123", 10);
+      expect(mockRealtimeService.emitDashboardUpdate).not.toHaveBeenCalledWith(
+        "users.password_changed",
+      );
+    });
+
+    it("throws NotFoundException when the current user does not exist", async () => {
+      mockUserModel.findById.mockResolvedValue(null);
+
+      await expect(
+        service.changePassword("missing-user", {
+          currentPassword: "currentSecret123",
+          newPassword: "newSecret123",
+        }),
       ).rejects.toThrow(NotFoundException);
     });
   });

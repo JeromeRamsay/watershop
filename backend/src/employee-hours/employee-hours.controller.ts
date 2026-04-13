@@ -39,10 +39,16 @@ export class EmployeeHoursController {
   getMonthly(
     @Query("year") year?: string,
     @Query("userId") userId?: string,
+    @Query("from") from?: string,
+    @Query("to") to?: string,
   ) {
     return this.employeeHoursService.getMonthlySummary(
-      year ? Number(year) : undefined,
-      userId,
+      {
+        year: year ? Number(year) : undefined,
+        userId,
+        from,
+        to,
+      },
     );
   }
 }

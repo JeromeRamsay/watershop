@@ -46,12 +46,13 @@ export class RealtimeService implements OnModuleInit, OnModuleDestroy {
     const portValue = process.env.VALKEY_PORT;
     const username = process.env.VALKEY_USERNAME || process.env.VALKEY_USER;
     const password = process.env.VALKEY_PASSWORD;
+    const isLocalRuntime = Boolean(process.env.WATERSHOP_LOCAL_ENV_FILE);
     const tlsEnabled =
       (process.env.VALKEY_TLS || "true").toLowerCase() !== "false";
 
-    if (!host || !portValue || !password) {
+    if (!host || !portValue || (!password && !isLocalRuntime)) {
       this.logger.warn(
-        "Valkey credentials are missing. Realtime will work only on a single backend instance.",
+        "Valkey host, port, or credentials are missing. Realtime will work only on a single backend instance.",
       );
       return;
     }

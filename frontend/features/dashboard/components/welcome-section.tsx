@@ -29,8 +29,8 @@ export function WelcomeSection({ userName = "John Doe" }: WelcomeSectionProps) {
           <Calendar className="absolute right-2.5 top-2.5 w-4 h-4 text-dark-400 dark:text-dark-500 pointer-events-none" />
         </div>
         <Link href="/dashboard/orders/new">
-          <Button className="bg-primary-500 hover:bg-primary-600 w-full sm:w-auto h-10 text-sm">
-            New Order
+          <Button className="bg-emerald-600 hover:bg-emerald-700 text-white w-full sm:w-auto h-10 text-sm">
+            + Add New Order
           </Button>
         </Link>
       </div>

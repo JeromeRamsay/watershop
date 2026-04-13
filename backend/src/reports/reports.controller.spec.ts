@@ -7,6 +7,8 @@ const mockReportsService = {
   getTopSellingItems: jest.fn(),
   getTopCustomers: jest.fn(),
   getFrequentCustomers: jest.fn(),
+  getWalkInStats: jest.fn(),
+  getRefillOverrideStats: jest.fn(),
 };
 
 describe("ReportsController", () => {
@@ -27,7 +29,7 @@ describe("ReportsController", () => {
   });
 
   describe("getDashboardStats()", () => {
-    it("delegates to ReportsService.getDashboardStats without year", async () => {
+    it("delegates to ReportsService.getDashboardStats without filters", async () => {
       mockReportsService.getDashboardStats.mockResolvedValue({
         totalRevenue: 0,
         totalOrders: 0,
@@ -36,12 +38,27 @@ describe("ReportsController", () => {
         todayOrders: 0,
         todayDeliveryOrders: 0,
         todayPrepaidOrders: 0,
+        uniqueCustomersServed: 0,
+        repeatCustomers: 0,
+        repeatCustomerRate: 0,
+        deliveryOrders: 0,
+        walkInOrders: 0,
+        walkInPercentage: 0,
+        prepaidRedemptions: 0,
+        refillCount: 0,
+        salesTrend: [],
       });
+
       await controller.getDashboardStats();
-      expect(mockReportsService.getDashboardStats).toHaveBeenCalledWith(undefined);
+
+      expect(mockReportsService.getDashboardStats).toHaveBeenCalledWith({
+        year: undefined,
+        from: undefined,
+        to: undefined,
+      });
     });
 
-    it("parses year query param and delegates", async () => {
+    it("parses year and range query params and delegates", async () => {
       mockReportsService.getDashboardStats.mockResolvedValue({
         totalRevenue: 1000,
         totalOrders: 12,
@@ -50,17 +67,38 @@ describe("ReportsController", () => {
         todayOrders: 2,
         todayDeliveryOrders: 1,
         todayPrepaidOrders: 0,
+        uniqueCustomersServed: 5,
+        repeatCustomers: 2,
+        repeatCustomerRate: 40,
+        deliveryOrders: 3,
+        walkInOrders: 4,
+        walkInPercentage: 33,
+        prepaidRedemptions: 1,
+        refillCount: 8,
+        salesTrend: [],
       });
-      await controller.getDashboardStats("2024");
-      expect(mockReportsService.getDashboardStats).toHaveBeenCalledWith(2024);
+
+      await controller.getDashboardStats("2024", "2024-01-01", "2024-01-31");
+
+      expect(mockReportsService.getDashboardStats).toHaveBeenCalledWith({
+        year: 2024,
+        from: "2024-01-01",
+        to: "2024-01-31",
+      });
     });
   });
 
   describe("getTopSellingItems()", () => {
     it("delegates to ReportsService.getTopSellingItems", async () => {
       mockReportsService.getTopSellingItems.mockResolvedValue([]);
-      await controller.getTopSellingItems("2024");
-      expect(mockReportsService.getTopSellingItems).toHaveBeenCalledWith(2024);
+
+      await controller.getTopSellingItems("2024", "2024-01-01", "2024-01-31");
+
+      expect(mockReportsService.getTopSellingItems).toHaveBeenCalledWith({
+        year: 2024,
+        from: "2024-01-01",
+        to: "2024-01-31",
+      });
     });
   });
 
@@ -68,7 +106,12 @@ describe("ReportsController", () => {
     it("delegates to ReportsService.getTopCustomers", async () => {
       mockReportsService.getTopCustomers.mockResolvedValue([]);
       await controller.getTopCustomers();
-      expect(mockReportsService.getTopCustomers).toHaveBeenCalledWith(undefined);
+
+      expect(mockReportsService.getTopCustomers).toHaveBeenCalledWith({
+        year: undefined,
+        from: undefined,
+        to: undefined,
+      });
     });
   });
 
@@ -76,7 +119,59 @@ describe("ReportsController", () => {
     it("delegates to ReportsService.getFrequentCustomers", async () => {
       mockReportsService.getFrequentCustomers.mockResolvedValue([]);
       await controller.getFrequentCustomers();
-      expect(mockReportsService.getFrequentCustomers).toHaveBeenCalledWith(undefined);
+
+      expect(mockReportsService.getFrequentCustomers).toHaveBeenCalledWith({
+        year: undefined,
+        from: undefined,
+        to: undefined,
+      });
+    });
+  });
+
+  describe("getWalkInStats()", () => {
+    it("delegates to ReportsService.getWalkInStats with shared filters", async () => {
+      mockReportsService.getWalkInStats.mockResolvedValue({
+        totalWalkInOrders: 0,
+        walkInRevenue: 0,
+        avgWalkInOrderValue: 0,
+        totalOrders: 0,
+        walkInPercentage: 0,
+        monthlyBreakdown: [],
+      });
+
+      await controller.getWalkInStats("2024", "2024-01-01", "2024-01-31");
+
+      expect(mockReportsService.getWalkInStats).toHaveBeenCalledWith({
+        year: 2024,
+        from: "2024-01-01",
+        to: "2024-01-31",
+      });
+    });
+  });
+
+  describe("getRefillOverrideStats()", () => {
+    it("delegates to ReportsService.getRefillOverrideStats with shared filters", async () => {
+      mockReportsService.getRefillOverrideStats.mockResolvedValue({
+        summary: {
+          totalOverrides: 0,
+          quantityDelta: 0,
+          positiveQuantityDelta: 0,
+          negativeQuantityDelta: 0,
+          usersAffected: 0,
+          customersAffected: 0,
+        },
+        byUser: [],
+        byCustomer: [],
+        byUserCustomer: [],
+      });
+
+      await controller.getRefillOverrideStats("2024", "2024-01-01", "2024-01-31");
+
+      expect(mockReportsService.getRefillOverrideStats).toHaveBeenCalledWith({
+        year: 2024,
+        from: "2024-01-01",
+        to: "2024-01-31",
+      });
     });
   });
 });

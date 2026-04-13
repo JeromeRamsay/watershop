@@ -7,13 +7,170 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 
+export interface ReportQueryParams {
+  year?: number;
+  from?: string;
+  to?: string;
+}
+
+interface CachedPrepaidItem {
+  itemId?: string;
+  quantityRemaining?: number;
+  [key: string]: unknown;
+}
+
+interface CachedOverrideTotal {
+  itemId?: string;
+  itemName?: string;
+  quantityDelta?: number;
+  count?: number;
+  [key: string]: unknown;
+}
+
+interface CachedCustomerRecord {
+  _id?: string;
+  wallet?: {
+    prepaidItems?: CachedPrepaidItem[];
+    [key: string]: unknown;
+  };
+  overrideTotals?: CachedOverrideTotal[];
+  [key: string]: unknown;
+}
+
+interface RefillOverrideMutationResult {
+  customerId: string;
+  itemId: string;
+  itemName: string;
+  quantityDelta: number;
+  quantityRemaining: number;
+}
+
+function normalizeReportParams(params?: number | ReportQueryParams) {
+  if (typeof params === "number") {
+    return { year: params };
+  }
+
+  return params ?? {};
+}
+
+function updateCachedCustomerRecord(
+  current: CachedCustomerRecord | undefined,
+  result: RefillOverrideMutationResult,
+  includeOverrideTotals: boolean,
+) {
+  if (!current?.wallet?.prepaidItems?.length) {
+    return current;
+  }
+
+  let prepaidItemsChanged = false;
+  const nextPrepaidItems = current.wallet.prepaidItems.map((item) => {
+    if (String(item.itemId ?? "") !== result.itemId) {
+      return item;
+    }
+
+    prepaidItemsChanged = true;
+    return {
+      ...item,
+      quantityRemaining: result.quantityRemaining,
+    };
+  });
+
+  let nextOverrideTotals = current.overrideTotals;
+  if (includeOverrideTotals) {
+    const overrideTotals = current.overrideTotals || [];
+    const existingIndex = overrideTotals.findIndex(
+      (item) => String(item.itemId ?? "") === result.itemId,
+    );
+
+    if (existingIndex === -1) {
+      nextOverrideTotals = [
+        ...overrideTotals,
+        {
+          itemId: result.itemId,
+          itemName: result.itemName,
+          quantityDelta: result.quantityDelta,
+          count: 1,
+        },
+      ];
+    } else {
+      nextOverrideTotals = overrideTotals.map((item, index) =>
+        index === existingIndex
+          ? {
+              ...item,
+              itemName: result.itemName || item.itemName,
+              quantityDelta:
+                Number(item.quantityDelta || 0) + result.quantityDelta,
+              count: Number(item.count || 0) + 1,
+            }
+          : item,
+      );
+    }
+  }
+
+  const overrideTotalsChanged = nextOverrideTotals !== current.overrideTotals;
+  if (!prepaidItemsChanged && !overrideTotalsChanged) {
+    return current;
+  }
+
+  return {
+    ...current,
+    wallet: {
+      ...current.wallet,
+      prepaidItems: nextPrepaidItems,
+    },
+    ...(includeOverrideTotals ? { overrideTotals: nextOverrideTotals } : {}),
+  };
+}
+
+function updateCachedCustomersList(
+  current: unknown,
+  result: RefillOverrideMutationResult,
+) {
+  if (!current || typeof current !== "object") {
+    return current;
+  }
+
+  const response = current as {
+    data?: CachedCustomerRecord[];
+    [key: string]: unknown;
+  };
+
+  if (!Array.isArray(response.data)) {
+    return current;
+  }
+
+  let changed = false;
+  const nextData = response.data.map((customer) => {
+    if (String(customer?._id ?? "") !== result.customerId) {
+      return customer;
+    }
+
+    const nextCustomer = updateCachedCustomerRecord(customer, result, false);
+    if (nextCustomer !== customer) {
+      changed = true;
+    }
+
+    return nextCustomer;
+  });
+
+  if (!changed) {
+    return current;
+  }
+
+  return {
+    ...response,
+    data: nextData,
+  };
+}
+
 // ─── Query Keys ─────────────────────────────────────────────────────────────
 export const queryKeys = {
-  dashboardStats: (year?: number) => ["reports", "dashboard", year] as const,
-  topItems:       (year?: number) => ["reports", "top-items", year] as const,
-  topCustomers:   (year?: number) => ["reports", "top-customers", year] as const,
-  frequentCustomers: (year?: number) => ["reports", "frequent-customers", year] as const,
-  walkInStats:    (year?: number) => ["reports", "walk-in-stats", year] as const,
+  dashboardStats: (params?: object) => ["reports", "dashboard", params] as const,
+  topItems:       (params?: object) => ["reports", "top-items", params] as const,
+  topCustomers:   (params?: object) => ["reports", "top-customers", params] as const,
+  frequentCustomers: (params?: object) => ["reports", "frequent-customers", params] as const,
+  walkInStats:    (params?: object) => ["reports", "walk-in-stats", params] as const,
+  refillOverrideStats: (params?: object) => ["reports", "refill-override-stats", params] as const,
   customers:      (params?: object) => ["customers", params] as const,
   customer:       (id: string) => ["customers", id] as const,
   orders:         (year?: number) => ["orders", year] as const,
@@ -32,38 +189,52 @@ export const queryKeys = {
 };
 
 // ─── Reports ────────────────────────────────────────────────────────────────
-export function useDashboardStats(year?: number) {
+export function useDashboardStats(params?: number | ReportQueryParams) {
+  const queryParams = normalizeReportParams(params);
   return useQuery({
-    queryKey: queryKeys.dashboardStats(year),
-    queryFn: () => api.get("/reports/dashboard", { params: year ? { year } : {} }).then(r => r.data),
+    queryKey: queryKeys.dashboardStats(queryParams),
+    queryFn: () => api.get("/reports/dashboard", { params: queryParams }).then(r => r.data),
   });
 }
 
-export function useTopItems(year?: number) {
+export function useTopItems(params?: number | ReportQueryParams) {
+  const queryParams = normalizeReportParams(params);
   return useQuery({
-    queryKey: queryKeys.topItems(year),
-    queryFn: () => api.get("/reports/top-items", { params: year ? { year } : {} }).then(r => r.data),
+    queryKey: queryKeys.topItems(queryParams),
+    queryFn: () => api.get("/reports/top-items", { params: queryParams }).then(r => r.data),
   });
 }
 
-export function useTopCustomers(year?: number) {
+export function useTopCustomers(params?: number | ReportQueryParams) {
+  const queryParams = normalizeReportParams(params);
   return useQuery({
-    queryKey: queryKeys.topCustomers(year),
-    queryFn: () => api.get("/reports/top-customers", { params: year ? { year } : {} }).then(r => r.data),
+    queryKey: queryKeys.topCustomers(queryParams),
+    queryFn: () => api.get("/reports/top-customers", { params: queryParams }).then(r => r.data),
   });
 }
 
-export function useWalkInStats(year?: number) {
+export function useWalkInStats(params?: number | ReportQueryParams) {
+  const queryParams = normalizeReportParams(params);
   return useQuery({
-    queryKey: queryKeys.walkInStats(year),
-    queryFn: () => api.get("/reports/walk-in-stats", { params: year ? { year } : {} }).then(r => r.data),
+    queryKey: queryKeys.walkInStats(queryParams),
+    queryFn: () => api.get("/reports/walk-in-stats", { params: queryParams }).then(r => r.data),
   });
 }
 
-export function useFrequentCustomers(year?: number) {
+export function useFrequentCustomers(params?: number | ReportQueryParams) {
+  const queryParams = normalizeReportParams(params);
   return useQuery({
-    queryKey: queryKeys.frequentCustomers(year),
-    queryFn: () => api.get("/reports/frequent-customers", { params: year ? { year } : {} }).then(r => r.data),
+    queryKey: queryKeys.frequentCustomers(queryParams),
+    queryFn: () => api.get("/reports/frequent-customers", { params: queryParams }).then(r => r.data),
+  });
+}
+
+export function useRefillOverrideStats(params?: number | ReportQueryParams) {
+  const queryParams = normalizeReportParams(params);
+  return useQuery({
+    queryKey: queryKeys.refillOverrideStats(queryParams),
+    queryFn: () =>
+      api.get("/reports/refill-override-stats", { params: queryParams }).then((r) => r.data),
   });
 }
 
@@ -85,6 +256,36 @@ export function useCustomer(id: string) {
     queryKey: queryKeys.customer(id),
     queryFn: () => api.get(`/customers/${id}`).then(r => r.data),
     enabled: !!id,
+  });
+}
+
+export function useCreateRefillOverride() {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: {
+      customerId: string;
+      itemId: string;
+      quantityDelta: number;
+      notes?: string;
+    }) => api.post("/refill-overrides", payload).then((r) => r.data),
+    onSuccess: (data: RefillOverrideMutationResult, variables) => {
+      qc.setQueryData(
+        queryKeys.customer(variables.customerId),
+        (current: CachedCustomerRecord | undefined) =>
+          updateCachedCustomerRecord(current, data, true),
+      );
+      qc.setQueriesData(
+        {
+          predicate: (query) =>
+            Array.isArray(query.queryKey) &&
+            query.queryKey[0] === "customers" &&
+            typeof query.queryKey[1] !== "string",
+        },
+        (current) => updateCachedCustomersList(current, data),
+      );
+      void qc.invalidateQueries({ queryKey: ["reports"] });
+    },
   });
 }
 
@@ -192,6 +393,13 @@ export function useStaff() {
   });
 }
 
+export function useChangePassword() {
+  return useMutation({
+    mutationFn: (payload: { currentPassword: string; newPassword: string }) =>
+      api.patch("/users/change-password", payload).then((r) => r.data),
+  });
+}
+
 // ─── Employee Hours ──────────────────────────────────────────────────────────
 export function useEmployeeHours(params: {
   userId?: string;
@@ -215,7 +423,7 @@ export function useHoursSummary(params: {
   });
 }
 
-export function useMonthlyHours(params: { year?: number; userId?: string } = {}) {
+export function useMonthlyHours(params: { year?: number; userId?: string; from?: string; to?: string } = {}) {
   return useQuery({
     queryKey: queryKeys.hoursMonthly(params),
     queryFn: () => api.get("/employee-hours/monthly", { params }).then(r => r.data),

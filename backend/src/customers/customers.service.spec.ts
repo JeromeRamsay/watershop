@@ -1,6 +1,9 @@
 import { BadRequestException, NotFoundException } from "@nestjs/common";
 import { getModelToken } from "@nestjs/mongoose";
 import { Test, TestingModule } from "@nestjs/testing";
+import { Order } from "../orders/entities/order.entity";
+import { RealtimeService } from "../realtime/realtime.service";
+import { RefillOverride } from "../refill-overrides/entities/refill-override.entity";
 import { RealtimeService } from "../realtime/realtime.service";
 import { Customer } from "./entities/customer.entity";
 import { CustomersService } from "./customers.service";
@@ -41,6 +44,12 @@ function buildMockCustomerModel() {
 describe("CustomersService", () => {
   let service: CustomersService;
   let mockCustomerModel: ReturnType<typeof buildMockCustomerModel>;
+  const mockOrderModel = {
+    find: jest.fn(),
+  };
+  const mockRefillOverrideModel = {
+    aggregate: jest.fn(),
+  };
 
   const mockRealtimeService = { emitDashboardUpdate: jest.fn() };
 
@@ -50,6 +59,11 @@ describe("CustomersService", () => {
       providers: [
         CustomersService,
         { provide: getModelToken(Customer.name), useValue: mockCustomerModel },
+        { provide: getModelToken(Order.name), useValue: mockOrderModel },
+        {
+          provide: getModelToken(RefillOverride.name),
+          useValue: mockRefillOverrideModel,
+        },
         { provide: RealtimeService, useValue: mockRealtimeService },
       ],
     }).compile();
@@ -110,13 +124,80 @@ describe("CustomersService", () => {
 
   // ─── findOne ───────────────────────────────────────────────────────────────
   describe("findOne()", () => {
-    it("returns the customer when found", async () => {
-      const customer = makeCustomer();
+    it("returns the customer with hydrated order history and override totals", async () => {
+      const customer = makeCustomer({
+        wallet: {
+          storeCredit: 0,
+          prepaidItems: [
+            {
+              itemId: { toString: () => "item-1" },
+              itemName: "18L Refill",
+              quantityRemaining: 2,
+            },
+          ],
+        },
+      });
       mockCustomerModel.findById.mockReturnValue({ exec: jest.fn().mockResolvedValue(customer) });
+      mockOrderModel.find.mockReturnValue(
+        makeChainable([
+          {
+            _id: "order-1",
+            orderNumber: "ORD-1001",
+            createdAt: new Date("2026-04-01T00:00:00.000Z"),
+            grandTotal: 25,
+            status: "completed",
+            paymentStatus: "paid",
+            items: [{ quantity: 1 }],
+            refills: [{ quantity: 2 }],
+            refillCount: 2,
+          },
+        ]),
+      );
+      mockRefillOverrideModel.aggregate.mockResolvedValue([
+        {
+          _id: { toString: () => "item-1" },
+          itemName: "18L Refill",
+          quantityDelta: 3,
+          count: 2,
+        },
+      ]);
 
       const result = await service.findOne("customer-id-1");
 
-      expect(result).toEqual(customer);
+      expect(result).toEqual({
+        ...customer,
+        wallet: {
+          storeCredit: 0,
+          prepaidItems: [
+            {
+              itemId: { toString: expect.any(Function) },
+              itemName: "18L Refill",
+              quantityRemaining: 2,
+              overrideQuantity: 3,
+            },
+          ],
+        },
+        orderHistory: [
+          {
+            id: "order-1",
+            orderId: "ORD-1001",
+            createdAt: new Date("2026-04-01T00:00:00.000Z"),
+            totalPrice: 25,
+            orderStatus: "completed",
+            paymentStatus: "paid",
+            itemsCount: 1,
+            refillCount: 2,
+          },
+        ],
+        overrideTotals: [
+          {
+            itemId: "item-1",
+            itemName: "18L Refill",
+            quantityDelta: 3,
+            count: 2,
+          },
+        ],
+      });
     });
 
     it("throws NotFoundException when customer not found", async () => {

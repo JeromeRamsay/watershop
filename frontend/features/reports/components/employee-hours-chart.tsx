@@ -9,28 +9,12 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 interface EmployeeHoursChartProps {
   data: { name: string; total: number }[];
-  year: string;
-  onYearChange: (year: string) => void;
 }
 
-export function EmployeeHoursChart({
-  data,
-  year,
-  onYearChange,
-}: EmployeeHoursChartProps) {
-  const years = [0, 1, 2, 3].map((offset) =>
-    (new Date().getFullYear() - offset).toString(),
-  );
+export function EmployeeHoursChart({ data }: EmployeeHoursChartProps) {
 
   const maxValue = Math.max(1, ...data.map((item) => item.total));
   const yAxisMax = Math.ceil(maxValue * 1.3);
@@ -44,18 +28,6 @@ export function EmployeeHoursChart({
         <h3 className="text-lg font-bold text-dark-900 dark:text-white">
           Employee Hours by Month
         </h3>
-        <Select value={year} onValueChange={onYearChange}>
-          <SelectTrigger className="w-24 h-9 text-sm bg-white dark:bg-dark-700 border-[#e5e7eb] dark:border-dark-600 rounded-lg">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {years.map((y) => (
-              <SelectItem key={y} value={y}>
-                {y}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
       </div>
       <ResponsiveContainer width="100%" height={300}>
         <BarChart data={data} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>

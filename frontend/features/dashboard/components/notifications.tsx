@@ -46,7 +46,8 @@ export function Notifications({
         ) : (
           notifications.map((notification) => {
             const Icon = notification.icon;
-            const isUrgent = !!notification.hasBalance;
+            const isUrgent =
+              !!notification.hasBalance || !!notification.isDestructive;
             const isClickable = !!notification.orderId && !!onNotificationClick;
 
             return (

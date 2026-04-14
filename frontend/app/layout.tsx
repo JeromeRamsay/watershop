@@ -4,6 +4,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/lib/theme-provider";
 import { ReactQueryProvider } from "@/lib/react-query-provider";
 import { employeeAppMetadata } from "@/lib/metadata";
+import { EmployeeAppErrorCenter } from "@/components/layout/employee-app-error-center";
 
 const poppins = Poppins({
   subsets: ["latin"],
@@ -22,7 +23,10 @@ export default function RootLayout({
     <html lang="en" className="overflow-x-hidden">
       <body className={`${poppins.className} antialiased overflow-x-hidden`}>
         <ThemeProvider>
-          <ReactQueryProvider>{children}</ReactQueryProvider>
+          <ReactQueryProvider>
+            <EmployeeAppErrorCenter />
+            {children}
+          </ReactQueryProvider>
         </ThemeProvider>
       </body>
     </html>

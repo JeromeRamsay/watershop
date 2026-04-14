@@ -5,9 +5,11 @@ import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { RealtimeService } from "./realtime/realtime.service";
 import { attachDashboardWebSocketServer } from "./realtime/dashboard-ws.server";
 import { Server } from "http";
+import { Logger } from "nestjs-pino";
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  app.useLogger(app.get(Logger));
 
   // Support comma-separated list of allowed origins e.g.
   // FRONTEND_URL=https://app.example.com,https://old.example.com

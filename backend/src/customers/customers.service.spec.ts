@@ -148,7 +148,13 @@ describe("CustomersService", () => {
             status: "completed",
             paymentStatus: "paid",
             items: [{ quantity: 1 }],
-            refills: [{ quantity: 2 }],
+            refills: [
+              {
+                item: { toString: () => "item-1" },
+                quantity: 2,
+                isPrepaidRedemption: true,
+              },
+            ],
             refillCount: 2,
           },
         ]),
@@ -207,6 +213,62 @@ describe("CustomersService", () => {
     });
   });
 
+  describe("findOneForOrderProcessing()", () => {
+    it("normalizes refill override credits into the usable wallet balance", async () => {
+      const customer = makeCustomer({
+        wallet: {
+          storeCredit: 0,
+          prepaidItems: [
+            {
+              itemId: { toString: () => "item-1" },
+              itemName: "18L Refill",
+              quantityRemaining: 0,
+            },
+          ],
+        },
+      });
+
+      mockCustomerModel.findById.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(customer),
+      });
+      mockOrderModel.find.mockReturnValue(makeChainable([]));
+      mockRefillOverrideModel.aggregate.mockResolvedValue([
+        {
+          _id: { toString: () => "item-1" },
+          itemName: "18L Refill",
+          quantityDelta: 1,
+          count: 1,
+        },
+      ]);
+
+      const result = await service.findOneForOrderProcessing("customer-id-1");
+
+      expect(result).toEqual({
+        ...customer,
+        wallet: {
+          storeCredit: 0,
+          prepaidItems: [
+            {
+              itemId: { toString: expect.any(Function) },
+              itemName: "18L Refill",
+              quantityRemaining: 1,
+            },
+          ],
+        },
+      });
+    });
+
+    it("throws NotFoundException when customer not found", async () => {
+      mockCustomerModel.findById.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(null),
+      });
+
+      await expect(
+        service.findOneForOrderProcessing("ghost-id"),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
   // ─── search ────────────────────────────────────────────────────────────────
   describe("search()", () => {
     it("searches by firstName, lastName, and phone with case-insensitive regex", async () => {
@@ -230,16 +292,50 @@ describe("CustomersService", () => {
       expect(mockCustomerModel.findOne).not.toHaveBeenCalled();
     });
 
-    it("performs regex search for valid phone digits", async () => {
-      const customer = makeCustomer();
-      mockCustomerModel.findOne.mockReturnValue({ exec: jest.fn().mockResolvedValue(customer) });
+    it("returns the customer with normalized usable refill balance", async () => {
+      const customer = makeCustomer({
+        wallet: {
+          storeCredit: 0,
+          prepaidItems: [
+            {
+              itemId: { toString: () => "item-1" },
+              itemName: "18L Refill",
+              quantityRemaining: 0,
+            },
+          ],
+        },
+      });
+      mockCustomerModel.findOne.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(customer),
+      });
+      mockOrderModel.find.mockReturnValue(makeChainable([]));
+      mockRefillOverrideModel.aggregate.mockResolvedValue([
+        {
+          _id: { toString: () => "item-1" },
+          itemName: "18L Refill",
+          quantityDelta: 2,
+          count: 1,
+        },
+      ]);
 
       const result = await service.findByPhone("555-0001");
 
       expect(mockCustomerModel.findOne).toHaveBeenCalledWith(
         expect.objectContaining({ phone: expect.objectContaining({ $regex: expect.any(RegExp) }) }),
       );
-      expect(result).toEqual(customer);
+      expect(result).toEqual({
+        ...customer,
+        wallet: {
+          storeCredit: 0,
+          prepaidItems: [
+            {
+              itemId: { toString: expect.any(Function) },
+              itemName: "18L Refill",
+              quantityRemaining: 2,
+            },
+          ],
+        },
+      });
     });
 
     it("returns null when no customer found for that phone", async () => {

@@ -69,6 +69,7 @@ watershop/
     src/
       app.module.ts       ← root module, registers all feature modules
       auth/               ← JWT strategy, guard, @Public() decorator ✅
+      client-errors/      ← authenticated browser/client error intake + structured log sink
       health.controller.ts ← @Public() Terminus health check
       users/              ← registration, login, staff management
       customers/          ← customer CRUD, wallet/credits, phone search
@@ -126,6 +127,7 @@ watershop/
 | Layer | Technology |
 |---|---|
 | API | NestJS v11, TypeScript v5.7 |
+| Logging | nestjs-pino JSON logs to stdout/stderr |
 | Database | MongoDB via Mongoose v9 |
 | Realtime | Valkey (Redis-compatible) pub/sub + raw Node.js WebSocket |
 | Auth | JWT (JwtService) + bcrypt |
@@ -345,6 +347,8 @@ The current customer details modal receives a mapped customer row from `frontend
 - Prefer a dedicated backend feature for override auditability, such as `backend/src/refill-overrides/`, with controller / service / dto / entity files that follow the repo's NestJS module convention.
 - Each override record should capture at minimum: customer, inventory item, signed quantity delta, acting user, optional notes or reason, source=`manual_override`, and timestamps.
 - Applying an override should update the customer's live refill balance in `wallet.prepaidItems`, but it must not mutate prior order documents. Overrides should count the same as regular refill credits during redemption, while remaining separately reportable.
+- For refill charge / no-charge decisions, do not trust a raw customer read alone. Use the normalized order-processing customer balance path in `backend/src/customers/customers.service.ts` so refill redemption can reconcile wallet state with refill order history and override audit totals before deciding whether to charge.
+- Keep the public refill lookup (`GET /customers/by-phone`) aligned with that same normalized balance path so the kiosk/customer-facing "Refills Remaining" display matches the backend redemption decision.
 - In `frontend/features/customers/components/customer-details-modal.tsx`, add plus / minus controls beside each remaining refill item and add an `Overrides` column beside `Remaining` so the modal shows the net manual adjustment total for each item.
 - Ensure the Remaining column reflects the live usable balance, while the Overrides column reflects the cumulative manual adjustment total for that item.
 - Emit realtime updates after successful override mutations and invalidate affected customer and report queries.
@@ -360,6 +364,24 @@ The authenticated frontend app still uses placeholder metadata in `frontend/app/
 - Cover at minimum the authenticated employee routes: dashboard home, customers, customer edit, orders, new order, deliveries, employees, hours, inventory, profile, reports, settings, suppliers, promotions, login, and signup.
 - Keep kiosk / refill metadata intentionally separate unless the branding and copy should be unified with the employee app.
 - Validation: `cd frontend && npm run build`.
+
+### ~~Priority 25 — Structured Logging + Client Error Intake~~ ✅ DONE
+The backend now uses `nestjs-pino` for structured request/application logging with request ids and redaction, while the employee frontend keeps server logs on stdout/stderr.
+
+- `LoggerModule` + `LoggerErrorInterceptor` are registered globally in `backend/src/app.module.ts`, and `backend/src/main.ts` now boots Nest with the pino logger.
+- `POST /client-errors` is available as an authenticated backend endpoint for browser/client error reports from the employee app.
+- Request logs redact sensitive values such as authorization headers, passwords, wallet data, and payment metadata.
+- Browser error reports can carry a request id so client-side failures can be correlated to backend logs.
+- Validation: `cd backend && npm test`, then `cd frontend && npm run build`.
+
+### ~~Priority 26 — Employee App Validation + Error Handling Consistency~~ ✅ DONE
+The employee app now extracts backend validation/request messages into clean user-facing UI and has app-level fallback handling for unexpected failures.
+
+- `frontend/app/dashboard/employees/page.tsx` now guards short passwords and missing required fields client-side, shows inline error/success messages, and cleanly surfaces backend validation failures.
+- Shared frontend helpers in `frontend/lib/error-utils.ts` and `frontend/lib/employee-app-errors.ts` normalize request errors for the authenticated app.
+- `frontend/lib/api.ts` emits a shared employee-app error event for uncaught request failures, and `frontend/components/layout/employee-app-error-center.tsx` renders a global user-facing banner.
+- `frontend/app/error.tsx` reports unexpected runtime crashes through the client-errors endpoint and shows a recoverable fallback screen.
+- Validation: `cd backend && npm test`, then `cd frontend && npm run build`.
 
 ### Planning Notes — Clover Integration for Employee App
 
@@ -397,6 +419,17 @@ Auth operations in `features/auth/actions.ts` use Next.js Server Actions (`"use 
 ### Route protection
 `proxy.ts` (Next.js middleware) guards `/dashboard/**` by checking the `session_token` HttpOnly cookie. Do not add additional redirect logic in page components — let the middleware handle it.
 
+### Dashboard role-gated actions
+Dashboard export controls should be visible to admin users only. Reuse the hydration-safe hooks in `frontend/lib/current-user.ts` for client-side role checks instead of reading `user_info` during render in each page, otherwise Next.js can hit a server/client hydration mismatch.
+
+### Dashboard cancellation handling
+Cancelled orders should not contribute to dashboard today KPIs such as `Total Sales Today` and `Orders Processed`.
+`frontend/app/dashboard/page.tsx` recent transactions should surface `Cancelled` from order status, not flatten every non-paid order into `Pending`.
+Cancelled-order notifications should render with an `X` icon and keep the backend message format `Cancelled Order for {customer full name}`.
+
+### Kiosk refill selection
+`frontend/app/refill/select/page.tsx` delegates to `frontend/app/kiosk/refill/select/page.tsx`, so refill-selection fixes should land in the kiosk page. Read `localStorage` inside effects instead of render-time state initializers there, and show each row's `Refills Remaining` as the live post-selection balance after the current quantity is applied.
+
 ### Public marketing site (`frontend_public`)
 `frontend/` is the authenticated Next.js app for dashboard and kiosk flows. Its root currently redirects `/` to `/login`, while `proxy.ts` only protects `/dashboard`, `/login`, and `/signup`.
 
@@ -426,6 +459,13 @@ Keep enough right-side header space in the preview dialog for the built-in close
 ### New-order promotions
 `frontend/features/orders/components/add-product-modal.tsx` should always show the active promotion banner for the selected inventory item when the promotion is in date, even if the current quantity does not yet satisfy the min/max threshold. Only apply the promotion discount to the saved line total once the quantity qualifies.
 Treat promotion discounts as pre-tax reductions in `frontend/app/dashboard/orders/new/page.tsx`: line-item promotion discounts reduce the subtotal first, then any order-level discount is applied, and tax is calculated on the discounted subtotal.
+
+### Edit-order refill pricing
+`frontend/features/orders/components/edit-order-modal.tsx` should hydrate the current customer via `useCustomer(id)` when a saved order has a customer so the modal can show per-item refill balances. For refill rows, keep the visible line aggregated in the modal, but split covered-vs-charged quantities in the `PATCH /orders/:id` payload using item-level `isPrepaidRedemption` so the backend can price covered refill quantities at `$0` and charged refill quantities at the refill price.
+`frontend/app/dashboard/orders/page.tsx` must preserve line-item inventory ids when mapping paginated `GET /orders` rows into the edit modal shape because that list route can return raw string `item` refs instead of populated objects.
+When an order response carries refill lines inside `items` with `isRefill=true` instead of the dedicated `refills` array, normalize those lines into the edit-modal refill path before calculating visible balances or refill-aware totals.
+Dashboard order opens such as `frontend/app/dashboard/page.tsx` notification and recent-transaction handlers should reuse the same normalized order mapper as the Orders page instead of maintaining a separate mapper.
+The edit modal `REFILLS` column should show the live remaining refill balance after the current edited quantity is applied, not a static pre-edit wallet total.
 
 ### Cookie names
 | Cookie | Readable by | Purpose |
@@ -483,7 +523,7 @@ Backend deploys compile with `nest build` via SWC. Keep Nest decorators such as 
 | Inventory | `name, sku (unique), stockQuantity, lowStockThreshold (default 10), sellingPrice, isRefillable, refillPrice, warranty, returnPolicy, isActive (soft-delete)` |
 | Order | `orderNumber (unique), customer→Customer (optional), cashier→User, items[] { warranty?, returnPolicy? }, refills[] { warranty?, returnPolicy? }, subTotal, discount, grandTotal, notes, deliveryNotes, paymentStatus: paid\|unpaid\|partial\|pending, paymentMethod: cash\|card\|credit_redemption\|store_credit, status: pending\|scheduled\|completed\|cancelled, isDelivery, isWalkIn, isPrepaidRedemption, deliveryId→Delivery, deliveryAddress, deliveryDate, emailReceipt, paymentDetails: any` |
 | Delivery | `order→Order, customer→Customer, address, scheduledDate, status: scheduled\|out_for_delivery\|delivered\|failed\|cancelled, assignedDriver→User` |
-| Notification | `message, type: low_stock\|out_of_stock\|refill_order, inventoryItemId→Inventory, resolved (default false)` |
+| Notification | `message, type: low_stock\|out_of_stock\|refill_order\|cancelled_order, inventoryItemId→Inventory, orderId→Order, resolved (default false)` |
 | Supplier | `name, phone, email, address, isActive (soft-delete)` |
 | Setting | `storeName, currency, taxRate, receiptFooter, enableLowStockAlerts, contactPhone, contactEmail, operatingHours: { open, close }` |
 | RefillOverride | `customer→Customer, itemId→Inventory, itemName, quantityDelta, actedBy→User, notes, source: manual_override, createdAt` |

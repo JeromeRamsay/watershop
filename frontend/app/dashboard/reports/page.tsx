@@ -27,6 +27,7 @@ import {
   useTopItems,
   useWalkInStats,
 } from "@/lib/queries";
+import { useIsCurrentUserAdmin } from "@/lib/current-user";
 import { useDashboardRealtime } from "@/lib/use-dashboard-realtime";
 
 const MONTHS_ORDER = [
@@ -156,6 +157,7 @@ function TableCard({
 
 export default function ReportsPage() {
   const today = useMemo(() => new Date(), []);
+  const isAdmin = useIsCurrentUserAdmin();
   const [search, setSearch] = useState("");
   const [fromDate, setFromDate] = useState(
     toDateInputValue(new Date(today.getFullYear(), today.getMonth(), 1)),
@@ -427,14 +429,16 @@ export default function ReportsPage() {
               + Add New Order
             </Button>
           </Link>
-          <Button
-            variant="outline"
-            onClick={handleExport}
-            className="border-[#189cd2] text-[#189cd2] hover:bg-[#189cd2]/10 h-11 px-6 rounded-lg font-medium bg-white dark:bg-dark-800"
-          >
-            <Download className="h-4 w-4 mr-2" />
-            Export
-          </Button>
+          {isAdmin ? (
+            <Button
+              variant="outline"
+              onClick={handleExport}
+              className="border-[#189cd2] text-[#189cd2] hover:bg-[#189cd2]/10 h-11 px-6 rounded-lg font-medium bg-white dark:bg-dark-800"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Export
+            </Button>
+          ) : null}
         </div>
       </div>
 

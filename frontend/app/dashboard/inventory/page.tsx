@@ -63,6 +63,7 @@ import {
 } from "@/components/ui/select";
 
 import api from "@/lib/api";
+import { useIsCurrentUserAdmin } from "@/lib/current-user";
 import { Supplier } from "@/features/suppliers/types";
 import { useDashboardRealtime } from "@/lib/use-dashboard-realtime";
 import { useInventory, useSuppliers, queryKeys } from "@/lib/queries";
@@ -94,6 +95,7 @@ interface InventoryApiItem {
 
 export default function InventoryPage() {
   const router = useRouter();
+  const isAdmin = useIsCurrentUserAdmin();
   const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState<InventoryFilters>({
     category: "All",
@@ -298,14 +300,16 @@ export default function InventoryPage() {
               Add Inventory Item
             </Button>
 
-            <Button
-              variant="outline"
-              onClick={handleExportCSV}
-              className={outlineBlue}
-            >
-              <Download className="h-4 w-4 mr-2" />
-              Export CSV
-            </Button>
+            {isAdmin ? (
+              <Button
+                variant="outline"
+                onClick={handleExportCSV}
+                className={outlineBlue}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Export CSV
+              </Button>
+            ) : null}
           </div>
         </div>
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -33,7 +33,7 @@ import {
 import { Order, PaymentDetails } from "../types";
 import { OrderReceiptPreviewDialog } from "./order-receipt-preview";
 import api from "@/lib/api";
-import { useInventory, useSettings } from "@/lib/queries";
+import { useCustomer, useInventory, useSettings } from "@/lib/queries";
 
 interface EditOrderModalProps {
   open: boolean;
@@ -55,6 +55,8 @@ interface EditableItem {
   unitPrice: number;
   totalPrice: number;
   isRefill: boolean;
+  creditsUsed: boolean;
+  existingRefillCreditsUsed: number;
   warranty?: Order["items"][number]["warranty"];
   returnPolicy?: Order["items"][number]["returnPolicy"];
 }
@@ -93,6 +95,77 @@ const toDisplayDateTime = (rawDate?: string) => {
 };
 
 const fmt = (v: number) => `$${v.toFixed(2)}`;
+
+const getOrderRefillLines = (order: Order | null) => {
+  if (!order) {
+    return [];
+  }
+
+  if ((order.refills || []).length > 0) {
+    return order.refills || [];
+  }
+
+  return (order.items || []).filter((item) => item.isRefill);
+};
+
+const buildInitialEditedItems = (order: Order | null): EditableItem[] => {
+  if (!order) {
+    return [];
+  }
+
+  const merged = new Map<string, EditableItem>();
+  const sourceItems = [
+    ...(order.items || [])
+      .filter((item) => !item.isRefill)
+      .map((item) => ({ ...item, isRefill: false })),
+    ...getOrderRefillLines(order).map((item) => ({ ...item, isRefill: true })),
+  ];
+
+  for (const item of sourceItems) {
+    const itemId = item.itemId || "";
+    const key = item.isRefill
+      ? `${itemId}::refill`
+      : `${itemId}::${item.creditsUsed ? "credit" : "paid"}`;
+    const existing = merged.get(key);
+
+    if (existing) {
+      existing.quantity += Number(item.quantity || 0);
+      existing.totalPrice += Number(item.totalPrice || 0);
+      existing.existingRefillCreditsUsed +=
+        item.isRefill && item.creditsUsed ? Number(item.quantity || 0) : 0;
+      if (!existing.unitPrice && Number(item.unitPrice || 0) > 0) {
+        existing.unitPrice = Number(item.unitPrice || 0);
+      }
+      if (!existing.sku && item.sku) {
+        existing.sku = item.sku;
+      }
+      if (!existing.warranty && item.warranty) {
+        existing.warranty = item.warranty;
+      }
+      if (!existing.returnPolicy && item.returnPolicy) {
+        existing.returnPolicy = item.returnPolicy;
+      }
+      continue;
+    }
+
+    merged.set(key, {
+      itemId,
+      productName: item.productName,
+      sku: item.sku || "",
+      quantity: Number(item.quantity || 0),
+      unitPrice: Number(item.unitPrice || 0),
+      totalPrice: Number(item.totalPrice || 0),
+      isRefill: !!item.isRefill,
+      creditsUsed: item.isRefill ? false : !!item.creditsUsed,
+      existingRefillCreditsUsed:
+        item.isRefill && item.creditsUsed ? Number(item.quantity || 0) : 0,
+      warranty: item.warranty,
+      returnPolicy: item.returnPolicy,
+    });
+  }
+
+  return Array.from(merged.values());
+};
 
 const PAYMENT_TYPES = [
   { value: "interac", label: "Interac" },
@@ -136,6 +209,10 @@ export function EditOrderModal({
 
   const { data: settings } = useSettings();
   const { data: inventoryRaw } = useInventory();
+  const activeCustomerId = open
+    ? formData.customerId || order?.customerId_raw || ""
+    : "";
+  const { data: customerDetail } = useCustomer(activeCustomerId);
   const inventory = useMemo<MappedInventoryItem[]>(
     () =>
       ((inventoryRaw as InventoryQueryItem[] | undefined) ?? []).reduce<
@@ -165,6 +242,140 @@ export function EditOrderModal({
 
   const taxRate: number = settings?.taxRate ?? 0;
 
+  const savedRefillLines = useMemo(() => getOrderRefillLines(order), [order]);
+
+  const reservedRefillsByItem = useMemo(() => {
+    const reserved = new Map<string, number>();
+
+    for (const item of savedRefillLines) {
+      if (!item.creditsUsed || !item.itemId) {
+        continue;
+      }
+
+      reserved.set(
+        item.itemId,
+        Number(reserved.get(item.itemId) || 0) + Number(item.quantity || 0),
+      );
+    }
+
+    return reserved;
+  }, [savedRefillLines]);
+
+  const refillAvailabilityByItem = useMemo(() => {
+    const availability = new Map<string, number>();
+
+    for (const item of customerDetail?.wallet?.prepaidItems || []) {
+      if (!item.itemId) {
+        continue;
+      }
+
+      availability.set(
+        item.itemId,
+        Number(item.quantityRemaining || 0),
+      );
+    }
+
+    reservedRefillsByItem.forEach((quantity, itemId) => {
+      availability.set(itemId, Number(availability.get(itemId) || 0) + quantity);
+    });
+
+    return availability;
+  }, [customerDetail, reservedRefillsByItem]);
+
+  const getRefillChargeUnitPrice = useCallback(
+    (item: EditableItem) => {
+      const inventoryItem = inventory.find((candidate) => candidate.id === item.itemId);
+      return item.unitPrice > 0
+        ? item.unitPrice
+        : inventoryItem?.refillPrice || inventoryItem?.sellingPrice || 0;
+    },
+    [inventory],
+  );
+
+  const getVisibleRefills = useCallback(
+    (item: EditableItem) =>
+      item.isRefill ? Number(refillAvailabilityByItem.get(item.itemId) || 0) : 0,
+    [refillAvailabilityByItem],
+  );
+
+  const getAppliedRefills = useCallback(
+    (item: EditableItem) => Math.min(item.quantity, getVisibleRefills(item)),
+    [getVisibleRefills],
+  );
+
+  const getRemainingRefills = useCallback(
+    (item: EditableItem) =>
+      Math.max(0, getVisibleRefills(item) - getAppliedRefills(item)),
+    [getAppliedRefills, getVisibleRefills],
+  );
+
+  const getDisplayUnitPrice = useCallback(
+    (item: EditableItem) => (item.isRefill ? getRefillChargeUnitPrice(item) : item.unitPrice),
+    [getRefillChargeUnitPrice],
+  );
+
+  const getDisplayTotalPrice = useCallback(
+    (item: EditableItem) => {
+      if (item.isRefill) {
+        const chargedQuantity = Math.max(0, item.quantity - getAppliedRefills(item));
+        return getDisplayUnitPrice(item) * chargedQuantity;
+      }
+
+      return item.creditsUsed ? 0 : getDisplayUnitPrice(item) * item.quantity;
+    },
+    [getAppliedRefills, getDisplayUnitPrice],
+  );
+
+  const expandedEditedItems = useMemo(
+    () =>
+      editedItems.flatMap((item) => {
+        if (!item.itemId) {
+          return [];
+        }
+
+        if (!item.isRefill) {
+          const unitPrice = item.creditsUsed ? 0 : item.unitPrice;
+          return [
+            {
+              ...item,
+              unitPrice,
+              totalPrice: item.creditsUsed ? 0 : unitPrice * item.quantity,
+            },
+          ];
+        }
+
+        const creditedQuantity = getAppliedRefills(item);
+        const chargedQuantity = Math.max(0, item.quantity - creditedQuantity);
+        const chargedUnitPrice = getRefillChargeUnitPrice(item);
+        const lines: EditableItem[] = [];
+
+        if (creditedQuantity > 0) {
+          lines.push({
+            ...item,
+            quantity: creditedQuantity,
+            unitPrice: 0,
+            totalPrice: 0,
+            creditsUsed: true,
+            existingRefillCreditsUsed: 0,
+          });
+        }
+
+        if (chargedQuantity > 0) {
+          lines.push({
+            ...item,
+            quantity: chargedQuantity,
+            unitPrice: chargedUnitPrice,
+            totalPrice: chargedUnitPrice * chargedQuantity,
+            creditsUsed: false,
+            existingRefillCreditsUsed: 0,
+          });
+        }
+
+        return lines;
+      }),
+    [editedItems, getAppliedRefills, getRefillChargeUnitPrice],
+  );
+
   useEffect(() => {
     if (!order) return;
 
@@ -181,31 +392,7 @@ export function EditOrderModal({
       emailReceipt: !!order.emailReceipt,
     });
 
-    const items: EditableItem[] = [
-      ...(order.items || []).map((item) => ({
-        itemId: item.itemId || "",
-        productName: item.productName,
-        sku: item.sku || "",
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        totalPrice: item.totalPrice,
-        isRefill: false,
-        warranty: item.warranty,
-        returnPolicy: item.returnPolicy,
-      })),
-      ...(order.refills || []).map((item) => ({
-        itemId: item.itemId || "",
-        productName: item.productName,
-        sku: item.sku || "",
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        totalPrice: item.totalPrice,
-        isRefill: true,
-        warranty: item.warranty,
-        returnPolicy: item.returnPolicy,
-      })),
-    ];
-    setEditedItems(items);
+    setEditedItems(buildInitialEditedItems(order));
     setNewItemId("");
     setNewItemIsRefill(false);
 
@@ -231,7 +418,10 @@ export function EditOrderModal({
   }, [order]);
 
   // Derived financials
-  const itemsSubTotal = editedItems.reduce((sum, i) => sum + i.totalPrice, 0);
+  const itemsSubTotal = expandedEditedItems.reduce(
+    (sum, item) => sum + item.totalPrice,
+    0,
+  );
   const backendSubTotal = order?.totalPrice ?? 0;
   const subTotal = editedItems.length > 0 ? itemsSubTotal : backendSubTotal;
   const discountAmt = Number(formData.discount || 0);
@@ -261,7 +451,6 @@ export function EditOrderModal({
           ? {
               ...item,
               quantity: Math.max(1, qty),
-              totalPrice: item.unitPrice * Math.max(1, qty),
             }
           : item,
       ),
@@ -295,6 +484,8 @@ export function EditOrderModal({
           unitPrice,
           totalPrice: unitPrice,
           isRefill: newItemIsRefill,
+          creditsUsed: false,
+          existingRefillCreditsUsed: 0,
           warranty: inv.warranty,
           returnPolicy: inv.returnPolicy,
         },
@@ -366,39 +557,39 @@ export function EditOrderModal({
       amountPaid: totalPaid,
       paymentDetails: currentPaymentDetails,
       emailReceipt: formData.emailReceipt,
-      items: editedItems
+      items: expandedEditedItems
         .filter((item) => !item.isRefill)
         .map((item) => ({
-          id: item.itemId,
+          id: `${item.itemId}-${item.creditsUsed ? "credit" : "paid"}`,
           itemId: item.itemId,
           productName: item.productName,
           sku: item.sku,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
           totalPrice: item.totalPrice,
-          creditsUsed: false,
+          creditsUsed: item.creditsUsed,
           isRefill: false,
           warranty: item.warranty,
           returnPolicy: item.returnPolicy,
         })),
-      refills: editedItems
+      refills: expandedEditedItems
         .filter((item) => item.isRefill)
         .map((item) => ({
-          id: item.itemId,
+          id: `${item.itemId}-${item.creditsUsed ? "credit" : "paid"}`,
           itemId: item.itemId,
           productName: item.productName,
           sku: item.sku,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
           totalPrice: item.totalPrice,
-          creditsUsed: false,
+          creditsUsed: item.creditsUsed,
           isRefill: true,
           warranty: item.warranty,
           returnPolicy: item.returnPolicy,
         })),
     };
   }, [
-    editedItems,
+    expandedEditedItems,
     formData.customerId,
     formData.deliveryAddress,
     formData.deliveryDateTime,
@@ -411,7 +602,7 @@ export function EditOrderModal({
     formData.paymentStatus,
     grandTotal,
     order,
-      currentPaymentDetails,
+    currentPaymentDetails,
     pretaxTotal,
     totalPaid,
   ]);
@@ -423,12 +614,13 @@ export function EditOrderModal({
       setSaving(true);
       const paymentDetails = currentPaymentDetails;
 
-      const itemsPayload = editedItems
+      const itemsPayload = expandedEditedItems
         .filter((i) => i.itemId)
         .map((i) => ({
           itemId: i.itemId,
           quantity: i.quantity,
           isRefill: i.isRefill,
+          isPrepaidRedemption: i.creditsUsed,
         }));
 
       const payload: Record<string, unknown> = {
@@ -461,59 +653,9 @@ export function EditOrderModal({
 
       await api.patch(`/orders/${order.id}`, payload);
 
-      onUpdate({
-        ...order,
-        customerId_raw: formData.customerId || order.customerId_raw,
-        orderStatus: formData.orderStatus as Order["orderStatus"],
-        paymentStatus: formData.paymentStatus as Order["paymentStatus"],
-        deliveryType: formData.deliveryType as Order["deliveryType"],
-        deliveryAddress: formData.deliveryAddress || undefined,
-        deliveryNotes:
-          formData.deliveryType === "Delivery"
-            ? formData.deliveryNotes.trim() || undefined
-            : undefined,
-        scheduledDate:
-          formData.deliveryType === "Delivery" && formData.deliveryDateTime
-            ? new Date(formData.deliveryDateTime).toISOString()
-            : undefined,
-        notes: formData.notes.trim() || undefined,
-        discount: Number(formData.discount || 0),
-        totalPrice: pretaxTotal,
-        grandTotal,
-        amountPaid: totalPaid,
-        paymentDetails,
-        emailReceipt: formData.emailReceipt,
-        items: editedItems
-          .filter((i) => !i.isRefill)
-          .map((i) => ({
-            id: i.itemId,
-            itemId: i.itemId,
-            productName: i.productName,
-            sku: i.sku,
-            quantity: i.quantity,
-            unitPrice: i.unitPrice,
-            totalPrice: i.totalPrice,
-            creditsUsed: false,
-            isRefill: false,
-            warranty: i.warranty,
-            returnPolicy: i.returnPolicy,
-          })),
-        refills: editedItems
-          .filter((i) => i.isRefill)
-          .map((i) => ({
-            id: i.itemId,
-            itemId: i.itemId,
-            productName: i.productName,
-            sku: i.sku,
-            quantity: i.quantity,
-            unitPrice: i.unitPrice,
-            totalPrice: i.totalPrice,
-            creditsUsed: false,
-            isRefill: true,
-            warranty: i.warranty,
-            returnPolicy: i.returnPolicy,
-          })),
-      });
+      if (previewOrder) {
+        onUpdate(previewOrder);
+      }
       onOpenChange(false);
     } catch (error) {
       console.error("Failed to update order", error);
@@ -577,6 +719,9 @@ export function EditOrderModal({
                       <th className="px-3 py-2.5 text-center text-xs font-semibold uppercase tracking-wide text-dark-500">
                         Qty
                       </th>
+                      <th className="px-3 py-2.5 text-center text-xs font-semibold uppercase tracking-wide text-dark-500">
+                        Refills
+                      </th>
                       <th className="px-3 py-2.5 text-right text-xs font-semibold uppercase tracking-wide text-dark-500">
                         Unit Price
                       </th>
@@ -590,7 +735,7 @@ export function EditOrderModal({
                     {editedItems.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={6}
+                          colSpan={7}
                           className="px-3 py-8 text-center text-sm text-dark-400"
                         >
                           No items in this order
@@ -647,11 +792,16 @@ export function EditOrderModal({
                               </button>
                             </div>
                           </td>
+                          <td className="px-3 py-2.5 text-center text-sm text-dark-500 dark:text-dark-300">
+                            {item.isRefill && getVisibleRefills(item) > 0
+                              ? getRemainingRefills(item)
+                              : ""}
+                          </td>
                           <td className="px-3 py-2.5 text-right text-dark-500">
-                            {fmt(item.unitPrice)}
+                            {fmt(getDisplayUnitPrice(item))}
                           </td>
                           <td className="px-3 py-2.5 text-right font-semibold text-dark-800 dark:text-dark-100">
-                            {fmt(item.totalPrice)}
+                            {fmt(getDisplayTotalPrice(item))}
                           </td>
                           <td className="px-3 py-2.5">
                             <button

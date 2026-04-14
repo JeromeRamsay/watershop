@@ -168,8 +168,26 @@ describe("ReportsService", () => {
       await service.getDashboardStats(undefined, new Date("2026-04-11T03:30:00.000Z"));
 
       const pipeline = mockOrderModel.aggregate.mock.calls[0][0];
-      expect(pipeline[1].$facet.overview[0].$group.todayOrders.$sum.$cond[0].$eq[0].$dateToString.timezone).toBe("America/Toronto");
-      expect(pipeline[1].$facet.overview[0].$group.todayOrders.$sum.$cond[0].$eq[1]).toBe("2026-04-10");
+      expect(pipeline[1]).toEqual({
+        $match: {
+          status: { $ne: "cancelled" },
+        },
+      });
+      expect(pipeline[2].$facet.overview[0].$group.todayOrders.$sum.$cond[0].$eq[0].$dateToString.timezone).toBe("America/Toronto");
+      expect(pipeline[2].$facet.overview[0].$group.todayOrders.$sum.$cond[0].$eq[1]).toBe("2026-04-10");
+    });
+
+    it("excludes cancelled orders from dashboard metrics", async () => {
+      mockOrderModel.aggregate.mockResolvedValue([]);
+
+      await service.getDashboardStats();
+
+      const pipeline = mockOrderModel.aggregate.mock.calls[0][0];
+      expect(pipeline[1]).toEqual({
+        $match: {
+          status: { $ne: "cancelled" },
+        },
+      });
     });
   });
 

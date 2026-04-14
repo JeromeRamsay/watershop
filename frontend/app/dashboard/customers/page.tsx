@@ -31,12 +31,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import api from "@/lib/api";
+import { useIsCurrentUserAdmin } from "@/lib/current-user";
 import { useDashboardRealtime } from "@/lib/use-dashboard-realtime";
 import { useCustomers, queryKeys } from "@/lib/queries";
 import { useQueryClient } from "@tanstack/react-query";
 
 export default function CustomersPage() {
   const router = useRouter();
+  const isAdmin = useIsCurrentUserAdmin();
   const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState<CustomerFilters>({ customerType: "All", status: "All" });
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
@@ -196,14 +198,16 @@ export default function CustomersPage() {
             <Plus className="h-4 w-4 mr-2" />
             Create Customer
           </Button>
-          <Button
-            variant="outline"
-            onClick={handleExportCSV}
-            className="border-primary-500 text-primary-500 hover:bg-primary-100 dark:hover:bg-primary-900/20 hover:text-primary-600 dark:hover:text-primary-400"
-          >
-            <Download className="h-4 w-4 mr-2" />
-            Export CSV
-          </Button>
+          {isAdmin ? (
+            <Button
+              variant="outline"
+              onClick={handleExportCSV}
+              className="border-primary-500 text-primary-500 hover:bg-primary-100 dark:hover:bg-primary-900/20 hover:text-primary-600 dark:hover:text-primary-400"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Export CSV
+            </Button>
+          ) : null}
         </div>
       </div>
 

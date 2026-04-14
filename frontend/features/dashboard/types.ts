@@ -30,6 +30,8 @@ export interface Notification {
   orderId?: string;
   /** True when the associated order is unpaid or partial */
   hasBalance?: boolean;
+  /** True when the notification should use destructive styling */
+  isDestructive?: boolean;
 }
 
 export interface Transaction {
@@ -37,7 +39,7 @@ export interface Transaction {
   customer: string;
   itemsPurchased: string;
   total: number;
-  status: "Paid" | "Pending";
+  status: "Paid" | "Pending" | "Cancelled";
 }
 
 export interface Delivery {

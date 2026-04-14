@@ -8,7 +8,7 @@ export class Notification {
   @Prop({ required: true })
   message: string;
 
-  @Prop({ enum: ["low_stock", "out_of_stock", "refill_order"], required: true })
+  @Prop({ enum: ["low_stock", "out_of_stock", "refill_order", "cancelled_order"], required: true })
   type: string;
 
   @Prop({ type: Types.ObjectId, ref: "Inventory" })

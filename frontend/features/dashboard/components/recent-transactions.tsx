@@ -85,6 +85,8 @@ export function RecentTransactions({
                       "inline-flex items-center justify-center px-2 py-0.5 rounded-md text-xs font-medium whitespace-nowrap w-20",
                       transaction.status === "Paid"
                         ? "bg-status-green-bg text-status-green-text"
+                        : transaction.status === "Cancelled"
+                          ? "bg-status-red-bg text-status-red-text"
                         : "bg-status-orange-bg text-status-orange-text",
                     )}
                   >

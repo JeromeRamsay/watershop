@@ -34,50 +34,56 @@ type InventoryItem = {
 
 export default function KioskRefillSelectPage() {
   const router = useRouter();
-  const [phone] = useState(() => {
-    if (typeof window === "undefined") {
-      return "";
-    }
-
-    return localStorage.getItem("kiosk_phone") || "";
-  });
-  const [name] = useState(() => {
-    if (typeof window === "undefined") {
-      return "John King";
-    }
-
-    return localStorage.getItem("kiosk_name") || "John King";
-  });
-  const [walletItems] = useState<StoredWalletItem[]>(() => {
-    if (typeof window === "undefined") {
-      return [];
-    }
-
-    const storedCustomer = localStorage.getItem("kiosk_customer");
-    if (!storedCustomer) {
-      return [];
-    }
-
-    try {
-      const customer = JSON.parse(storedCustomer) as StoredCustomer;
-      return customer.wallet?.prepaidItems || [];
-    } catch {
-      return [];
-    }
-  });
+  const [phone, setPhone] = useState("");
+  const [name, setName] = useState("");
+  const [walletItems, setWalletItems] = useState<StoredWalletItem[]>([]);
   const [items, setItems] = useState<RefillItem[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(() => phone !== "");
+  const [loading, setLoading] = useState(true);
+  const [isHydrated, setIsHydrated] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [confirmedQty, setConfirmedQty] = useState(0);
   const redirectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    setPhone(localStorage.getItem("kiosk_phone") || "");
+    setName(localStorage.getItem("kiosk_name") || "");
+
+    const storedCustomer = localStorage.getItem("kiosk_customer");
+    if (!storedCustomer) {
+      setWalletItems([]);
+      setIsHydrated(true);
+      return;
+    }
+
+    try {
+      const customer = JSON.parse(storedCustomer) as StoredCustomer;
+      setWalletItems(customer.wallet?.prepaidItems || []);
+    } catch {
+      setWalletItems([]);
+    }
+
+    setIsHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isHydrated) {
+      return;
+    }
+
     if (!phone) {
+      setLoading(false);
       router.replace("/refill");
       return;
     }
+
+    setError(null);
+    setLoading(true);
 
     api
       .get("/inventory")
@@ -108,7 +114,7 @@ export default function KioskRefillSelectPage() {
       })
       .catch(() => setError("Failed to load refill items."))
       .finally(() => setLoading(false));
-  }, [phone, router, walletItems]);
+  }, [isHydrated, phone, router, walletItems]);
 
   const formatted = useMemo(() => formatPhone(phone), [phone]);
 
@@ -116,6 +122,9 @@ export default function KioskRefillSelectPage() {
     setCounts((s) => ({ ...s, [id]: (s[id] || 0) + 1 }));
   const dec = (id: string) =>
     setCounts((s) => ({ ...s, [id]: Math.max(0, (s[id] || 0) - 1) }));
+
+  const getRemainingAfterSelection = (id: string, remaining: number) =>
+    Math.max(0, remaining - Number(counts[id] || 0));
 
   const onConfirm = () => {
     setError(null);
@@ -215,7 +224,7 @@ export default function KioskRefillSelectPage() {
             className="text-2xl md:text-3xl lg:text-4xl font-bold mt-1"
             style={{ color: "#545454" }}
           >
-            {remaining}
+            {getRemainingAfterSelection(id, remaining)}
           </div>
         </div>
 

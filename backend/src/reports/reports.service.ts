@@ -289,6 +289,11 @@ export class ReportsService {
     now = new Date(),
   ): Promise<DashboardStats> {
     const matchStage = this.buildOrderMatch(filters);
+    const activeOrdersMatchStage = {
+      $match: {
+        status: { $ne: "cancelled" },
+      },
+    };
 
     const todayKey = this.getDateKeyInTimeZone(now, STORE_TIME_ZONE);
     const todayExpression = {
@@ -297,6 +302,7 @@ export class ReportsService {
 
     const stats = await this.orderModel.aggregate<DashboardFacetResult>([
       matchStage,
+      activeOrdersMatchStage,
       {
         $facet: {
           overview: [

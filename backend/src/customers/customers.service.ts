@@ -140,21 +140,32 @@ export class CustomersService {
     };
   }
 
-  async findOne(id: string): Promise<Record<string, unknown>> {
-    const customer = await this.customerModel.findById(id).exec();
-    if (!customer) {
-      throw new NotFoundException(`Customer with ID ${id} not found`);
-    }
+  private toPlainCustomerRecord(
+    customer: CustomerDocument | Record<string, unknown>,
+  ): Record<string, unknown> {
+    return typeof (customer as CustomerDocument & {
+      toObject?: () => Record<string, unknown>;
+    }).toObject === "function"
+      ? (customer as CustomerDocument & {
+          toObject: () => Record<string, unknown>;
+        }).toObject()
+      : (customer as Record<string, unknown>);
+  }
 
-    const customerRecord =
-      typeof (customer as CustomerDocument & { toObject?: () => Record<string, unknown> }).toObject ===
-      "function"
-        ? (customer as CustomerDocument & { toObject: () => Record<string, unknown> }).toObject()
-        : (customer as unknown as Record<string, unknown>);
+  private toPlainOrderRecord(
+    order: OrderDocument | Record<string, unknown>,
+  ): Record<string, unknown> {
+    return typeof (order as OrderDocument & {
+      toObject?: () => Record<string, unknown>;
+    }).toObject === "function"
+      ? (order as OrderDocument & {
+          toObject: () => Record<string, unknown>;
+        }).toObject()
+      : (order as Record<string, unknown>);
+  }
 
-    const customerId = customerRecord._id;
-
-    const [orders, overrideTotals] = await Promise.all([
+  private async loadCustomerRefillBalanceInputs(customerId: unknown) {
+    return Promise.all([
       this.orderModel.find({ customer: customerId }).sort({ createdAt: -1 }).exec(),
       this.refillOverrideModel.aggregate([
         { $match: { customer: customerId } },
@@ -168,14 +179,19 @@ export class CustomersService {
         },
       ]),
     ]);
+  }
 
-    const overrideMap = new Map<string, number>(
-      (overrideTotals || []).map((row: { _id: { toString: () => string }; quantityDelta: number }) => [
-        row._id.toString(),
-        Number(row.quantityDelta || 0),
-      ]),
-    );
-
+  private buildEffectiveWallet(
+    customerRecord: Record<string, unknown>,
+    orders: Array<OrderDocument | Record<string, unknown>>,
+    overrideTotals: Array<{
+      _id: { toString: () => string } | string;
+      itemName?: string;
+      quantityDelta?: number;
+      count?: number;
+    }>,
+    includeOverrideQuantity: boolean,
+  ) {
     const wallet =
       (customerRecord.wallet as
         | {
@@ -189,12 +205,161 @@ export class CustomersService {
           }
         | undefined) || { storeCredit: 0, prepaidItems: [] };
 
+    const storedItems = wallet.prepaidItems || [];
+    const storedItemMap = new Map(
+      storedItems.map((item) => [
+        String(item.itemId?.toString?.() || item.itemId || ""),
+        item,
+      ]),
+    );
+
+    const refillBalanceMap = new Map<string, { itemName?: string; quantity: number }>();
+    for (const order of orders) {
+      const orderRecord = this.toPlainOrderRecord(order);
+      const refillLines = Array.isArray(orderRecord.refills) && orderRecord.refills.length
+        ? (orderRecord.refills as Array<{
+            item?: { toString?: () => string } | string;
+            name?: string;
+            quantity?: number;
+            isPrepaidRedemption?: boolean;
+          }>)
+        : Array.isArray(orderRecord.items)
+          ? (orderRecord.items as Array<{
+              item?: { toString?: () => string } | string;
+              name?: string;
+              quantity?: number;
+              isRefill?: boolean;
+              isPrepaidRedemption?: boolean;
+            }>).filter((item) => !!item.isRefill)
+          : [];
+
+      for (const refillLine of refillLines) {
+        const itemId = String(
+          refillLine.item?.toString?.() || refillLine.item || "",
+        );
+        const quantity = Number(refillLine.quantity || 0);
+        if (!itemId || quantity <= 0) {
+          continue;
+        }
+
+        const existing = refillBalanceMap.get(itemId);
+        const nextQuantity =
+          (existing?.quantity || 0) +
+          (refillLine.isPrepaidRedemption ? -quantity : quantity);
+
+        refillBalanceMap.set(itemId, {
+          itemName: existing?.itemName || refillLine.name,
+          quantity: nextQuantity,
+        });
+      }
+    }
+
+    const overrideMap = new Map(
+      (overrideTotals || []).map((row) => [
+        String(row._id?.toString?.() || row._id || ""),
+        {
+          itemName: row.itemName,
+          quantityDelta: Number(row.quantityDelta || 0),
+          count: Number(row.count || 0),
+        },
+      ]),
+    );
+
+    const itemIds = new Set<string>([
+      ...storedItemMap.keys(),
+      ...refillBalanceMap.keys(),
+      ...overrideMap.keys(),
+    ]);
+
+    const prepaidItems = Array.from(itemIds)
+      .map((itemId) => {
+        const storedItem = storedItemMap.get(itemId);
+        const orderBalance = Number(refillBalanceMap.get(itemId)?.quantity || 0);
+        const overrideQuantity = Number(
+          overrideMap.get(itemId)?.quantityDelta || 0,
+        );
+        const storedQuantityRemaining = Number(
+          storedItem?.quantityRemaining || 0,
+        );
+        const computedQuantityRemaining = Math.max(
+          0,
+          orderBalance + overrideQuantity,
+        );
+        const quantityRemaining = Math.max(
+          storedQuantityRemaining,
+          computedQuantityRemaining,
+        );
+
+        return {
+          itemId: storedItem?.itemId || itemId,
+          itemName:
+            storedItem?.itemName ||
+            refillBalanceMap.get(itemId)?.itemName ||
+            overrideMap.get(itemId)?.itemName ||
+            "",
+          quantityRemaining,
+          ...(storedItem?.expiryDate ? { expiryDate: storedItem.expiryDate } : {}),
+          ...(includeOverrideQuantity ? { overrideQuantity } : {}),
+        };
+      })
+      .filter((item) => item.itemId);
+
+    return {
+      storeCredit: Number(wallet.storeCredit || 0),
+      prepaidItems,
+    };
+  }
+
+  private async buildCustomerForOrderProcessing(
+    customer: CustomerDocument | Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    const customerRecord = this.toPlainCustomerRecord(customer);
+    const customerId = customerRecord._id;
+    const [orders, overrideTotals] =
+      await this.loadCustomerRefillBalanceInputs(customerId);
+
+    return {
+      ...customerRecord,
+      wallet: this.buildEffectiveWallet(
+        customerRecord,
+        orders,
+        overrideTotals,
+        false,
+      ),
+    };
+  }
+
+  async findOneForOrderProcessing(id: string): Promise<Record<string, unknown>> {
+    const customer = await this.customerModel.findById(id).exec();
+    if (!customer) {
+      throw new NotFoundException(`Customer with ID ${id} not found`);
+    }
+
+    return this.buildCustomerForOrderProcessing(customer);
+  }
+
+  async findOne(id: string): Promise<Record<string, unknown>> {
+    const customer = await this.customerModel.findById(id).exec();
+    if (!customer) {
+      throw new NotFoundException(`Customer with ID ${id} not found`);
+    }
+
+    const customerRecord = this.toPlainCustomerRecord(customer);
+
+    const customerId = customerRecord._id;
+
+    const [orders, overrideTotals] =
+      await this.loadCustomerRefillBalanceInputs(customerId);
+
+    const overrideMap = new Map<string, number>(
+      (overrideTotals || []).map((row: { _id: { toString: () => string }; quantityDelta: number }) => [
+        row._id.toString(),
+        Number(row.quantityDelta || 0),
+      ]),
+    );
+
     const orderHistory = orders.map((order) => {
-      const orderRecord =
-        typeof (order as OrderDocument & { toObject?: () => Record<string, unknown> }).toObject ===
-        "function"
-          ? (order as OrderDocument & { toObject: () => Record<string, unknown> }).toObject()
-          : (order as unknown as Record<string, unknown>);
+      const orderRecord = this.toPlainOrderRecord(order);
 
       const items = Array.isArray(orderRecord.items)
         ? (orderRecord.items as Array<{ quantity?: number }>)
@@ -223,13 +388,12 @@ export class CustomersService {
 
     return {
       ...customerRecord,
-      wallet: {
-        storeCredit: Number(wallet.storeCredit || 0),
-        prepaidItems: (wallet.prepaidItems || []).map((item) => ({
-          ...item,
-          overrideQuantity: overrideMap.get(String(item.itemId?.toString?.() || item.itemId || "")) || 0,
-        })),
-      },
+      wallet: this.buildEffectiveWallet(
+        customerRecord,
+        orders,
+        overrideTotals,
+        true,
+      ),
       orderHistory,
       overrideTotals: (overrideTotals || []).map(
         (row: { _id: { toString: () => string }; itemName: string; quantityDelta: number; count: number }) => ({
@@ -255,7 +419,7 @@ export class CustomersService {
       .exec();
   }
 
-  async findByPhone(phone: string): Promise<Customer | null> {
+  async findByPhone(phone: string): Promise<Record<string, unknown> | null> {
     const digits = (phone || "").replace(/\D/g, "");
     if (!digits) return null;
 
@@ -265,13 +429,21 @@ export class CustomersService {
     const primary = await this.customerModel
       .findOne({ phone: { $regex: regex } })
       .exec();
-    if (primary) return primary;
+    if (primary) {
+      return this.buildCustomerForOrderProcessing(primary);
+    }
 
     // Fall back: check if the number belongs to a family member
     // and return the primary (owner) customer so the shared wallet is used
-    return this.customerModel
+    const familyCustomer = await this.customerModel
       .findOne({ "familyMembers.phone": { $regex: regex } })
       .exec();
+
+    if (!familyCustomer) {
+      return null;
+    }
+
+    return this.buildCustomerForOrderProcessing(familyCustomer);
   }
 
   async update(

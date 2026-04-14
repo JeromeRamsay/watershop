@@ -3,10 +3,11 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import Cookies from "js-cookie";
 import { Loader2, Pencil, Trash2, UserX, UserCheck } from "lucide-react";
-import api from "@/lib/api";
+import api, { type WatershopApiRequestConfig } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useDashboardRealtime } from "@/lib/use-dashboard-realtime";
+import { getErrorMessage } from "@/lib/error-utils";
 
 interface StaffUser {
   _id: string;
@@ -30,6 +31,10 @@ interface HourSummary {
   daysWorked: number;
 }
 
+const HANDLED_REQUEST_CONFIG: WatershopApiRequestConfig = {
+  watershopHandledError: true,
+};
+
 const startOfWeek = (date: Date) => {
   const d = new Date(date);
   const day = d.getDay();
@@ -48,6 +53,8 @@ export default function EmployeesPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
   const [formData, setFormData] = useState({
     firstName: "",
@@ -82,18 +89,33 @@ export default function EmployeesPage() {
     try {
       if (!silent) {
         setLoading(true);
+        setErrorMessage("");
       }
       const [usersRes, activityRes, summaryRes] = await Promise.all([
-        api.get<StaffUser[]>("/users/staff?includeInactive=true"),
-        api.get<StaffUser[]>("/users/login-activity?limit=20"),
-        api.get<HourSummary[]>(`/employee-hours/summary?from=${weekRange.from}&to=${weekRange.to}`),
+        api.get<StaffUser[]>(
+          "/users/staff?includeInactive=true",
+          HANDLED_REQUEST_CONFIG,
+        ),
+        api.get<StaffUser[]>(
+          "/users/login-activity?limit=20",
+          HANDLED_REQUEST_CONFIG,
+        ),
+        api.get<HourSummary[]>(
+          `/employee-hours/summary?from=${weekRange.from}&to=${weekRange.to}`,
+          HANDLED_REQUEST_CONFIG,
+        ),
       ]);
 
       setUsers(usersRes.data || []);
       setActivity((activityRes.data || []).filter((u) => u.role === "staff"));
       setSummary(summaryRes.data || []);
     } catch (error) {
-      console.error("Failed loading employees page data", error);
+      if (!silent) {
+        setErrorMessage(
+          getErrorMessage(error, "Failed loading employees page data."),
+        );
+        setSuccessMessage("");
+      }
     } finally {
       if (!silent) {
         setLoading(false);
@@ -129,20 +151,31 @@ export default function EmployeesPage() {
   const createUser = async (e: FormEvent) => {
     e.preventDefault();
     if (!formData.firstName || !formData.lastName || !formData.username || !formData.password) {
+      setErrorMessage("First name, last name, username, and password are required.");
+      setSuccessMessage("");
+      return;
+    }
+
+    if (formData.password.trim().length < 6) {
+      setErrorMessage("Password must be at least 6 characters.");
+      setSuccessMessage("");
       return;
     }
 
     try {
       setSaving(true);
+      setErrorMessage("");
       await api.post("/users/staff", {
         ...formData,
         role: "staff",
         isActive: true,
-      });
+      }, HANDLED_REQUEST_CONFIG);
       setFormData({ firstName: "", lastName: "", username: "", password: "" });
+      setSuccessMessage("Staff account created successfully.");
       fetchData();
     } catch (error) {
-      console.error("Failed to create user", error);
+      setErrorMessage(getErrorMessage(error, "Failed to create user."));
+      setSuccessMessage("");
     } finally {
       setSaving(false);
     }
@@ -152,18 +185,34 @@ export default function EmployeesPage() {
     e.preventDefault();
     if (!editData.id) return;
 
+    if (!editData.firstName || !editData.lastName || !editData.username) {
+      setErrorMessage("First name, last name, and username are required.");
+      setSuccessMessage("");
+      return;
+    }
+
+    if (editData.password && editData.password.trim().length < 6) {
+      setErrorMessage("Password must be at least 6 characters.");
+      setSuccessMessage("");
+      return;
+    }
+
     try {
       setSaving(true);
+      setErrorMessage("");
       await api.patch(`/users/${editData.id}`, {
         firstName: editData.firstName,
         lastName: editData.lastName,
         username: editData.username,
         ...(editData.password ? { password: editData.password } : {}),
-      });
+      }, HANDLED_REQUEST_CONFIG);
       setEditData({ id: "", firstName: "", lastName: "", username: "", password: "" });
+      setSelectedUserId("");
+      setSuccessMessage("Staff account updated successfully.");
       fetchData();
     } catch (error) {
-      console.error("Failed to edit user", error);
+      setErrorMessage(getErrorMessage(error, "Failed to update staff account."));
+      setSuccessMessage("");
     } finally {
       setSaving(false);
     }
@@ -172,10 +221,21 @@ export default function EmployeesPage() {
   const toggleActive = async (user: StaffUser) => {
     try {
       setSaving(true);
-      await api.patch(`/users/${user._id}/${user.isActive ? "deactivate" : "activate"}`);
+      setErrorMessage("");
+      await api.patch(
+        `/users/${user._id}/${user.isActive ? "deactivate" : "activate"}`,
+        undefined,
+        HANDLED_REQUEST_CONFIG,
+      );
+      setSuccessMessage(
+        user.isActive
+          ? "Staff account deactivated successfully."
+          : "Staff account activated successfully.",
+      );
       fetchData();
     } catch (error) {
-      console.error("Failed to toggle status", error);
+      setErrorMessage(getErrorMessage(error, "Failed to update account status."));
+      setSuccessMessage("");
     } finally {
       setSaving(false);
     }
@@ -192,14 +252,23 @@ export default function EmployeesPage() {
 
     try {
       setSaving(true);
-      await api.patch(`/users/${user._id}/archive`);
+      setErrorMessage("");
+      await api.patch(
+        `/users/${user._id}/archive`,
+        undefined,
+        HANDLED_REQUEST_CONFIG,
+      );
       if (selectedUserId === user._id) {
         setSelectedUserId("");
         setEditData({ id: "", firstName: "", lastName: "", username: "", password: "" });
       }
+      setSuccessMessage("Staff account archived successfully.");
       fetchData();
     } catch (error) {
-      console.error("Failed to permanently delete staff account", error);
+      setErrorMessage(
+        getErrorMessage(error, "Failed to permanently delete staff account."),
+      );
+      setSuccessMessage("");
     } finally {
       setSaving(false);
     }
@@ -207,21 +276,35 @@ export default function EmployeesPage() {
 
   const submitHours = async (e: FormEvent) => {
     e.preventDefault();
-    if (!hoursData.userId || !hoursData.workDate || !hoursData.hours) return;
+    if (!hoursData.userId || !hoursData.workDate || !hoursData.hours) {
+      setErrorMessage("Staff member, work date, and hours are required.");
+      setSuccessMessage("");
+      return;
+    }
+
+    const parsedHours = Number(hoursData.hours);
+    if (!Number.isFinite(parsedHours) || parsedHours <= 0 || parsedHours > 24) {
+      setErrorMessage("Hours must be greater than 0 and no more than 24.");
+      setSuccessMessage("");
+      return;
+    }
 
     try {
       setSaving(true);
+      setErrorMessage("");
       await api.post("/employee-hours", {
         userId: hoursData.userId,
         workDate: new Date(hoursData.workDate).toISOString(),
-        hours: Number(hoursData.hours),
+        hours: parsedHours,
         notes: hoursData.notes,
         createdBy: currentUserId || undefined,
-      });
+      }, HANDLED_REQUEST_CONFIG);
       setHoursData((prev) => ({ ...prev, hours: "", notes: "" }));
+      setSuccessMessage("Staff hours saved successfully.");
       fetchData();
     } catch (error) {
-      console.error("Failed to submit staff hours", error);
+      setErrorMessage(getErrorMessage(error, "Failed to submit staff hours."));
+      setSuccessMessage("");
     } finally {
       setSaving(false);
     }
@@ -247,6 +330,18 @@ export default function EmployeesPage() {
   return (
     <div className="space-y-6 p-2 md:p-4">
       <h1 className="text-2xl font-bold">Employee Management</h1>
+
+      {errorMessage ? (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {errorMessage}
+        </div>
+      ) : null}
+
+      {successMessage ? (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+          {successMessage}
+        </div>
+      ) : null}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <form onSubmit={createUser} className="bg-white dark:bg-dark-800 rounded-xl shadow-sm p-4 space-y-3">

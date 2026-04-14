@@ -1,6 +1,20 @@
-import axios from "axios";
+import axios, {
+  type AxiosRequestConfig,
+  type InternalAxiosRequestConfig,
+} from "axios";
 import Cookies from "js-cookie";
 import { resolveClientApiUrl } from "./runtime-api-url";
+import { emitEmployeeAppError } from "./employee-app-errors";
+import { getErrorMessage, getErrorRequestId } from "./error-utils";
+
+export type WatershopApiRequestConfig<D = unknown> = AxiosRequestConfig<D> & {
+  watershopHandledError?: boolean;
+};
+
+type WatershopInternalApiRequestConfig<D = unknown> =
+  InternalAxiosRequestConfig<D> & {
+    watershopHandledError?: boolean;
+  };
 
 const api = axios.create({
   headers: {
@@ -44,6 +58,26 @@ api.interceptors.response.use(
         }
       }
     }
+
+    if (typeof window !== "undefined") {
+      const requestConfig = error.config as
+        | WatershopInternalApiRequestConfig
+        | undefined;
+      const requestUrl = String(requestConfig?.url || "");
+      const isClientErrorReportRequest = requestUrl.includes("/client-errors");
+
+      if (!requestConfig?.watershopHandledError && !isClientErrorReportRequest) {
+        emitEmployeeAppError({
+          message: getErrorMessage(
+            error,
+            "Something went wrong. Please try again.",
+          ),
+          requestId: getErrorRequestId(error),
+          source: "request",
+        });
+      }
+    }
+
     return Promise.reject(error);
   },
 );

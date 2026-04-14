@@ -1,5 +1,6 @@
+import { randomUUID } from "crypto";
 import { Module } from "@nestjs/common";
-import { APP_GUARD } from "@nestjs/core";
+import { APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
 import { AppController } from "./app.controller";
 import { AppService } from "./app.service";
 import { UsersModule } from "./users/users.module";
@@ -23,6 +24,8 @@ import { TerminusModule } from "@nestjs/terminus";
 import { HealthController } from "./health.controller";
 import { PromotionsModule } from "./promotions/promotions.module";
 import { RefillOverridesModule } from "./refill-overrides/refill-overrides.module";
+import { ClientErrorsModule } from "./client-errors/client-errors.module";
+import { LoggerErrorInterceptor, LoggerModule } from "nestjs-pino";
 
 @Module({
   imports: [
@@ -45,6 +48,62 @@ import { RefillOverridesModule } from "./refill-overrides/refill-overrides.modul
       },
     ]),
 
+    LoggerModule.forRoot({
+      pinoHttp: {
+        level: process.env.WATERSHOP_LOCAL_ENV_FILE ? "debug" : "info",
+        genReqId: (req, res) => {
+          const incomingId = req.headers["x-request-id"];
+          const requestId =
+            typeof incomingId === "string" && incomingId.trim()
+              ? incomingId.trim()
+              : randomUUID();
+
+          res.setHeader("x-request-id", requestId);
+          return requestId;
+        },
+        customLogLevel: (_req, res, err) => {
+          if (err || res.statusCode >= 500) {
+            return "error";
+          }
+          if (res.statusCode >= 400) {
+            return "warn";
+          }
+          return "info";
+        },
+        customProps: (req) => ({
+          requestId: (req as { id?: string }).id,
+          userId:
+            typeof (req as { user?: { userId?: string } }).user?.userId ===
+            "string"
+              ? (req as { user?: { userId?: string } }).user?.userId
+              : undefined,
+        }),
+        redact: {
+          paths: [
+            "req.headers.authorization",
+            "req.headers.cookie",
+            "req.body.password",
+            "req.body.currentPassword",
+            "req.body.newPassword",
+            "req.body.wallet",
+            "req.body.paymentDetails",
+            "res.headers.set-cookie",
+          ],
+          censor: "[Redacted]",
+        },
+        transport: process.env.WATERSHOP_LOCAL_ENV_FILE
+          ? {
+              target: "pino-pretty",
+              options: {
+                colorize: true,
+                singleLine: true,
+                translateTime: "SYS:standard",
+              },
+            }
+          : undefined,
+      },
+    }),
+
     // 4. Auth (global JWT strategy + PassportModule)
     AuthModule,
 
@@ -64,6 +123,7 @@ import { RefillOverridesModule } from "./refill-overrides/refill-overrides.modul
     EmployeeHoursModule,
     PromotionsModule,
     RefillOverridesModule,
+    ClientErrorsModule,
   ],
   controllers: [AppController],
   providers: [
@@ -77,6 +137,10 @@ import { RefillOverridesModule } from "./refill-overrides/refill-overrides.modul
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: LoggerErrorInterceptor,
     },
   ],
 })

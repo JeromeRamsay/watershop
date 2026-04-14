@@ -46,7 +46,7 @@ export class NotificationsService {
 
   async create(params: {
     message: string;
-    type: "low_stock" | "out_of_stock" | "refill_order";
+    type: "low_stock" | "out_of_stock" | "refill_order" | "cancelled_order";
     inventoryItemId?: string;
     orderId?: string;
     paymentStatus?: string;

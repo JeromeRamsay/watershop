@@ -94,7 +94,11 @@ describe("OrdersService", () => {
   let mockOrderModel: ReturnType<typeof buildMockOrderModel>;
 
   const mockInventoryService = { findOne: jest.fn(), update: jest.fn() };
-  const mockCustomersService = { findOne: jest.fn(), update: jest.fn() };
+  const mockCustomersService = {
+    findOne: jest.fn(),
+    findOneForOrderProcessing: jest.fn(),
+    update: jest.fn(),
+  };
   const mockDeliveriesService = { create: jest.fn() };
   const mockNotificationsService = { createIfNotExists: jest.fn(), create: jest.fn() };
   const mockRealtimeService = { emitDashboardUpdate: jest.fn() };
@@ -134,7 +138,9 @@ describe("OrdersService", () => {
     const itemId = makeObjectId();
 
     beforeEach(() => {
-      mockCustomersService.findOne.mockResolvedValue(makeCustomer({ _id: new Types.ObjectId(customerId) }));
+      mockCustomersService.findOneForOrderProcessing.mockResolvedValue(
+        makeCustomer({ _id: new Types.ObjectId(customerId) }),
+      );
       mockInventoryService.findOne.mockResolvedValue(makeInventoryItem({ _id: new Types.ObjectId(itemId) }));
       mockInventoryService.update.mockResolvedValue({});
       mockNotificationsService.createIfNotExists.mockResolvedValue({});
@@ -156,10 +162,60 @@ describe("OrdersService", () => {
     });
 
     it("throws BadRequestException when prepaid credits are insufficient", async () => {
-      mockCustomersService.findOne.mockResolvedValue(makeCustomer({ wallet: { storeCredit: 0, prepaidItems: [] } }));
+      mockCustomersService.findOneForOrderProcessing.mockResolvedValue(
+        makeCustomer({ wallet: { storeCredit: 0, prepaidItems: [] } }),
+      );
       await expect(
         service.create({ customerId, items: [{ itemId, quantity: 1, isPrepaidRedemption: true }], paymentMethod: "credit_redemption", isPrepaidRedemption: true, discount: 0 } as any),
       ).rejects.toThrow(BadRequestException);
+    });
+
+    it("redeems refill overrides the same way as purchased refill credits", async () => {
+      mockCustomersService.findOneForOrderProcessing.mockResolvedValue(
+        makeCustomer({
+          wallet: {
+            storeCredit: 0,
+            prepaidItems: [
+              {
+                itemId,
+                itemName: "18L Water Bottle",
+                quantityRemaining: 1,
+                overrideQuantity: 1,
+              },
+            ],
+          },
+        }),
+      );
+
+      await expect(
+        service.create(
+          {
+            customerId,
+            items: [{ itemId, quantity: 1, isRefill: true }],
+            paymentMethod: "credit_redemption",
+            refillRedemption: true,
+            discount: 0,
+          } as any,
+        ),
+      ).resolves.toBeDefined();
+
+      expect(mockCustomersService.update).toHaveBeenCalledWith(
+        customerId,
+        expect.objectContaining({
+          wallet: expect.objectContaining({
+            prepaidItems: [
+              expect.objectContaining({
+                itemId,
+                quantityRemaining: 0,
+              }),
+            ],
+          }),
+        }),
+        undefined,
+      );
+      expect(mockCustomersService.findOneForOrderProcessing).toHaveBeenCalledWith(
+        customerId,
+      );
     });
 
     it("fires out-of-stock notification when stock hits zero", async () => {
@@ -188,7 +244,9 @@ describe("OrdersService", () => {
 
     it("creates a delivery record when isDelivery=true", async () => {
       const customerWithAddress = makeCustomer({ addresses: [{ street: "123 Water St", city: "Town", isDefault: true }] });
-      mockCustomersService.findOne.mockResolvedValue(customerWithAddress);
+      mockCustomersService.findOneForOrderProcessing.mockResolvedValue(
+        customerWithAddress,
+      );
       mockDeliveriesService.create.mockResolvedValue({ _id: new Types.ObjectId() });
       mockOrderModel.findByIdAndUpdate = jest.fn().mockResolvedValue({});
       await service.create({ customerId, items: [{ itemId, quantity: 1 }], paymentMethod: "cash", isDelivery: true, deliveryDate: new Date().toISOString(), discount: 0 } as any);
@@ -197,7 +255,7 @@ describe("OrdersService", () => {
 
     it("snapshots notes and policy metadata onto created orders", async () => {
       let capturedDto: any;
-      mockCustomersService.findOne.mockResolvedValue(
+      mockCustomersService.findOneForOrderProcessing.mockResolvedValue(
         makeCustomer({
           _id: new Types.ObjectId(customerId),
           addresses: [{ street: "123 Water St", city: "Town", state: "ON", zipCode: "N4S 7R3", country: "Canada", isDefault: true }],
@@ -276,10 +334,38 @@ describe("OrdersService", () => {
 
   // ─── updateStatus ──────────────────────────────────────────────────────────
   describe("updateStatus()", () => {
-    it("updates status", async () => {
-      mockOrderModel.findByIdAndUpdate.mockReturnValue(makeChainable(makeOrder({ status: "cancelled" })));
+    it("creates a cancelled-order notification when cancelling an order", async () => {
+      mockOrderModel.findByIdAndUpdate.mockReturnValue(
+        makeChainable(
+          makeOrder({
+            status: "cancelled",
+            customer: {
+              firstName: "Jane",
+              lastName: "Ramsay",
+            },
+          }),
+        ),
+      );
+
       await service.updateStatus("order-id", "cancelled");
+
+      expect(mockNotificationsService.create).toHaveBeenCalledWith({
+        message: "Cancelled Order for Jane Ramsay",
+        type: "cancelled_order",
+        orderId: expect.any(String),
+        paymentStatus: "paid",
+      });
       expect(mockRealtimeService.emitDashboardUpdate).toHaveBeenCalledWith("orders.status_updated");
+    });
+
+    it("does not create a cancelled-order notification for non-cancelled statuses", async () => {
+      mockOrderModel.findByIdAndUpdate.mockReturnValue(
+        makeChainable(makeOrder({ status: "completed" })),
+      );
+
+      await service.updateStatus("order-id", "completed");
+
+      expect(mockNotificationsService.create).not.toHaveBeenCalled();
     });
 
     it("throws NotFoundException when not found", async () => {
@@ -353,6 +439,186 @@ describe("OrdersService", () => {
         periodYears: 0,
         periodMonths: 0,
       });
+    });
+
+    it("creates a cancelled-order notification when the edit flow changes status to cancelled", async () => {
+      mockOrderModel.findById = jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue(makeOrder({ status: "completed" })),
+      });
+      mockOrderModel.findByIdAndUpdate.mockReturnValue(
+        makeChainable(
+          makeOrder({
+            status: "cancelled",
+            customer: {
+              firstName: "Jay",
+              lastName: "Ramsay",
+            },
+          }),
+        ),
+      );
+
+      await service.update("order-id", { status: "cancelled" } as any);
+
+      expect(mockNotificationsService.create).toHaveBeenCalledWith({
+        message: "Cancelled Order for Jay Ramsay",
+        type: "cancelled_order",
+        orderId: expect.any(String),
+        paymentStatus: "paid",
+      });
+    });
+
+    it("uses available refill credits first when edited refill quantities are recalculated", async () => {
+      const customerId = makeObjectId();
+      const itemId = makeObjectId();
+
+      mockOrderModel.findById = jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue(
+          makeOrder({
+            customer: new Types.ObjectId(customerId),
+            items: [],
+            refills: [],
+            subTotal: 0,
+            grandTotal: 0,
+            amountPaid: 0,
+          }),
+        ),
+      });
+      mockCustomersService.findOneForOrderProcessing.mockResolvedValue({
+        _id: customerId,
+        wallet: {
+          storeCredit: 0,
+          prepaidItems: [
+            {
+              itemId,
+              itemName: "18L Water Bottle",
+              quantityRemaining: 1,
+            },
+          ],
+        },
+      });
+      mockInventoryService.findOne.mockResolvedValue(
+        makeInventoryItem({ _id: new Types.ObjectId(itemId) }),
+      );
+      mockOrderModel.findByIdAndUpdate.mockReturnValue(makeChainable(makeOrder()));
+
+      await service.update(
+        "order-id",
+        {
+          items: [
+            { itemId, quantity: 1, isRefill: true, isPrepaidRedemption: true },
+            { itemId, quantity: 1, isRefill: true },
+          ],
+        } as any,
+      );
+
+      const updates = mockOrderModel.findByIdAndUpdate.mock.calls[0][1];
+      expect(updates.items).toEqual([]);
+      expect(updates.refills).toHaveLength(2);
+      expect(updates.refills[0]).toEqual(
+        expect.objectContaining({
+          quantity: 1,
+          unitPrice: 0,
+          totalPrice: 0,
+          isPrepaidRedemption: true,
+          isRefill: true,
+        }),
+      );
+      expect(updates.refills[1]).toEqual(
+        expect.objectContaining({
+          quantity: 1,
+          unitPrice: 5,
+          totalPrice: 5,
+          isPrepaidRedemption: false,
+          isRefill: true,
+        }),
+      );
+      expect(updates.subTotal).toBe(5);
+      expect(updates.grandTotal).toBe(5);
+      expect(updates.refillCount).toBe(2);
+      expect(mockCustomersService.update).toHaveBeenCalledWith(
+        customerId,
+        expect.objectContaining({
+          wallet: expect.objectContaining({
+            prepaidItems: [
+              expect.objectContaining({
+                itemId,
+                quantityRemaining: 0,
+              }),
+            ],
+          }),
+        }),
+      );
+    });
+
+    it("lets an edited order reuse refill credits already reserved on that order", async () => {
+      const customerId = makeObjectId();
+      const itemId = makeObjectId();
+
+      mockOrderModel.findById = jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue(
+          makeOrder({
+            customer: new Types.ObjectId(customerId),
+            items: [],
+            refills: [
+              {
+                item: new Types.ObjectId(itemId),
+                name: "18L Water Bottle",
+                sku: "WATER-18L",
+                quantity: 1,
+                unitPrice: 0,
+                totalPrice: 0,
+                isPrepaidRedemption: true,
+                isRefill: true,
+              },
+            ],
+            subTotal: 0,
+            grandTotal: 0,
+            amountPaid: 0,
+          }),
+        ),
+      });
+      mockCustomersService.findOneForOrderProcessing.mockResolvedValue({
+        _id: customerId,
+        wallet: {
+          storeCredit: 0,
+          prepaidItems: [
+            {
+              itemId,
+              itemName: "18L Water Bottle",
+              quantityRemaining: 0,
+            },
+          ],
+        },
+      });
+      mockInventoryService.findOne.mockResolvedValue(
+        makeInventoryItem({ _id: new Types.ObjectId(itemId) }),
+      );
+      mockOrderModel.findByIdAndUpdate.mockReturnValue(makeChainable(makeOrder()));
+
+      await expect(
+        service.update(
+          "order-id",
+          {
+            items: [
+              { itemId, quantity: 1, isRefill: true, isPrepaidRedemption: true },
+            ],
+          } as any,
+        ),
+      ).resolves.toBeDefined();
+
+      expect(mockCustomersService.update).toHaveBeenCalledWith(
+        customerId,
+        expect.objectContaining({
+          wallet: expect.objectContaining({
+            prepaidItems: [
+              expect.objectContaining({
+                itemId,
+                quantityRemaining: 0,
+              }),
+            ],
+          }),
+        }),
+      );
     });
 
     it("handles split payments correctly", async () => {

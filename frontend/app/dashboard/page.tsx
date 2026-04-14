@@ -10,11 +10,12 @@ import { RecentTransactions } from "@/features/dashboard/components/recent-trans
 import { UpcomingDeliveries } from "@/features/dashboard/components/upcoming-deliveries";
 import { EditOrderModal } from "@/features/orders/components/edit-order-modal";
 import { OrderDetailsModal } from "@/features/orders/components/order-details-modal";
+import { mapApiOrderToOrder } from "@/features/orders/order-mapping";
 import { CustomerDetailsModal } from "@/features/customers/components/customer-details-modal";
 import { Notification, Transaction } from "@/features/dashboard/types";
 import { Order } from "@/features/orders/types";
 import { Customer } from "@/features/customers/types";
-import { DollarSign, Package, Box, ShoppingCart, Loader2, AlertTriangle, Clock3 } from "lucide-react";
+import { DollarSign, Package, Box, ShoppingCart, Loader2, AlertTriangle, Clock3, X } from "lucide-react";
 import Cookies from "js-cookie";
 import { useDashboardRealtime } from "@/lib/use-dashboard-realtime";
 import {
@@ -24,46 +25,6 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { formatFullDate } from "@/lib/utils";
 import api from "@/lib/api";
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function mapApiOrder(o: any): Order {
-  const cap = (v?: string) => (v ? v.charAt(0).toUpperCase() + v.slice(1) : "");
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const items = (o.items || []).map((item: any, idx: number) => ({
-    id: item.item?._id || (String(o._id) + "-item-" + idx),
-    itemId: item.item?._id, sku: item.sku,
-    productName: item.name || "Unknown Product",
-    quantity: item.quantity || 0, unitPrice: item.unitPrice || 0,
-    totalPrice: item.totalPrice || 0, creditsUsed: !!item.isPrepaidRedemption, isRefill: !!item.isRefill,
-    warranty: item.warranty, returnPolicy: item.returnPolicy,
-  }));
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const refills = (o.refills || []).map((item: any, idx: number) => ({
-    id: item.item?._id || (String(o._id) + "-refill-" + idx),
-    itemId: item.item?._id, sku: item.sku,
-    productName: item.name || "Unknown Refill",
-    quantity: item.quantity || 0, unitPrice: item.unitPrice || 0,
-    totalPrice: item.totalPrice || 0, creditsUsed: !!item.isPrepaidRedemption, isRefill: true,
-    warranty: item.warranty, returnPolicy: item.returnPolicy,
-  }));
-  const custName = o.customer ? (String(o.customer.firstName||"") + " " + String(o.customer.lastName||"")).trim() || "Walk-in" : "Walk-in Customer";
-  return {
-    id: String(o._id),
-    orderId: o.orderNumber || ("ORD-" + String(o._id).slice(-6).toUpperCase()),
-    customer: custName, customerEmail: o.customer?.email, customerPhone: o.customer?.phone, customerId_raw: o.customer?._id,
-    items, refills,
-    notes: o.notes,
-    totalPrice: o.grandTotal||0, grandTotal: o.grandTotal||0, amountPaid: o.amountPaid||0,
-    deliveryType: o.isDelivery ? "Delivery" : "Pickup", remainingCredits: o.refillCount||0,
-    orderStatus: (cap(o.status)||"Pending") as Order["orderStatus"],
-    paymentStatus: (cap(o.paymentStatus)||"Unpaid") as Order["paymentStatus"],
-    deliveryAddress: o.deliveryAddress,
-    deliveryNotes: o.deliveryNotes,
-    scheduledDate: o.deliveryDate ? String(o.deliveryDate) : "",
-    createdAt: o.createdAt ? String(o.createdAt) : "",
-    discount: o.discount, paymentMethod: o.paymentMethod, paymentDetails: o.paymentDetails, emailReceipt: o.emailReceipt,
-  };
-}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapApiCustomer(c: any): Customer {
@@ -154,7 +115,13 @@ export default function DashboardPage() {
     .sort((a, b) => new Date(String(b.createdAt??0)).getTime() - new Date(String(a.createdAt??0)).getTime())
     .slice(0, 5)
     .map((order) => {
-      const payStatus: "Paid" | "Pending" = order.paymentStatus === "paid" ? "Paid" : "Pending";
+      const orderStatus = String(order.status || "").toLowerCase();
+      const payStatus: Transaction["status"] =
+        orderStatus === "cancelled"
+          ? "Cancelled"
+          : order.paymentStatus === "paid"
+            ? "Paid"
+            : "Pending";
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const cust = order.customer as any;
       const itemsArr = (order.items as unknown[]) ?? [];
@@ -193,7 +160,16 @@ export default function DashboardPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const notificationsList: Notification[] = ((notifData as any[]) ?? []).map((n: any) => {
     const orderId = n.orderId ? String(n.orderId) : undefined;
-    return { id: String(n._id), message: String(n.message), timestamp: formatFullDate(n.createdAt||new Date()), icon: AlertTriangle, orderId, hasBalance: !!orderId && unpaidOrderIds.has(orderId) };
+    const isCancelledOrder = String(n.type || "") === "cancelled_order";
+    return {
+      id: String(n._id),
+      message: String(n.message),
+      timestamp: formatFullDate(n.createdAt||new Date()),
+      icon: isCancelledOrder ? X : AlertTriangle,
+      orderId,
+      hasBalance: !!orderId && unpaidOrderIds.has(orderId),
+      isDestructive: isCancelledOrder,
+    };
   });
 
   const myRecentHours: { id: string; date: string; hours: number; notes?: string }[] =
@@ -214,7 +190,7 @@ export default function DashboardPage() {
     if (!notification.orderId) return;
     try {
       const { data } = await api.get("/orders/" + notification.orderId);
-      setSelectedOrderForEdit(mapApiOrder(data));
+      setSelectedOrderForEdit(mapApiOrderToOrder(data));
       setIsEditOrderOpen(true);
     } catch (error) { console.error("Failed to fetch order for notification", error); }
   };
@@ -227,7 +203,7 @@ export default function DashboardPage() {
 
     try {
       const { data } = await api.get("/orders/" + transaction.id);
-      setSelectedOrderForDetails(mapApiOrder(data));
+      setSelectedOrderForDetails(mapApiOrderToOrder(data));
     } catch (error) {
       console.error("Failed to fetch order for recent transaction", error);
       setSelectedOrderForDetails(null);

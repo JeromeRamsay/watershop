@@ -64,6 +64,97 @@ export class OrdersService {
       };
     }
 
+    private buildWalletEntriesFromCustomer(customer: Record<string, unknown>) {
+      const prepaidItems =
+        (customer.wallet as
+          | {
+              prepaidItems?: Array<{
+                itemId?: { toString?: () => string } | string;
+                itemName?: string;
+                quantityRemaining?: number;
+              }>;
+            }
+          | undefined)?.prepaidItems || [];
+
+      return prepaidItems.map((item) => ({
+        itemId: String(item.itemId?.toString?.() || item.itemId || ""),
+        itemName: item.itemName || "",
+        quantityRemaining: Number(item.quantityRemaining || 0),
+      }));
+    }
+
+    private adjustWalletQuantity(
+      walletMap: Map<string, { itemName: string; quantityRemaining: number }>,
+      itemId: string,
+      itemName: string,
+      delta: number,
+    ) {
+      if (!itemId || delta === 0) {
+        return;
+      }
+
+      const current = walletMap.get(itemId);
+      const nextQuantity = Number(current?.quantityRemaining || 0) + delta;
+
+      if (nextQuantity < 0) {
+        throw new BadRequestException(
+          `Customer does not have enough credits for ${itemName}`,
+        );
+      }
+
+      walletMap.set(itemId, {
+        itemName: current?.itemName || itemName,
+        quantityRemaining: nextQuantity,
+      });
+    }
+
+    private getExistingPrepaidQuantities(existing: Order) {
+      const allItems = [
+        ...(existing.items || []),
+        ...(existing.refills || []),
+      ] as OrderItem[];
+      const quantities = new Map<string, { itemName: string; quantity: number }>();
+
+      for (const item of allItems) {
+        if (!item.isPrepaidRedemption) {
+          continue;
+        }
+
+        const itemId = String(item.item?.toString?.() || item.item || "");
+        if (!itemId) {
+          continue;
+        }
+
+        const existingEntry = quantities.get(itemId);
+        quantities.set(itemId, {
+          itemName: item.name,
+          quantity: Number(existingEntry?.quantity || 0) + Number(item.quantity || 0),
+        });
+      }
+
+      return quantities;
+    }
+
+    private async createCancelledOrderNotification(order: {
+      _id: unknown;
+      paymentStatus?: string;
+      customer?: {
+        firstName?: string;
+        lastName?: string;
+      } | null;
+    }) {
+      const customerName =
+        `${order.customer?.firstName || ""} ${order.customer?.lastName || ""}`.trim() ||
+        "Walk-in Customer";
+
+      await this.notificationsService.create({
+        message: `Cancelled Order for ${customerName}`,
+        type: "cancelled_order",
+        orderId: String(order._id),
+        paymentStatus: order.paymentStatus,
+      });
+    }
+
   async create(createOrderDto: CreateOrderDto): Promise<Order> {
     // Attempt to use a MongoDB session/transaction (requires replica set).
     // Falls back gracefully when running against a standalone instance.
@@ -109,7 +200,7 @@ export class OrdersService {
 
         // 1. Fetch Customer (null for walk-in orders)
         const customer = customerId
-          ? await this.customersService.findOne(customerId)
+          ? await this.customersService.findOneForOrderProcessing(customerId)
           : null;
 
         // 2. Process Items
@@ -461,10 +552,17 @@ export class OrdersService {
   }
 
   async updateStatus(id: string, status: string) {
+    const normalizedStatus = status.toLowerCase();
     const updated = await this.orderModel
-      .findByIdAndUpdate(id, { status }, { new: true })
+      .findByIdAndUpdate(id, { status: normalizedStatus }, { new: true })
+      .populate("customer", "firstName lastName")
       .exec();
     if (!updated) throw new NotFoundException(`Order #${id} not found`);
+
+    if (normalizedStatus === "cancelled") {
+      await this.createCancelledOrderNotification(updated);
+    }
+
     this.realtimeService.emitDashboardUpdate("orders.status_updated");
     return updated;
   }
@@ -474,6 +572,7 @@ export class OrdersService {
     if (!existing) {
       throw new NotFoundException(`Order #${id} not found`);
     }
+    const previousStatus = String(existing.status || "").toLowerCase();
 
     const updates: Partial<Order> & { customer?: Types.ObjectId } = {};
 
@@ -516,23 +615,66 @@ export class OrdersService {
       updates.status = updateOrderDto.status.toLowerCase();
     }
 
-    // Handle items update — rebuild items array and recompute subTotal
+    // Handle items update — rebuild items/refills arrays and recompute subTotal
     let computedSubTotal: number | undefined;
     if (Array.isArray(updateOrderDto.items) && updateOrderDto.items.length > 0) {
       const newItems: OrderItem[] = [];
+      const newRefills: OrderItem[] = [];
       let newSubTotal = 0;
+      const customerId =
+        updates.customer?.toString() || existing.customer?.toString?.() || "";
+      const customer = customerId
+        ? await this.customersService.findOneForOrderProcessing(customerId)
+        : null;
+      const walletMap = new Map(
+        (customer ? this.buildWalletEntriesFromCustomer(customer) : []).map(
+          (item) => [
+            item.itemId,
+            {
+              itemName: item.itemName,
+              quantityRemaining: item.quantityRemaining,
+            },
+          ],
+        ),
+      );
+
+      for (const [itemId, entry] of this.getExistingPrepaidQuantities(
+        existing,
+      ).entries()) {
+        this.adjustWalletQuantity(walletMap, itemId, entry.itemName, entry.quantity);
+      }
+
       for (const itemDto of updateOrderDto.items) {
         try {
           const inv = (await this.inventoryService.findOne(
             itemDto.itemId,
           )) as unknown as InventoryDocument;
-          const unitPrice = itemDto.isRefill
-            ? inv.refillPrice || inv.sellingPrice
-            : inv.sellingPrice;
+          const isPrepaidRedemption = !!itemDto.isPrepaidRedemption;
+          const unitPrice = isPrepaidRedemption
+            ? 0
+            : itemDto.isRefill
+              ? inv.refillPrice || inv.sellingPrice
+              : inv.sellingPrice;
           const qty = itemDto.quantity;
           const totalPrice = unitPrice * qty;
+
+          if (isPrepaidRedemption) {
+            if (!customer) {
+              throw new BadRequestException(
+                `Credit redemption requires a customer account. Cannot redeem credits for walk-in orders.`,
+              );
+            }
+
+            this.adjustWalletQuantity(
+              walletMap,
+              itemDto.itemId,
+              inv.name,
+              -qty,
+            );
+          }
+
           newSubTotal += totalPrice;
-          newItems.push({
+          const nextItem = {
             item: new Types.ObjectId(itemDto.itemId),
             name: inv.name,
             sku: inv.sku,
@@ -541,17 +683,48 @@ export class OrdersService {
             totalPrice,
             warranty: this.mapPolicySnapshot(inv.warranty),
             returnPolicy: this.mapPolicySnapshot(inv.returnPolicy),
-            isPrepaidRedemption: itemDto.isPrepaidRedemption || false,
+            isPrepaidRedemption: isPrepaidRedemption,
             isRefill: itemDto.isRefill || false,
-          } as unknown as OrderItem);
+          } as unknown as OrderItem;
+
+          if (itemDto.isRefill) {
+            newRefills.push(nextItem);
+          } else {
+            newItems.push(nextItem);
+          }
         } catch {
           // skip items that no longer exist in inventory
         }
       }
-      if (newItems.length > 0) {
+
+      const hasUpdatedLines = newItems.length > 0 || newRefills.length > 0;
+      if (hasUpdatedLines) {
         updates.items = newItems;
+        updates.refills = newRefills;
+        updates.refillCount = newRefills.reduce(
+          (sum, item) => sum + Number(item.quantity || 0),
+          0,
+        );
         updates.subTotal = newSubTotal;
         computedSubTotal = newSubTotal;
+
+        if (customer && customerId) {
+          await this.customersService.update(customerId, {
+            wallet: {
+              storeCredit: Number(
+                (customer.wallet as { storeCredit?: number } | undefined)
+                  ?.storeCredit || 0,
+              ),
+              prepaidItems: Array.from(walletMap.entries()).map(
+                ([itemId, entry]) => ({
+                  itemId,
+                  itemName: entry.itemName,
+                  quantityRemaining: entry.quantityRemaining,
+                }),
+              ),
+            },
+          });
+        }
       }
     }
 
@@ -591,6 +764,12 @@ export class OrdersService {
       .populate("customer", "firstName lastName email phone")
       .exec();
     if (!updated) throw new NotFoundException(`Order #${id} not found`);
+
+    const nextStatus = String(updated.status || "").toLowerCase();
+    if (nextStatus === "cancelled" && previousStatus !== "cancelled") {
+      await this.createCancelledOrderNotification(updated);
+    }
+
     this.realtimeService.emitDashboardUpdate("orders.updated");
     return updated;
   }

@@ -14,35 +14,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useChangePassword } from "@/lib/queries";
+import { getErrorMessage } from "@/lib/error-utils";
 
 interface UserInfo {
   id?: string;
   name?: string;
   role?: string;
 }
-
-const getErrorMessage = (error: unknown, fallback: string) => {
-  const payload =
-    typeof error === "object" && error !== null
-      ? (error as {
-          response?: { data?: { message?: string | string[] } };
-          message?: string;
-        })
-      : undefined;
-
-  const responseMessage = payload?.response?.data?.message;
-  if (Array.isArray(responseMessage) && responseMessage.length > 0) {
-    return responseMessage.join(", ");
-  }
-  if (typeof responseMessage === "string" && responseMessage.trim()) {
-    return responseMessage;
-  }
-  if (typeof payload?.message === "string" && payload.message.trim()) {
-    return payload.message;
-  }
-
-  return fallback;
-};
 
 export default function ProfilePage() {
   const userInfo = useMemo<UserInfo>(() => {

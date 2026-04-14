@@ -8,7 +8,11 @@ import { FiltersModal } from "@/features/orders/components/filters-modal";
 import { DeleteOrderModal } from "@/features/orders/components/delete-order-modal";
 import { EditOrderModal } from "@/features/orders/components/edit-order-modal";
 import { OrderDetailsModal } from "@/features/orders/components/order-details-modal";
-import { Order, OrderFilters, OrderItem } from "@/features/orders/types";
+import { Order, OrderFilters } from "@/features/orders/types";
+import {
+  mapApiOrderToOrder,
+  OrderApiResponse,
+} from "@/features/orders/order-mapping";
 const orderStatuses = [
   "Pending",
   "Scheduled",
@@ -42,122 +46,13 @@ import {
 } from "@/components/ui/select";
 import Link from "next/link";
 import api from "@/lib/api";
+import { useIsCurrentUserAdmin } from "@/lib/current-user";
 import { useDashboardRealtime } from "@/lib/use-dashboard-realtime";
 import { useOrders, useSettings, queryKeys } from "@/lib/queries";
 import { useQueryClient } from "@tanstack/react-query";
 
-interface OrderApiCustomer {
-  _id?: string;
-  firstName?: string;
-  lastName?: string;
-  email?: string;
-  phone?: string;
-}
-
-interface OrderApiItem {
-  item?: {
-    _id?: string;
-  };
-  name?: string;
-  sku?: string;
-  quantity?: number;
-  unitPrice?: number;
-  totalPrice?: number;
-  isPrepaidRedemption?: boolean;
-  isRefill?: boolean;
-  warranty?: OrderItem["warranty"];
-  returnPolicy?: OrderItem["returnPolicy"];
-}
-
-interface OrderApiResponse {
-  _id: string;
-  orderNumber?: string;
-  customer?: OrderApiCustomer;
-  isWalkIn?: boolean;
-  items?: OrderApiItem[];
-  refills?: OrderApiItem[];
-  grandTotal?: number;
-  amountPaid?: number;
-  isDelivery?: boolean;
-  refillCount?: number;
-  status?: string;
-  paymentStatus?: string;
-  deliveryAddress?: string;
-  deliveryDate?: string;
-  notes?: string;
-  deliveryNotes?: string;
-  discount?: number;
-  paymentMethod?: "cash" | "card" | "credit_redemption" | "store_credit";
-  paymentDetails?: Order["paymentDetails"];
-  emailReceipt?: boolean;
-  createdAt?: string;
-}
-
-const capitalize = (value?: string) =>
-  value ? value.charAt(0).toUpperCase() + value.slice(1) : "";
-
-const mapApiOrderToOrder = (order: OrderApiResponse): Order => {
-  const mappedItems = (order.items || []).map((item, index) => ({
-    id: item.item?._id || `${order._id}-item-${index}`,
-    itemId: item.item?._id,
-    sku: item.sku,
-    productName: item.name || "Unknown Product",
-    quantity: item.quantity || 0,
-    unitPrice: item.unitPrice || 0,
-    totalPrice: item.totalPrice || 0,
-    creditsUsed: !!item.isPrepaidRedemption,
-    isRefill: !!item.isRefill,
-    warranty: item.warranty,
-    returnPolicy: item.returnPolicy,
-  }));
-
-  const mappedRefills = (order.refills || []).map((item, index) => ({
-    id: item.item?._id || `${order._id}-refill-${index}`,
-    itemId: item.item?._id,
-    sku: item.sku,
-    productName: item.name || "Unknown Refill",
-    quantity: item.quantity || 0,
-    unitPrice: item.unitPrice || 0,
-    totalPrice: item.totalPrice || 0,
-    creditsUsed: !!item.isPrepaidRedemption,
-    isRefill: true,
-    warranty: item.warranty,
-    returnPolicy: item.returnPolicy,
-  }));
-
-  return {
-    id: order._id,
-    orderId: order.orderNumber || `ORD-${order._id.slice(-6).toUpperCase()}`,
-    customer: order.customer
-      ? `${order.customer.firstName || ""} ${order.customer.lastName || ""}`.trim() ||
-        "Walk-in Customer"
-      : "Walk-in Customer",
-    customerEmail: order.customer?.email,
-    customerPhone: order.customer?.phone,
-    customerId_raw: order.customer?._id,
-    items: mappedItems,
-    refills: mappedRefills,
-    notes: order.notes,
-    totalPrice: order.grandTotal || 0,
-    grandTotal: order.grandTotal || 0,
-    amountPaid: order.amountPaid || 0,
-    deliveryType: order.isDelivery ? "Delivery" : "Pickup",
-    remainingCredits: order.refillCount || 0,
-    orderStatus: (capitalize(order.status) || "Pending") as Order["orderStatus"],
-    paymentStatus: (capitalize(order.paymentStatus) ||
-      "Unpaid") as Order["paymentStatus"],
-    deliveryAddress: order.deliveryAddress,
-    deliveryNotes: order.deliveryNotes,
-    scheduledDate: order.deliveryDate,
-    createdAt: order.createdAt || "",
-    discount: order.discount,
-    paymentMethod: order.paymentMethod,
-    paymentDetails: order.paymentDetails,
-    emailReceipt: order.emailReceipt,
-  };
-};
-
 export default function OrdersPage() {
+  const isAdmin = useIsCurrentUserAdmin();
   const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState<OrderFilters>({
     orderStatus: "All",
@@ -350,14 +245,16 @@ export default function OrdersPage() {
               + Add New Order
             </Button>
           </Link>
-          <Button
-            variant="outline"
-            onClick={handleExportCSV}
-            className="border-primary-500 text-primary-500 hover:bg-primary-100 hover:text-primary-600"
-          >
-            <Download className="h-4 w-4 mr-2" />
-            Export CSV
-          </Button>
+          {isAdmin ? (
+            <Button
+              variant="outline"
+              onClick={handleExportCSV}
+              className="border-primary-500 text-primary-500 hover:bg-primary-100 hover:text-primary-600"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Export CSV
+            </Button>
+          ) : null}
         </div>
       </div>
 

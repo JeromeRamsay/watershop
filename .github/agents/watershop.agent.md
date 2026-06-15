@@ -515,6 +515,9 @@ npm run start:local         # same as next dev; Next automatically reads fronten
 
 # Or from the repo root:
 ./start-dev.sh              # checks both .env.local files, then starts backend + frontend with start:local
+
+# If local Valkey is not running, backend startup now falls back to single-instance realtime mode
+# after a quick reachability check instead of hanging the API boot.
 ```
 
 After every backend change, run `npm test` and confirm all tests pass before considering the task done.

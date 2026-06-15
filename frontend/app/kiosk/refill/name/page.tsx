@@ -144,8 +144,8 @@ export default function KioskRefillNamePage() {
   const onPrev = () => router.push("/refill");
 
   return (
-    <div className="min-h-screen h-full flex items-center justify-center px-3 py-4 sm:p-4 md:p-6 lg:p-8">
-      <div className="w-full h-full max-w-4xl lg:max-w-5xl bg-white rounded-2xl md:rounded-3xl shadow-lg border border-slate-200 overflow-hidden flex flex-col">
+    <div className="flex h-full items-center justify-center px-2 py-2 sm:px-3 sm:py-3 md:px-4 md:py-4 lg:px-6 lg:py-6">
+      <div className="flex h-full max-h-full w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg md:rounded-3xl lg:max-w-5xl">
         {/* Top Bar */}
         <div className="flex items-center justify-between px-4 py-3 md:px-6 md:py-4 border-b border-slate-100">
           <div className="flex items-center gap-2">
@@ -158,46 +158,46 @@ export default function KioskRefillNamePage() {
             />
           </div>
           {welcomeName ? (
-            <div className="flex items-center gap-2 text-xs text-slate-600">
+            <div className="flex min-w-0 items-center gap-2 text-xs text-slate-600">
               <span className="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center">
                 👤
               </span>
-              <div className="leading-tight">
+              <div className="min-w-0 leading-tight">
                 <div className="text-[11px]">Welcome</div>
-                <div className="font-semibold">{welcomeName}</div>
+                <div className="truncate font-semibold">{welcomeName}</div>
               </div>
             </div>
           ) : null}
         </div>
 
-        <div className="flex-1 px-4 py-5 sm:px-5 sm:py-6 md:px-8 md:py-8 lg:px-12 lg:py-10 flex flex-col">
+        <div className="flex min-h-0 flex-1 flex-col px-4 py-3 sm:px-5 sm:py-4 md:px-7 md:py-5 lg:px-10 lg:py-6">
           <div className="text-center">
-            <h1 className="text-3xl md:text-4xl lg:text-5xl font-semibold text-slate-800">
+            <h1 className="text-[clamp(2rem,4.8vw,3rem)] font-semibold text-slate-800">
               Water Refill
             </h1>
-            <p className="text-sm md:text-base lg:text-lg text-slate-500 mt-2">
+            <p className="mt-2 text-sm text-slate-500 md:text-base lg:text-lg">
               Let&apos;s refill your bottle and save the planet
             </p>
-            <p className="text-base md:text-lg lg:text-xl text-slate-700 mt-4 md:mt-6">
+            <p className="mt-2 text-base text-slate-700 md:mt-4 md:text-lg lg:text-xl">
               <span className="font-semibold">Phone Number:</span> {formatted}
             </p>
           </div>
 
-          <div className="mt-6 md:mt-8 lg:mt-10 flex-1 flex flex-col">
-            <div className="text-xl md:text-2xl lg:text-3xl font-semibold text-slate-800">
+          <div className="mt-3 flex flex-1 flex-col md:mt-4 lg:mt-5">
+            <div className="text-xl font-semibold text-slate-800 md:text-2xl lg:text-3xl">
               Enter your Initials
             </div>
 
-            <div className="mt-4 md:mt-6 border-2 border-slate-200 bg-slate-50 rounded-xl md:rounded-2xl p-8 md:p-10 lg:p-12 flex items-center justify-center flex-1 min-h-[120px] md:min-h-[160px]">
-              <div className="text-6xl md:text-7xl lg:text-8xl font-bold text-slate-800">
+            <div className="mt-3 flex min-h-[100px] flex-1 items-center justify-center rounded-xl border-2 border-slate-200 bg-slate-50 p-5 md:mt-4 md:min-h-[130px] md:rounded-2xl md:p-7 lg:min-h-[160px] lg:p-9">
+              <div className="text-[clamp(3rem,12vw,5rem)] font-bold text-slate-800">
                 {initials || "--"}
               </div>
             </div>
 
-            <div className="mt-5 md:mt-6 text-sm md:text-base lg:text-lg text-slate-500">
+            <div className="mt-3 text-sm text-slate-500 md:mt-4 md:text-base lg:text-lg">
               Example (John Smith)
             </div>
-            <div className="mt-2 h-14 md:h-16 lg:h-20 rounded-xl md:rounded-2xl border-2 border-slate-200 bg-white text-slate-800 text-xl md:text-2xl lg:text-3xl font-bold flex items-center justify-center">
+            <div className="mt-2 flex h-14 items-center justify-center rounded-xl border-2 border-slate-200 bg-white text-xl font-bold text-slate-800 md:h-16 md:rounded-2xl md:text-2xl lg:h-20 lg:text-3xl">
               JS
             </div>
 
@@ -209,14 +209,14 @@ export default function KioskRefillNamePage() {
 
             <button
               onClick={onNext}
-              className="mt-6 md:mt-8 w-full h-14 md:h-16 lg:h-20 rounded-xl md:rounded-2xl font-semibold text-lg md:text-xl lg:text-2xl text-white bg-sky-600 hover:bg-sky-700 transition-all active:scale-98"
+              className="mt-3 h-[clamp(5.5rem,10.5vh,7.25rem)] w-full rounded-xl bg-sky-600 text-lg font-semibold text-white transition-all active:scale-98 hover:bg-sky-700 md:mt-4 md:rounded-2xl md:text-xl lg:mt-5 lg:text-2xl"
             >
               Next
             </button>
 
             <button
               onClick={onPrev}
-              className="mt-3 md:mt-4 w-full h-14 md:h-16 lg:h-20 rounded-xl md:rounded-2xl font-semibold text-lg md:text-xl lg:text-2xl text-sky-700 bg-white border-2 border-slate-200 hover:bg-slate-50 transition-all active:scale-98"
+              className="mt-3 h-14 w-full rounded-xl border-2 border-slate-200 bg-white text-lg font-semibold text-sky-700 transition-all active:scale-98 hover:bg-slate-50 md:mt-4 md:h-16 md:rounded-2xl md:text-xl lg:h-18 lg:text-2xl"
             >
               Previous
             </button>

@@ -4,6 +4,7 @@ import {
   OnModuleDestroy,
   OnModuleInit,
 } from "@nestjs/common";
+import { Socket } from "node:net";
 
 export interface DashboardRealtimeEvent {
   type: "dashboard:update";
@@ -41,6 +42,28 @@ export class RealtimeService implements OnModuleInit, OnModuleDestroy {
     this.broadcaster = broadcaster;
   }
 
+  private async canReachSocket(
+    host: string,
+    port: number,
+    timeoutMs: number,
+  ): Promise<boolean> {
+    return new Promise((resolve) => {
+      const socket = new Socket();
+
+      const finish = (result: boolean) => {
+        socket.removeAllListeners();
+        socket.destroy();
+        resolve(result);
+      };
+
+      socket.setTimeout(timeoutMs);
+      socket.once("connect", () => finish(true));
+      socket.once("timeout", () => finish(false));
+      socket.once("error", () => finish(false));
+      socket.connect(port, host);
+    });
+  }
+
   async onModuleInit() {
     const host = process.env.VALKEY_HOST;
     const portValue = process.env.VALKEY_PORT;
@@ -61,6 +84,16 @@ export class RealtimeService implements OnModuleInit, OnModuleDestroy {
     if (!Number.isFinite(port)) {
       this.logger.error(`Invalid VALKEY_PORT value: ${portValue}`);
       return;
+    }
+
+    if (isLocalRuntime) {
+      const reachable = await this.canReachSocket(host, port, 1_000);
+      if (!reachable) {
+        this.logger.warn(
+          `Valkey is not reachable at ${host}:${port}. Realtime will work only on a single backend instance.`,
+        );
+        return;
+      }
     }
 
     type CreateClientFn = (options: {

@@ -11,7 +11,7 @@ export default function KioskLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen h-screen w-full bg-gradient-to-br from-blue-50 via-white to-blue-50 overflow-auto">
+    <div className="h-dvh w-full overflow-hidden bg-gradient-to-br from-blue-50 via-white to-blue-50">
       {children}
     </div>
   );

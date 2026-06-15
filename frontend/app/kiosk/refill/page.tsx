@@ -61,8 +61,8 @@ export default function KioskRefillPhonePage() {
   };
 
   return (
-    <div className="min-h-screen h-full flex items-center justify-center px-3 py-4 sm:p-4 md:p-6 lg:p-8">
-      <div className="w-full h-full max-w-4xl lg:max-w-5xl bg-white rounded-2xl md:rounded-3xl shadow-lg border border-slate-200 overflow-hidden flex flex-col">
+    <div className="flex h-full items-center justify-center px-2 py-2 sm:px-3 sm:py-3 md:px-4 md:py-4 lg:px-6 lg:py-6">
+      <div className="flex h-full max-h-full w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg md:rounded-3xl lg:max-w-5xl">
         {/* Top Bar */}
         <div className="flex items-center justify-between px-4 py-3 md:px-6 md:py-4 border-b border-slate-100">
           <div className="flex items-center gap-2">
@@ -75,44 +75,44 @@ export default function KioskRefillPhonePage() {
             />
           </div>
           {welcomeName ? (
-            <div className="flex items-center gap-2 text-xs text-slate-600">
+            <div className="flex min-w-0 items-center gap-2 text-xs text-slate-600">
               <span className="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center">
                 👤
               </span>
-              <div className="leading-tight">
+              <div className="min-w-0 leading-tight">
                 <div className="text-[11px]">Welcome</div>
-                <div className="font-semibold">{welcomeName}</div>
+                <div className="truncate font-semibold">{welcomeName}</div>
               </div>
             </div>
           ) : null}
         </div>
 
         {/* Content */}
-        <div className="flex-1 px-4 py-5 sm:px-5 sm:py-6 md:px-8 md:py-8 lg:px-12 lg:py-10 flex flex-col">
+        <div className="flex min-h-0 flex-1 flex-col px-4 py-3 sm:px-5 sm:py-4 md:px-7 md:py-5 lg:px-10 lg:py-6">
           <div className="text-center">
-            <h1 className="text-3xl md:text-4xl lg:text-5xl font-semibold text-slate-800">Water Refill</h1>
-            <p className="text-sm md:text-base lg:text-lg text-slate-500 mt-2">
+            <h1 className="text-[clamp(2rem,4.8vw,3rem)] font-semibold text-slate-800">Water Refill</h1>
+            <p className="mt-2 text-sm text-slate-500 md:text-base lg:text-lg">
               Let&apos;s refill your bottle and save the planet
             </p>
           </div>
 
-          <div className="mt-6 md:mt-8 lg:mt-10 bg-slate-50 border border-slate-200 rounded-xl md:rounded-2xl py-4 md:py-5 lg:py-6 text-center">
-            <div className="text-3xl md:text-4xl lg:text-5xl font-semibold tracking-wide text-slate-800">
+          <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 py-2.5 text-center md:mt-4 md:rounded-2xl md:py-3.5 lg:mt-5 lg:py-4">
+            <div className="text-[clamp(2rem,5.5vw,3.25rem)] font-semibold tracking-wide text-slate-800">
               {formatted || "___-___-____"}
             </div>
           </div>
 
-          <div className="mt-6 md:mt-8 text-base md:text-lg lg:text-xl text-slate-800 font-semibold">
+          <div className="mt-3 text-base font-semibold text-slate-800 md:mt-4 md:text-lg lg:text-xl">
             Enter Phone Number
           </div>
 
           {/* Keypad */}
-          <div className="mt-4 md:mt-5 lg:mt-6 grid grid-cols-3 grid-rows-4 gap-x-2 gap-y-2 flex-1">
+          <div className="mt-3 grid min-h-0 flex-1 auto-rows-fr grid-cols-3 grid-rows-4 gap-2 md:mt-4 lg:mt-5">
             {["1","2","3","4","5","6","7","8","9"].map((n) => (
               <button
                 key={n}
                 onClick={() => onPress(n)}
-                className="-my-px min-h-0 rounded-lg md:rounded-xl bg-blue-50 hover:bg-blue-100 border border-slate-200 text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold text-slate-700 transition-all duration-100 active:scale-95 active:bg-blue-200 active:shadow-inner relative hover:z-10"
+                className="h-full min-h-0 overflow-hidden rounded-lg border border-slate-200 bg-blue-50 text-[clamp(2.75rem,6.8vw,4.5rem)] font-bold leading-none text-slate-700 transition-all duration-100 hover:z-10 hover:bg-blue-100 active:scale-95 active:bg-blue-200 active:shadow-inner md:rounded-xl"
               >
                 {n}
               </button>
@@ -121,13 +121,13 @@ export default function KioskRefillPhonePage() {
             <div />
             <button
               onClick={() => onPress("0")}
-              className="-my-px min-h-0 rounded-lg md:rounded-xl bg-blue-50 hover:bg-blue-100 border border-slate-200 text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold text-slate-700 transition-all duration-100 active:scale-95 active:bg-blue-200 active:shadow-inner relative hover:z-10"
+              className="h-full min-h-0 overflow-hidden rounded-lg border border-slate-200 bg-blue-50 text-[clamp(2.75rem,6.8vw,4.5rem)] font-bold leading-none text-slate-700 transition-all duration-100 hover:z-10 hover:bg-blue-100 active:scale-95 active:bg-blue-200 active:shadow-inner md:rounded-xl"
             >
               0
             </button>
             <button
               onClick={() => onPress("back")}
-              className="-my-px min-h-0 rounded-lg md:rounded-xl bg-blue-50 hover:bg-blue-100 border border-slate-200 text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold text-slate-700 transition-all duration-100 active:scale-95 active:bg-blue-200 active:shadow-inner relative hover:z-10"
+              className="h-full min-h-0 overflow-hidden rounded-lg border border-slate-200 bg-blue-50 text-[clamp(2.75rem,6.8vw,4.5rem)] font-bold leading-none text-slate-700 transition-all duration-100 hover:z-10 hover:bg-blue-100 active:scale-95 active:bg-blue-200 active:shadow-inner md:rounded-xl"
               aria-label="Backspace"
               title="Backspace"
             >
@@ -144,7 +144,7 @@ export default function KioskRefillPhonePage() {
           <button
             onClick={onNext}
             disabled={!canNext || loading}
-            className={`mt-6 md:mt-8 w-full h-14 md:h-16 lg:h-20 rounded-xl md:rounded-2xl font-semibold text-lg md:text-xl lg:text-2xl text-white transition-all
+            className={`mt-3 h-[clamp(5.5rem,10.5vh,7.25rem)] w-full rounded-xl text-lg font-semibold text-white transition-all md:mt-4 md:rounded-2xl md:text-xl lg:mt-5 lg:text-2xl
               ${canNext && !loading ? "bg-sky-600 hover:bg-sky-700 active:scale-98" : "bg-slate-300 cursor-not-allowed"}`}
           >
             {loading ? "Checking..." : "Next"}

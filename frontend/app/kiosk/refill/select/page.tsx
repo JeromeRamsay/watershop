@@ -177,7 +177,7 @@ export default function KioskRefillSelectPage() {
     remaining: number;
   }) => (
     <div
-      className="rounded-xl md:rounded-2xl px-5 py-5 sm:px-6 sm:py-5 md:px-8 md:py-6 lg:px-10 lg:py-8 grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-4 md:gap-5 lg:gap-6"
+      className="grid grid-cols-1 items-center gap-4 rounded-xl px-4 py-4 sm:grid-cols-[minmax(0,1fr)_minmax(12rem,16rem)] sm:px-5 md:gap-5 md:rounded-2xl md:px-7 md:py-5 lg:grid-cols-[minmax(0,1fr)_minmax(14rem,18rem)_auto] lg:gap-6 lg:px-8 lg:py-6"
       style={{ backgroundColor: "#DDEEF7" }}
     >
       <div
@@ -187,8 +187,8 @@ export default function KioskRefillSelectPage() {
         {label}
       </div>
 
-      <div className="flex items-center justify-center md:justify-start">
-        <div className="grid grid-cols-3 overflow-hidden rounded-lg md:rounded-xl border-2 border-[#D0DFE8] bg-white min-w-[200px] md:min-w-[240px] lg:min-w-[280px] h-[56px] md:h-[64px] lg:h-[72px]">
+      <div className="flex items-center justify-center sm:justify-start">
+        <div className="grid h-14 min-w-[12rem] grid-cols-3 overflow-hidden rounded-lg border-2 border-[#D0DFE8] bg-white md:h-16 md:min-w-[14rem] md:rounded-xl lg:h-[72px] lg:min-w-[17rem]">
           <button
             onClick={() => dec(id)}
             className="flex items-center justify-center text-3xl md:text-4xl lg:text-5xl font-light border-r-2 border-[#DCE6ED] leading-none hover:bg-blue-50 transition-all"
@@ -212,8 +212,8 @@ export default function KioskRefillSelectPage() {
         </div>
       </div>
 
-      <div className="flex items-center gap-3 md:gap-4 md:justify-end">
-        <div className="text-right leading-tight">
+      <div className="flex items-center justify-between gap-3 sm:justify-end md:gap-4">
+        <div className="leading-tight text-left sm:text-right">
           <div
             className="text-xs md:text-sm lg:text-base whitespace-nowrap"
             style={{ color: "#545454" }}
@@ -273,8 +273,8 @@ export default function KioskRefillSelectPage() {
   );
 
   return (
-    <div className="min-h-screen h-full flex items-center justify-center px-3 py-4 sm:p-4 md:p-6 lg:p-8">
-      <div className="w-full h-full max-w-4xl lg:max-w-5xl bg-white rounded-2xl md:rounded-3xl shadow-lg border border-slate-200 overflow-hidden flex flex-col">
+    <div className="flex h-full items-center justify-center px-2 py-2 sm:px-3 sm:py-3 md:px-4 md:py-4 lg:px-6 lg:py-6">
+      <div className="flex h-full max-h-full w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg md:rounded-3xl lg:max-w-5xl">
         {/* Top Bar */}
         <div className="flex items-center justify-between px-4 py-3 md:px-6 md:py-4 border-b border-slate-100">
           <div className="flex items-center gap-2">
@@ -286,33 +286,34 @@ export default function KioskRefillSelectPage() {
               style={{ width: "auto", height: "auto" }}
             />
           </div>
-          <div className="flex items-center gap-2 text-xs text-slate-600">
+          <div className="flex min-w-0 items-center gap-2 text-xs text-slate-600">
             <span className="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center">
               👤
             </span>
-            <div className="leading-tight">
+            <div className="min-w-0 leading-tight">
               <div className="text-[11px]">Welcome</div>
-              <div className="font-semibold">{name}</div>
+              <div className="truncate font-semibold">{name}</div>
             </div>
           </div>
         </div>
 
         {/* Content */}
-        <div className="flex-1 px-4 py-5 sm:px-5 sm:py-6 md:px-8 md:py-8 lg:px-12 lg:py-10 overflow-auto">
+        <div className="min-h-0 flex-1 overflow-hidden px-4 py-4 sm:px-5 sm:py-5 md:px-7 md:py-6 lg:px-10 lg:py-8">
           {confirmed ? (
             /* ── Success Confirmation ── */
-            <div className="flex flex-col items-center justify-center py-10 md:py-16 lg:py-20 space-y-6 md:space-y-8 text-center h-full">
-              <div className="w-24 h-24 md:w-32 md:h-32 lg:w-40 lg:h-40 rounded-full flex items-center justify-center"
+            <div className="flex h-full flex-col items-center justify-center space-y-5 py-6 text-center md:space-y-6 md:py-10 lg:space-y-8 lg:py-14"
+            >
+              <div className="flex h-24 w-24 items-center justify-center rounded-full md:h-32 md:w-32 lg:h-40 lg:w-40"
                 style={{ backgroundColor: "#D1FAE5" }}>
                 <svg className="w-12 h-12 md:w-16 md:h-16 lg:w-20 lg:h-20" fill="none" stroke="#059669" strokeWidth={2.5} viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
               </div>
               <div>
-                <h2 className="text-3xl md:text-4xl lg:text-5xl font-semibold" style={{ color: "#059669" }}>
+                <h2 className="text-[clamp(2rem,5vw,3rem)] font-semibold" style={{ color: "#059669" }}>
                   Refill Confirmed!
                 </h2>
-                <p className="text-lg md:text-xl lg:text-2xl mt-3 md:mt-4" style={{ color: "#545454" }}>
+                <p className="mt-3 text-lg md:mt-4 md:text-xl lg:text-2xl" style={{ color: "#545454" }}>
                   {confirmedQty} bottle{confirmedQty !== 1 ? "s" : ""} refilled for{" "}
                   <span className="font-semibold">{name}</span>
                 </p>
@@ -322,7 +323,7 @@ export default function KioskRefillSelectPage() {
               </p>
               <button
                 onClick={onNew}
-                className="mt-4 px-10 md:px-12 lg:px-16 h-14 md:h-16 lg:h-20 rounded-xl md:rounded-2xl font-semibold text-white text-lg md:text-xl lg:text-2xl transition-all active:scale-95"
+                className="mt-4 h-14 rounded-xl px-10 text-lg font-semibold text-white transition-all active:scale-95 md:h-16 md:rounded-2xl md:px-12 md:text-xl lg:h-20 lg:px-16 lg:text-2xl"
                 style={{ backgroundColor: "#189CD2" }}
               >
                 Done
@@ -330,10 +331,10 @@ export default function KioskRefillSelectPage() {
             </div>
           ) : (
             /* ── Normal selection view ── */
-            <>
-          <div className="text-center">
+            <div className="flex h-full min-h-0 flex-col">
+          <div className="shrink-0 text-center">
             <h1
-              className="text-3xl md:text-4xl lg:text-5xl font-semibold"
+              className="text-[clamp(2rem,4.8vw,3rem)] font-semibold"
               style={{ color: "#545454" }}
             >
               Water Refill
@@ -344,13 +345,13 @@ export default function KioskRefillSelectPage() {
 
             <div className="mt-5 md:mt-6 lg:mt-8 space-y-2">
               <div
-                className="text-lg md:text-xl lg:text-2xl font-bold"
+                className="text-base font-bold md:text-lg lg:text-xl"
                 style={{ color: "#545454" }}
               >
                 Name: {name}
               </div>
               <div
-                className="text-lg md:text-xl lg:text-2xl font-bold"
+                className="text-base font-bold md:text-lg lg:text-xl"
                 style={{ color: "#545454" }}
               >
                 Phone Number: {formatted}
@@ -358,9 +359,10 @@ export default function KioskRefillSelectPage() {
             </div>
           </div>
 
-          <div className="mt-6 md:mt-8 lg:mt-10 space-y-4 md:space-y-5">
+          <div className="mt-5 flex min-h-0 flex-1 flex-col justify-between md:mt-6">
+            <div className="space-y-3 md:space-y-4">
             {loading ? (
-              <div className="text-center py-12 md:py-16 lg:py-20 space-y-4 md:space-y-5">
+              <div className="space-y-4 py-10 text-center md:space-y-5 md:py-12 lg:py-14">
                 <svg className="animate-spin h-12 w-12 md:h-16 md:w-16 lg:h-20 lg:w-20 mx-auto" fill="none" viewBox="0 0 24 24"
                   style={{ color: "#189CD2" }}>
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -371,7 +373,7 @@ export default function KioskRefillSelectPage() {
                 </p>
               </div>
             ) : items.length === 0 ? (
-              <div className="text-center py-12 md:py-16 lg:py-20 text-base md:text-lg lg:text-xl" style={{ color: "#8E8E8E" }}>
+              <div className="py-10 text-center text-base md:py-12 md:text-lg lg:py-14 lg:text-xl" style={{ color: "#8E8E8E" }}>
                 No refill items available.
               </div>
             ) : (
@@ -384,44 +386,47 @@ export default function KioskRefillSelectPage() {
                 />
               ))
             )}
-          </div>
-
-          {error ? (
-            <div className="mt-4 md:mt-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-base md:text-lg text-red-700 font-medium">
-              {error}
             </div>
-          ) : null}
 
-          <div className="mt-6 md:mt-8 lg:mt-10 space-y-4 md:space-y-5">
-            <button
-              onClick={onConfirm}
-              disabled={loading}
-              className="w-full h-14 md:h-16 lg:h-20 rounded-xl md:rounded-2xl font-semibold text-white text-lg md:text-xl lg:text-2xl flex items-center justify-center gap-3 transition-all disabled:opacity-70 disabled:cursor-not-allowed active:scale-98"
-              style={{ backgroundColor: "#189CD2" }}
-            >
-              {loading ? (
-                <>
-                  <svg className="animate-spin h-6 w-6 md:h-7 md:w-7" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                  </svg>
-                  Processing…
-                </>
-              ) : (
-                "Confirm Refill"
-              )}
-            </button>
+            <div className="shrink-0">
+              {error ? (
+                <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-base font-medium text-red-700 md:text-lg">
+                  {error}
+                </div>
+              ) : null}
 
-            <button
-              onClick={onNew}
-              disabled={loading}
-              className="w-full h-14 md:h-16 lg:h-20 rounded-xl md:rounded-2xl font-semibold text-lg md:text-xl lg:text-2xl bg-white border-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-98"
-              style={{ color: "#189CD2", borderColor: "#189CD2" }}
-            >
-              New
-            </button>
+              <div className="mt-5 space-y-3 md:mt-6 md:space-y-4">
+                <button
+                  onClick={onConfirm}
+                  disabled={loading}
+                  className="flex h-[clamp(4.5rem,9vh,6.5rem)] w-full items-center justify-center gap-3 rounded-xl text-lg font-semibold text-white transition-all disabled:cursor-not-allowed disabled:opacity-70 active:scale-98 md:rounded-2xl md:text-xl lg:text-2xl"
+                  style={{ backgroundColor: "#189CD2" }}
+                >
+                  {loading ? (
+                    <>
+                      <svg className="animate-spin h-6 w-6 md:h-7 md:w-7" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                      </svg>
+                      Processing…
+                    </>
+                  ) : (
+                    "Confirm Refill"
+                  )}
+                </button>
+
+                <button
+                  onClick={onNew}
+                  disabled={loading}
+                  className="h-14 w-full rounded-xl border-2 bg-white text-lg font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-50 active:scale-98 md:h-16 md:rounded-2xl md:text-xl lg:h-18 lg:text-2xl"
+                  style={{ color: "#189CD2", borderColor: "#189CD2" }}
+                >
+                  New
+                </button>
+              </div>
+            </div>
           </div>
-            </>
+            </div>
           )}
         </div>
       </div>

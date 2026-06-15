@@ -10,5 +10,6 @@ import { Setting, SettingSchema } from "./entities/setting.entity";
   ],
   controllers: [SettingsController],
   providers: [SettingsService],
+  exports: [SettingsService],
 })
 export class SettingsModule {}

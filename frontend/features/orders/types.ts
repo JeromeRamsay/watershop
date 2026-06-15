@@ -37,7 +37,9 @@ export interface Order {
   items: OrderItem[];
   refills?: OrderItem[];
   notes?: string;
+  subTotal?: number;
   totalPrice: number;
+  taxRate?: number;
   grandTotal?: number;
   amountPaid?: number;
   deliveryType: "Delivery" | "Pickup";

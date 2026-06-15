@@ -35,6 +35,8 @@ export interface OrderApiResponse {
   isWalkIn?: boolean;
   items?: OrderApiItem[];
   refills?: OrderApiItem[];
+  subTotal?: number;
+  taxRate?: number;
   grandTotal?: number;
   amountPaid?: number;
   isDelivery?: boolean;
@@ -112,6 +114,18 @@ export const mapApiOrderToOrder = (order: OrderApiResponse): Order => {
     returnPolicy: item.returnPolicy,
   }));
 
+  const subTotal =
+    order.subTotal ??
+    [...mappedItems, ...mappedRefills].reduce(
+      (sum, item) => sum + Number(item.totalPrice || 0),
+      0,
+    );
+  const discount = Number(order.discount || 0);
+  const pretaxTotal = Math.max(0, subTotal - discount);
+  const taxRate = Number(order.taxRate || 0);
+  const grandTotal =
+    order.grandTotal ?? pretaxTotal + pretaxTotal * taxRate;
+
   return {
     id: order._id,
     orderId: order.orderNumber || `ORD-${order._id.slice(-6).toUpperCase()}`,
@@ -125,8 +139,10 @@ export const mapApiOrderToOrder = (order: OrderApiResponse): Order => {
     items: mappedItems,
     refills: mappedRefills,
     notes: order.notes,
-    totalPrice: order.grandTotal || 0,
-    grandTotal: order.grandTotal || 0,
+    subTotal,
+    totalPrice: pretaxTotal,
+    taxRate,
+    grandTotal,
     amountPaid: order.amountPaid || 0,
     deliveryType: order.isDelivery ? "Delivery" : "Pickup",
     remainingCredits:

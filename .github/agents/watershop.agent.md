@@ -218,6 +218,7 @@ None currently tracked.
 | M6 | `refills.service.ts` | Unsafe `(customer as any)?._id` cast throughout the service |
 | M7 | `frontend_public/contact_mail.php`, `frontend_public/enquiry_mail.php`, `frontend_public/contact_process.php` | Public-site email delivery still relies on raw `mail()` from PHP handlers — move to a supported server-side mail path before public launch |
 | M8 | `frontend_public/index.html`, `frontend_public/contact.html` | Public-site forms post to PHP AJAX handlers, so the site cannot be moved into `frontend/` without rewriting the form backend |
+| M9 | `orders` legacy data created before 2026-06 order-tax snapshot change | Older orders do not carry a persisted `taxRate`; use the admin repair action on Settings (POST `/orders/repair-tax-snapshots`) to backfill only documents missing that field |
 
 ---
 
@@ -490,8 +491,15 @@ npm test -- --watch         # watch mode
 npm test -- --coverage      # coverage report
 ```
 
-Local-only startup:
+Local-only startup (env.local aware):
 ```bash
+# 1) Backend local env: copy backend/.env.example -> backend/.env.local
+#    Required runtime keys are MONGO_URI, FRONTEND_URL, and JWT_SECRET.
+#    The current backend runtime reads MONGO_URI; treat MONGODB_URI in the example as legacy.
+
+# 2) Frontend local env: copy frontend/.env.example -> frontend/.env.local
+#    Keep NEXT_PUBLIC_API_URL=http://localhost:4000 so the UI and dashboard websocket target the local API.
+
 # Windows local Valkey via Docker Desktop:
 # Start Docker Desktop first, then run:
 # docker pull valkey/valkey:8-alpine
@@ -499,11 +507,14 @@ Local-only startup:
 # docker exec watershop-valkey valkey-cli ping   # expect PONG
 
 cd backend
-npm run start:local         # loads backend/.env.local for local MongoDB + Valkey
+npm run start:local         # loads backend/.env.local, sets WATERSHOP_LOCAL_ENV_FILE, and starts Nest watch mode
 npm run seed:local-admin    # upserts a local admin/admin login in the local MongoDB
 
 cd frontend
-npm run start:local         # uses frontend/.env.local against the local backend
+npm run start:local         # same as next dev; Next automatically reads frontend/.env.local
+
+# Or from the repo root:
+./start-dev.sh              # checks both .env.local files, then starts backend + frontend with start:local
 ```
 
 After every backend change, run `npm test` and confirm all tests pass before considering the task done.
@@ -521,7 +532,7 @@ Backend deploys compile with `nest build` via SWC. Keep Nest decorators such as 
 | User | `firstName, lastName, username (unique), password (bcrypt), role: admin\|staff, isActive, archivedAt` |
 | Customer | `type: individual\|business, firstName, lastName, email (unique), phone (unique), notes, wallet: { storeCredit, prepaidItems[] }, addresses[], familyMembers[], lastVisit` |
 | Inventory | `name, sku (unique), stockQuantity, lowStockThreshold (default 10), sellingPrice, isRefillable, refillPrice, warranty, returnPolicy, isActive (soft-delete)` |
-| Order | `orderNumber (unique), customer→Customer (optional), cashier→User, items[] { warranty?, returnPolicy? }, refills[] { warranty?, returnPolicy? }, subTotal, discount, grandTotal, notes, deliveryNotes, paymentStatus: paid\|unpaid\|partial\|pending, paymentMethod: cash\|card\|credit_redemption\|store_credit, status: pending\|scheduled\|completed\|cancelled, isDelivery, isWalkIn, isPrepaidRedemption, deliveryId→Delivery, deliveryAddress, deliveryDate, emailReceipt, paymentDetails: any` |
+| Order | `orderNumber (unique), customer→Customer (optional), cashier→User, items[] { warranty?, returnPolicy? }, refills[] { warranty?, returnPolicy? }, subTotal, discount, taxRate, grandTotal, notes, deliveryNotes, paymentStatus: paid\|unpaid\|partial\|pending, paymentMethod: cash\|card\|credit_redemption\|store_credit, status: pending\|scheduled\|completed\|cancelled, isDelivery, isWalkIn, isPrepaidRedemption, deliveryId→Delivery, deliveryAddress, deliveryDate, emailReceipt, paymentDetails: any` |
 | Delivery | `order→Order, customer→Customer, address, scheduledDate, status: scheduled\|out_for_delivery\|delivered\|failed\|cancelled, assignedDriver→User` |
 | Notification | `message, type: low_stock\|out_of_stock\|refill_order\|cancelled_order, inventoryItemId→Inventory, orderId→Order, resolved (default false)` |
 | Supplier | `name, phone, email, address, isActive (soft-delete)` |
@@ -532,6 +543,8 @@ Backend deploys compile with `nest build` via SWC. Keep Nest decorators such as 
 ---
 
 ## Environment Variables
+
+Local development note: backend local startup uses `backend/.env.local` only when launched with `cd backend && npm run start:local`. Frontend local startup uses `frontend/.env.local` automatically via Next.js when launched with `cd frontend && npm run start:local` or `npm run dev`.
 
 | Variable | Where | Status |
 |---|---|---|

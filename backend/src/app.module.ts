@@ -106,6 +106,7 @@ import { LoggerErrorInterceptor, LoggerModule } from "nestjs-pino";
 
     // 4. Auth (global JWT strategy + PassportModule)
     AuthModule,
+    TerminusModule,
 
     // 5. Feature Modules
     UsersModule,
@@ -125,7 +126,7 @@ import { LoggerErrorInterceptor, LoggerModule } from "nestjs-pino";
     RefillOverridesModule,
     ClientErrorsModule,
   ],
-  controllers: [AppController],
+  controllers: [AppController, HealthController],
   providers: [
     AppService,
     // Apply JWT auth to every route by default (use @Public() to opt out)

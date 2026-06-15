@@ -7,6 +7,7 @@ import { InjectConnection, InjectModel } from "@nestjs/mongoose";
 import { randomBytes } from "crypto";
 import { Connection, Model, Types } from "mongoose";
 import { CreateOrderDto } from "./dto/create-order.dto";
+import { RepairOrderTaxSnapshotsDto } from "./dto/repair-order-tax-snapshots.dto";
 import { UpdateOrderDto } from "./dto/update-order.dto";
 import { Order, OrderDocument, OrderItem } from "./entities/order.entity";
 import { InventoryService } from "../inventory/inventory.service";
@@ -17,6 +18,7 @@ import { InventoryDocument } from "../inventory/entities/inventory.entity";
 import { DeliveriesService } from "../deliveries/deliveries.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { RealtimeService } from "../realtime/realtime.service";
+import { SettingsService } from "../settings/settings.service";
 
 interface PaymentDetails {
   mode: "single" | "split";
@@ -38,7 +40,35 @@ export class OrdersService {
     private deliveriesService: DeliveriesService,
     private notificationsService: NotificationsService,
     private realtimeService: RealtimeService,
+    private settingsService: SettingsService,
   ) {}
+
+    private normalizeTaxRate(taxRate?: number | null) {
+      const normalized = Number(taxRate ?? 0);
+      if (!Number.isFinite(normalized) || normalized < 0) {
+        throw new BadRequestException("Tax rate must be a valid decimal value.");
+      }
+
+      if (normalized > 1) {
+        throw new BadRequestException("Tax rate must be between 0 and 1.");
+      }
+
+      return normalized;
+    }
+
+    private calculateGrandTotal(subTotal: number, discount: number, taxRate: number) {
+      const pretaxTotal = Math.max(0, subTotal - discount);
+      return pretaxTotal + pretaxTotal * taxRate;
+    }
+
+    private async resolveTaxRate(orderTaxRate?: number | null) {
+      if (orderTaxRate !== undefined && orderTaxRate !== null) {
+        return this.normalizeTaxRate(orderTaxRate);
+      }
+
+      const settings = await this.settingsService.findOne();
+      return this.normalizeTaxRate(settings?.taxRate);
+    }
 
     private mapPolicySnapshot(policy?: {
       description?: string;
@@ -361,8 +391,12 @@ export class OrdersService {
           );
         }
 
-        const grandTotal = subTotal - discount;
-        const finalGrandTotal = grandTotal < 0 ? 0 : grandTotal;
+        const taxRate = await this.resolveTaxRate(createOrderDto.taxRate);
+        const finalGrandTotal = this.calculateGrandTotal(
+          subTotal,
+          discount,
+          taxRate,
+        );
 
         // 4. Calculate Amount Paid and determine Payment Status
         let totalAmountPaid = 0;
@@ -413,6 +447,7 @@ export class OrdersService {
           refillCount,
           subTotal,
           discount,
+          taxRate,
           grandTotal: finalGrandTotal,
           amountPaid: totalAmountPaid,
           paymentMethod,
@@ -730,7 +765,15 @@ export class OrdersService {
 
     const subTotal = (computedSubTotal ?? existing.subTotal) || 0;
     const discount = updates.discount ?? existing.discount ?? 0;
-    const nextGrandTotal = Math.max(0, subTotal - discount);
+    const nextTaxRate = await this.resolveTaxRate(
+      updateOrderDto.taxRate ?? existing.taxRate ?? 0,
+    );
+    updates.taxRate = nextTaxRate;
+    const nextGrandTotal = this.calculateGrandTotal(
+      subTotal,
+      discount,
+      nextTaxRate,
+    );
     updates.grandTotal = nextGrandTotal;
 
     let amountPaid = existing.amountPaid || 0;
@@ -772,6 +815,60 @@ export class OrdersService {
 
     this.realtimeService.emitDashboardUpdate("orders.updated");
     return updated;
+  }
+
+  async repairLegacyTaxSnapshots(
+    repairOrderTaxSnapshotsDto: RepairOrderTaxSnapshotsDto = {},
+  ) {
+    const taxRate = await this.resolveTaxRate(repairOrderTaxSnapshotsDto.taxRate);
+    const legacyOrders = await this.orderModel
+      .find({ taxRate: { $exists: false } })
+      .select("_id orderNumber subTotal discount")
+      .lean()
+      .exec();
+
+    if (legacyOrders.length === 0) {
+      return {
+        matchedCount: 0,
+        repairedCount: 0,
+        taxRate,
+        sampleOrderNumbers: [],
+      };
+    }
+
+    const operations = legacyOrders.map((order) => ({
+      updateOne: {
+        filter: { _id: order._id, taxRate: { $exists: false } },
+        update: {
+          $set: {
+            taxRate,
+            grandTotal: this.calculateGrandTotal(
+              Number(order.subTotal || 0),
+              Number(order.discount || 0),
+              taxRate,
+            ),
+          },
+        },
+      },
+    }));
+
+    const result = await this.orderModel.bulkWrite(operations, {
+      ordered: false,
+    });
+
+    if (result.modifiedCount > 0) {
+      this.realtimeService.emitDashboardUpdate("orders.taxSnapshotsRepaired");
+    }
+
+    return {
+      matchedCount: legacyOrders.length,
+      repairedCount: result.modifiedCount,
+      taxRate,
+      sampleOrderNumbers: legacyOrders
+        .slice(0, 5)
+        .map((order) => order.orderNumber)
+        .filter(Boolean),
+    };
   }
 
   async remove(id: string) {

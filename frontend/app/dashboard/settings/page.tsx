@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Settings as SettingsIcon, Save, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +16,8 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import api from "@/lib/api";
+import { queryKeys } from "@/lib/queries";
+import { useIsCurrentUserAdmin } from "@/lib/current-user";
 
 interface SettingsData {
   storeName: string;
@@ -30,8 +33,11 @@ interface SettingsData {
 }
 
 export default function SettingsPage() {
+  const qc = useQueryClient();
+  const isAdmin = useIsCurrentUserAdmin();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [repairingLegacyOrders, setRepairingLegacyOrders] = useState(false);
   const [formData, setFormData] = useState<SettingsData>({
     storeName: "",
     currency: "EGP",
@@ -85,13 +91,58 @@ export default function SettingsPage() {
         ...formData,
         taxRate: Number(formData.taxRate) / 100, // Convert percentage back to decimal
       };
-      await api.patch("/settings", payload);
+      const { data } = await api.patch("/settings", payload);
+      qc.setQueryData(queryKeys.settings(), data);
+      void qc.invalidateQueries({ queryKey: queryKeys.settings() });
       alert("Settings saved successfully!");
     } catch (error) {
       console.error("Failed to save settings", error);
       alert("Failed to save settings.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleRepairLegacyOrderTaxes = async () => {
+    const repairTaxPercent = Number(formData.taxRate);
+    if (
+      !Number.isFinite(repairTaxPercent) ||
+      repairTaxPercent < 0 ||
+      repairTaxPercent > 100
+    ) {
+      alert("Enter a valid repair tax rate between 0 and 100.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Repair legacy orders that are missing a tax snapshot? This only updates older orders with no stored taxRate field.",
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setRepairingLegacyOrders(true);
+    try {
+      const { data } = await api.post("/orders/repair-tax-snapshots", {
+        taxRate: repairTaxPercent / 100,
+      });
+
+      void qc.invalidateQueries({ queryKey: ["orders"] });
+
+      const sampleOrders =
+        Array.isArray(data?.sampleOrderNumbers) &&
+        data.sampleOrderNumbers.length > 0
+          ? ` Sample orders: ${data.sampleOrderNumbers.join(", ")}.`
+          : "";
+
+      alert(
+        `Repaired ${Number(data?.repairedCount || 0)} of ${Number(data?.matchedCount || 0)} legacy orders at ${Number((Number(data?.taxRate || 0) * 100).toFixed(2))}% tax.${sampleOrders}`,
+      );
+    } catch (error) {
+      console.error("Failed to repair legacy order taxes", error);
+      alert("Failed to repair legacy order taxes.");
+    } finally {
+      setRepairingLegacyOrders(false);
     }
   };
 
@@ -258,6 +309,42 @@ export default function SettingsPage() {
             </div>
           </CardContent>
         </Card>
+
+        {isAdmin && (
+          <Card className="border-dark-200 dark:border-dark-600 dark:bg-dark-700">
+            <CardHeader>
+              <CardTitle>Legacy Order Repair</CardTitle>
+              <CardDescription>
+                Backfill tax snapshots for older orders created before per-order tax storage existed.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-dark-500 dark:text-dark-300">
+                This only updates orders whose MongoDB document is missing the
+                tax snapshot field. It uses the tax rate currently entered
+                above, so save settings separately if you also want that value
+                to become the default for future orders.
+              </p>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={repairingLegacyOrders}
+                  onClick={handleRepairLegacyOrderTaxes}
+                  className="sm:min-w-[250px]"
+                >
+                  {repairingLegacyOrders && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
+                  Repair Legacy Order Taxes
+                </Button>
+                <span className="text-xs text-dark-400 dark:text-dark-500">
+                  Uses {Number(formData.taxRate || 0).toFixed(2)}% for the repair run.
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <div className="flex justify-end">
           <Button

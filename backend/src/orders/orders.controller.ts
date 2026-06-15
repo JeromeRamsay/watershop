@@ -7,12 +7,23 @@ import {
   Body,
   Param,
   Query,
+  Req,
+  ForbiddenException,
 } from "@nestjs/common";
 import { OrdersService } from "./orders.service";
 import { CreateOrderDto } from "./dto/create-order.dto";
 import { UpdateOrderStatusDto } from "./dto/update-order-status.dto";
 import { UpdateOrderDto } from "./dto/update-order.dto";
+import { RepairOrderTaxSnapshotsDto } from "./dto/repair-order-tax-snapshots.dto";
 import { ApiTags, ApiOperation } from "@nestjs/swagger";
+
+interface AuthenticatedRequest {
+  user?: {
+    userId?: string;
+    username?: string;
+    role?: string;
+  };
+}
 
 @ApiTags("Orders")
 @Controller("orders")
@@ -36,6 +47,21 @@ export class OrdersController {
       year ? parseInt(year) : undefined,
       page ? parseInt(page) : 1,
       limit ? parseInt(limit) : 50,
+    );
+  }
+
+  @Post("repair-tax-snapshots")
+  @ApiOperation({ summary: "Repair legacy orders missing a persisted tax snapshot" })
+  repairTaxSnapshots(
+    @Body() repairOrderTaxSnapshotsDto: RepairOrderTaxSnapshotsDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    if (request.user?.role?.toLowerCase() !== "admin") {
+      throw new ForbiddenException("Admin access required.");
+    }
+
+    return this.ordersService.repairLegacyTaxSnapshots(
+      repairOrderTaxSnapshotsDto,
     );
   }
 

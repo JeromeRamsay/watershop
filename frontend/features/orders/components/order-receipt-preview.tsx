@@ -587,7 +587,7 @@ const OrderReceiptDocument = forwardRef<HTMLDivElement, OrderReceiptDocumentProp
     );
     const discount = Number(order.discount || 0);
     const pretaxTotal = Math.max(0, itemSubtotal - discount);
-    const taxRate = Number(settings?.taxRate || 0);
+    const taxRate = Number(order.taxRate || 0);
     const taxAmount = pretaxTotal * taxRate;
     const grandTotal = pretaxTotal + taxAmount;
     const amountPaid = getAmountPaid(order);
@@ -777,7 +777,7 @@ const OrderReceiptDocument = forwardRef<HTMLDivElement, OrderReceiptDocumentProp
             )}
             {taxRate > 0 && (
               <div className="receipt-summary-row flex items-center justify-between gap-4 py-1.5">
-                <span>Tax ({(taxRate * 100).toFixed(0)}%)</span>
+                <span>Tax ({Number((taxRate * 100).toFixed(2))}%)</span>
                 <span>{formatCurrency(taxAmount)}</span>
               </div>
             )}

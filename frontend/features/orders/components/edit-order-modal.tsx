@@ -192,6 +192,7 @@ export function EditOrderModal({
   const [editedItems, setEditedItems] = useState<EditableItem[]>([]);
   const [newItemId, setNewItemId] = useState("");
   const [newItemIsRefill, setNewItemIsRefill] = useState(false);
+  const [taxRatePercent, setTaxRatePercent] = useState("0");
   const paymentInteracted = useRef(false);
 
   const [formData, setFormData] = useState({
@@ -240,7 +241,11 @@ export function EditOrderModal({
     [inventoryRaw],
   );
 
-  const taxRate: number = settings?.taxRate ?? 0;
+  const enteredTaxRatePercent = Number(taxRatePercent);
+  const taxRate: number =
+    Number.isFinite(enteredTaxRatePercent) && enteredTaxRatePercent >= 0
+      ? enteredTaxRatePercent / 100
+      : 0;
 
   const savedRefillLines = useMemo(() => getOrderRefillLines(order), [order]);
 
@@ -414,6 +419,7 @@ export function EditOrderModal({
       setAmountPaid(String(details?.amount ?? order.amountPaid ?? 0));
       setSplitPayments([{ type: "cash", amount: "" }]);
     }
+    setTaxRatePercent(String(Number(((order.taxRate ?? 0) * 100).toFixed(2))));
     paymentInteracted.current = false;
   }, [order]);
 
@@ -422,7 +428,7 @@ export function EditOrderModal({
     (sum, item) => sum + item.totalPrice,
     0,
   );
-  const backendSubTotal = order?.totalPrice ?? 0;
+  const backendSubTotal = order?.subTotal ?? order?.totalPrice ?? 0;
   const subTotal = editedItems.length > 0 ? itemsSubTotal : backendSubTotal;
   const discountAmt = Number(formData.discount || 0);
   const pretaxTotal = Math.max(0, subTotal - discountAmt);
@@ -551,8 +557,10 @@ export function EditOrderModal({
           ? new Date(formData.deliveryDateTime).toISOString()
           : undefined,
       notes: formData.notes.trim() || undefined,
+      subTotal,
       discount: Number(formData.discount || 0),
       totalPrice: pretaxTotal,
+      taxRate,
       grandTotal,
       amountPaid: totalPaid,
       paymentDetails: currentPaymentDetails,
@@ -626,6 +634,7 @@ export function EditOrderModal({
       const payload: Record<string, unknown> = {
         customerId: formData.customerId || undefined,
         discount: Number(formData.discount || 0),
+        taxRate,
         paymentStatus: formData.paymentStatus.toLowerCase(),
         isDelivery: formData.deliveryType === "Delivery",
         deliveryAddress:
@@ -1189,10 +1198,29 @@ export function EditOrderModal({
                   </div>
                 )}
 
+                <div className="space-y-1.5">
+                  <Label
+                    htmlFor="edit-order-tax-rate"
+                    className="text-xs font-medium text-dark-500"
+                  >
+                    Tax Rate (%)
+                  </Label>
+                  <Input
+                    id="edit-order-tax-rate"
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    value={taxRatePercent}
+                    onChange={(e) => setTaxRatePercent(e.target.value)}
+                    className="h-11"
+                  />
+                </div>
+
                 {taxRate > 0 && (
                   <div className="flex justify-between text-sm">
                     <span className="text-dark-500">
-                      Tax ({(taxRate * 100).toFixed(0)}%)
+                      Tax ({Number((taxRate * 100).toFixed(2))}%)
                     </span>
                     <span className="text-dark-700 dark:text-dark-200">
                       {fmt(taxAmount)}

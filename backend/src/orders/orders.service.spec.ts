@@ -7,6 +7,7 @@ import { DeliveriesService } from "../deliveries/deliveries.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { RealtimeService } from "../realtime/realtime.service";
 import { InventoryService } from "../inventory/inventory.service";
+import { SettingsService } from "../settings/settings.service";
 import { Order } from "./entities/order.entity";
 import { OrdersService } from "./orders.service";
 
@@ -47,6 +48,7 @@ const makeOrder = (overrides: Record<string, unknown> = {}) => ({
   refillCount: 0,
   subTotal: 10,
   discount: 0,
+  taxRate: 0,
   grandTotal: 10,
   amountPaid: 10,
   paymentMethod: "cash",
@@ -85,6 +87,7 @@ function buildMockOrderModel() {
   MockModel.findByIdAndUpdate = jest.fn();
   MockModel.findByIdAndDelete = jest.fn();
   MockModel.aggregate = jest.fn();
+  MockModel.bulkWrite = jest.fn();
   MockModel.countDocuments = jest.fn().mockResolvedValue(0);
   return MockModel;
 }
@@ -102,6 +105,7 @@ describe("OrdersService", () => {
   const mockDeliveriesService = { create: jest.fn() };
   const mockNotificationsService = { createIfNotExists: jest.fn(), create: jest.fn() };
   const mockRealtimeService = { emitDashboardUpdate: jest.fn() };
+  const mockSettingsService = { findOne: jest.fn() };
 
   beforeEach(async () => {
     mockOrderModel = buildMockOrderModel();
@@ -114,6 +118,7 @@ describe("OrdersService", () => {
         { provide: DeliveriesService, useValue: mockDeliveriesService },
         { provide: NotificationsService, useValue: mockNotificationsService },
         { provide: RealtimeService, useValue: mockRealtimeService },
+        { provide: SettingsService, useValue: mockSettingsService },
         {
           provide: getConnectionToken(),
           useValue: {
@@ -130,6 +135,7 @@ describe("OrdersService", () => {
     }).compile();
     service = module.get<OrdersService>(OrdersService);
     jest.clearAllMocks();
+    mockSettingsService.findOne.mockResolvedValue({ taxRate: 0.13 });
   });
 
   // ─── create ────────────────────────────────────────────────────────────────
@@ -230,6 +236,19 @@ describe("OrdersService", () => {
       expect(mockNotificationsService.createIfNotExists).toHaveBeenCalledWith(expect.objectContaining({ type: "low_stock" }));
     });
 
+    it("applies settings tax rate to new orders by default", async () => {
+      let capturedDto: any;
+      mockOrderModel.mockImplementation(function (dto: any) {
+        capturedDto = dto;
+        this._id = new Types.ObjectId();
+        this.save = jest.fn().mockResolvedValue({ ...dto, _id: this._id });
+        Object.assign(this, dto);
+      });
+      await service.create({ customerId, items: [{ itemId, quantity: 1 }], paymentMethod: "cash", discount: 0 } as any);
+      expect(capturedDto.taxRate).toBe(0.13);
+      expect(capturedDto.grandTotal).toBe(11.3);
+    });
+
     it("applies discount correctly to grandTotal", async () => {
       let capturedDto: any;
       mockOrderModel.mockImplementation(function (dto: any) {
@@ -239,7 +258,20 @@ describe("OrdersService", () => {
         Object.assign(this, dto);
       });
       await service.create({ customerId, items: [{ itemId, quantity: 1 }], paymentMethod: "cash", discount: 3 } as any);
-      expect(capturedDto.grandTotal).toBe(7); // 10 - 3
+      expect(capturedDto.grandTotal).toBe(7.91); // (10 - 3) + 13%
+    });
+
+    it("uses an order-level tax override when provided", async () => {
+      let capturedDto: any;
+      mockOrderModel.mockImplementation(function (dto: any) {
+        capturedDto = dto;
+        this._id = new Types.ObjectId();
+        this.save = jest.fn().mockResolvedValue({ ...dto, _id: this._id });
+        Object.assign(this, dto);
+      });
+      await service.create({ customerId, items: [{ itemId, quantity: 1 }], paymentMethod: "cash", discount: 0, taxRate: 0.05 } as any);
+      expect(capturedDto.taxRate).toBe(0.05);
+      expect(capturedDto.grandTotal).toBe(10.5);
     });
 
     it("creates a delivery record when isDelivery=true", async () => {
@@ -377,19 +409,28 @@ describe("OrdersService", () => {
   // ─── update ────────────────────────────────────────────────────────────────
   describe("update()", () => {
     beforeEach(() => {
-      mockOrderModel.findById = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(makeOrder({ subTotal: 20, discount: 0, grandTotal: 20, amountPaid: 20 })) });
+      mockOrderModel.findById = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(makeOrder({ subTotal: 20, discount: 0, taxRate: 0.13, grandTotal: 22.6, amountPaid: 22.6 })) });
     });
 
     it("recalculates grandTotal with new discount", async () => {
-      mockOrderModel.findByIdAndUpdate.mockReturnValue(makeChainable(makeOrder({ grandTotal: 15 })));
+      mockOrderModel.findByIdAndUpdate.mockReturnValue(makeChainable(makeOrder({ grandTotal: 16.95, taxRate: 0.13 })));
       await service.update("order-id", { discount: 5 } as any);
       const updates = mockOrderModel.findByIdAndUpdate.mock.calls[0][1];
-      expect(updates.grandTotal).toBe(15); // 20 - 5
+      expect(updates.taxRate).toBe(0.13);
+      expect(updates.grandTotal).toBe(16.95); // (20 - 5) + 13%
+    });
+
+    it("allows overriding the saved tax rate on update", async () => {
+      mockOrderModel.findByIdAndUpdate.mockReturnValue(makeChainable(makeOrder({ grandTotal: 21, taxRate: 0.05 })));
+      await service.update("order-id", { taxRate: 0.05 } as any);
+      const updates = mockOrderModel.findByIdAndUpdate.mock.calls[0][1];
+      expect(updates.taxRate).toBe(0.05);
+      expect(updates.grandTotal).toBe(21);
     });
 
     it("sets paymentStatus=paid when fully paid", async () => {
       mockOrderModel.findByIdAndUpdate.mockReturnValue(makeChainable(makeOrder()));
-      await service.update("order-id", { paymentDetails: { mode: "single", amount: 20 } } as any);
+      await service.update("order-id", { paymentDetails: { mode: "single", amount: 22.6 } } as any);
       expect(mockOrderModel.findByIdAndUpdate.mock.calls[0][1].paymentStatus).toBe("paid");
     });
 
@@ -533,6 +574,7 @@ describe("OrdersService", () => {
         }),
       );
       expect(updates.subTotal).toBe(5);
+      expect(updates.taxRate).toBe(0);
       expect(updates.grandTotal).toBe(5);
       expect(updates.refillCount).toBe(2);
       expect(mockCustomersService.update).toHaveBeenCalledWith(
@@ -623,13 +665,119 @@ describe("OrdersService", () => {
 
     it("handles split payments correctly", async () => {
       mockOrderModel.findByIdAndUpdate.mockReturnValue(makeChainable(makeOrder()));
-      await service.update("order-id", { paymentDetails: { mode: "split", payments: [{ type: "cash", amount: 10 }, { type: "card", amount: 10 }] } } as any);
+      await service.update("order-id", { paymentDetails: { mode: "split", payments: [{ type: "cash", amount: 11.3 }, { type: "card", amount: 11.3 }] } } as any);
       expect(mockOrderModel.findByIdAndUpdate.mock.calls[0][1].paymentStatus).toBe("paid");
     });
 
     it("throws NotFoundException when order not found", async () => {
       mockOrderModel.findById = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
       await expect(service.update("ghost", {} as any)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe("repairLegacyTaxSnapshots()", () => {
+    it("repairs only legacy orders missing a tax snapshot", async () => {
+      const legacyOrders = [
+        {
+          _id: new Types.ObjectId(),
+          orderNumber: "ORD-LEGACY-1",
+          subTotal: 10,
+          discount: 0,
+        },
+        {
+          _id: new Types.ObjectId(),
+          orderNumber: "ORD-LEGACY-2",
+          subTotal: 20,
+          discount: 5,
+        },
+      ];
+
+      const exec = jest.fn().mockResolvedValue(legacyOrders);
+      const lean = jest.fn().mockReturnValue({ exec });
+      const select = jest.fn().mockReturnValue({ lean });
+      mockOrderModel.find.mockReturnValue({ select });
+      mockOrderModel.bulkWrite.mockResolvedValue({ modifiedCount: 2 });
+
+      const result = await service.repairLegacyTaxSnapshots();
+
+      expect(mockOrderModel.find).toHaveBeenCalledWith({
+        taxRate: { $exists: false },
+      });
+      expect(mockOrderModel.bulkWrite).toHaveBeenCalledWith(
+        [
+          {
+            updateOne: {
+              filter: {
+                _id: legacyOrders[0]._id,
+                taxRate: { $exists: false },
+              },
+              update: {
+                $set: {
+                  taxRate: 0.13,
+                  grandTotal: 11.3,
+                },
+              },
+            },
+          },
+          {
+            updateOne: {
+              filter: {
+                _id: legacyOrders[1]._id,
+                taxRate: { $exists: false },
+              },
+              update: {
+                $set: {
+                  taxRate: 0.13,
+                  grandTotal: 16.95,
+                },
+              },
+            },
+          },
+        ],
+        { ordered: false },
+      );
+      expect(mockRealtimeService.emitDashboardUpdate).toHaveBeenCalledWith(
+        "orders.taxSnapshotsRepaired",
+      );
+      expect(result).toEqual({
+        matchedCount: 2,
+        repairedCount: 2,
+        taxRate: 0.13,
+        sampleOrderNumbers: ["ORD-LEGACY-1", "ORD-LEGACY-2"],
+      });
+    });
+
+    it("supports an admin-provided tax rate override", async () => {
+      const exec = jest.fn().mockResolvedValue([
+        {
+          _id: new Types.ObjectId(),
+          orderNumber: "ORD-LEGACY-3",
+          subTotal: 10,
+          discount: 0,
+        },
+      ]);
+      const lean = jest.fn().mockReturnValue({ exec });
+      const select = jest.fn().mockReturnValue({ lean });
+      mockOrderModel.find.mockReturnValue({ select });
+      mockOrderModel.bulkWrite.mockResolvedValue({ modifiedCount: 1 });
+
+      await service.repairLegacyTaxSnapshots({ taxRate: 0.05 });
+
+      expect(mockOrderModel.bulkWrite).toHaveBeenCalledWith(
+        [
+          expect.objectContaining({
+            updateOne: expect.objectContaining({
+              update: {
+                $set: {
+                  taxRate: 0.05,
+                  grandTotal: 10.5,
+                },
+              },
+            }),
+          }),
+        ],
+        { ordered: false },
+      );
     });
   });
 

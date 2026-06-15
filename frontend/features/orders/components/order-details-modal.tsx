@@ -116,7 +116,7 @@ export function OrderDetailsModal({
   loading,
 }: OrderDetailsModalProps) {
   const { data: settings } = useSettings();
-  const taxRate: number = settings?.taxRate ?? 0;
+  const taxRate: number = order?.taxRate ?? 0;
 
   const allItems = [...(order?.items || []), ...(order?.refills || [])];
   const itemSubtotal = allItems.reduce(
@@ -332,7 +332,7 @@ export function OrderDetailsModal({
                     )}
                     {taxRate > 0 && (
                       <div className="flex justify-between text-sm">
-                        <span className="text-dark-500 dark:text-dark-400">Tax ({(taxRate * 100).toFixed(0)}%)</span>
+                        <span className="text-dark-500 dark:text-dark-400">Tax ({Number((taxRate * 100).toFixed(2))}%)</span>
                         <span className="font-medium text-dark-900 dark:text-white">{formatCurrency(taxAmount)}</span>
                       </div>
                     )}

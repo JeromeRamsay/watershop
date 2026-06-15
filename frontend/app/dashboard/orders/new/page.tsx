@@ -85,6 +85,8 @@ function AddNewOrderContent() {
   const isWalkIn = !formData.customerId || formData.customerId === "walk-in";
 
   const [paymentMethodData, setPaymentMethodData] = useState<any>(null);
+  const [taxRatePercent, setTaxRatePercent] = useState("0");
+  const [taxRateOverridden, setTaxRateOverridden] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -295,7 +297,20 @@ function AddNewOrderContent() {
   };
 
   const { data: settings } = useSettings();
-  const taxRate: number = (settings?.taxRate ?? 0);
+  const defaultTaxRate = Number(settings?.taxRate ?? 0);
+  const enteredTaxRatePercent = Number(taxRatePercent);
+  const taxRate: number =
+    Number.isFinite(enteredTaxRatePercent) && enteredTaxRatePercent >= 0
+      ? enteredTaxRatePercent / 100
+      : 0;
+
+  useEffect(() => {
+    if (taxRateOverridden) {
+      return;
+    }
+
+    setTaxRatePercent(String(Number((defaultTaxRate * 100).toFixed(2))));
+  }, [defaultTaxRate, taxRateOverridden]);
 
   const calculateTotal = () => {
     const subtotal = orderItems.reduce(
@@ -343,7 +358,9 @@ function AddNewOrderContent() {
       items: orderItems.filter((item) => !item.isRefill),
       refills: orderItems.filter((item) => item.isRefill),
       notes: formData.notes.trim() || undefined,
+      subTotal: itemSubtotal,
       totalPrice: pretaxTotal,
+      taxRate,
       grandTotal: totalWithTax,
       amountPaid,
       deliveryType: normalizedDeliveryType,
@@ -451,6 +468,7 @@ function AddNewOrderContent() {
         })),
         paymentMethod: formData.paymentMethod,
         discount: Number(formData.discount) || 0,
+        taxRate,
         isDelivery: formData.deliveryType === "Delivery",
         notes: formData.notes.trim() || undefined,
         paymentStatus: formData.paymentStatus.toLowerCase(),
@@ -1040,10 +1058,31 @@ function AddNewOrderContent() {
               </div>
               <div className="space-y-2">
                 <Label
+                  htmlFor="taxRate"
+                  className="text-sm text-dark-600 dark:text-dark-300"
+                >
+                  Tax Rate (%)
+                </Label>
+                <Input
+                  id="taxRate"
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  value={taxRatePercent}
+                  onChange={(e) => {
+                    setTaxRateOverridden(true);
+                    setTaxRatePercent(e.target.value);
+                  }}
+                  className="h-11"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label
                   htmlFor="taxAmount"
                   className="text-sm text-dark-600 dark:text-dark-300"
                 >
-                  Tax Amount ({(taxRate * 100).toFixed(0)}%)
+                  Tax Amount ({Number((taxRate * 100).toFixed(2))}%)
                 </Label>
                 <Input
                   id="taxAmount"

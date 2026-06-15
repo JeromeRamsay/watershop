@@ -9,6 +9,7 @@ import {
   ValidateNested,
   IsMongoId,
   Min,
+  Max,
   IsDateString,
 } from "class-validator";
 import { Type } from "class-transformer";
@@ -57,6 +58,13 @@ export class CreateOrderDto {
   @IsOptional()
   @IsNumber()
   discount?: number;
+
+  @ApiProperty({ example: 0.13, required: false, description: "Decimal format (0.13 = 13%)" })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(1)
+  taxRate?: number;
 
   @ApiProperty({
     default: false,

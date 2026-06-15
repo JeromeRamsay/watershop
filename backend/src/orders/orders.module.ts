@@ -10,6 +10,7 @@ import { CustomersModule } from "../customers/customers.module";
 // --- ADD THIS LINE ---
 import { DeliveriesModule } from "../deliveries/deliveries.module";
 import { NotificationsModule } from "../notifications/notifications.module";
+import { SettingsModule } from "../settings/settings.module";
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { NotificationsModule } from "../notifications/notifications.module";
     CustomersModule, // Allows access to CustomersService
     DeliveriesModule, // Now this will work
     NotificationsModule,
+    SettingsModule,
   ],
   controllers: [OrdersController],
   providers: [OrdersService],

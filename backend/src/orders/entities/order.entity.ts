@@ -81,6 +81,9 @@ export class Order {
   @Prop({ default: 0 })
   discount: number;
 
+  @Prop({ default: 0 })
+  taxRate: number;
+
   @Prop({ required: true })
   grandTotal: number;
 
